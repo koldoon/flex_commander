@@ -354,26 +354,60 @@ void main() {
       expect(offsetOf(tester), 0);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-      await tester.pump();
+      await tester.pumpAndSettle();
       final stepped = offsetOf(tester);
       expect(stepped, greaterThan(0), reason: 'нажатие обязано что-то менять');
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(offsetOf(tester), lessThan(stepped));
+    });
+
+    testWidgets('шаг стрелки доезжает, а не переставляет', (tester) async {
+      await pump(tester, longDocument(), size: const Size(500, 300), autofocus: true);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+
+      // Середина хода: прыжок был бы здесь уже на месте, доводка — ещё в пути.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 30));
+      final midway = offsetOf(tester);
+
+      await tester.pumpAndSettle();
+      final arrived = offsetOf(tester);
+
+      expect(midway, greaterThan(0), reason: 'ход уже идёт');
+      expect(midway, lessThan(arrived), reason: 'но ещё не доехал');
+    });
+
+    testWidgets('нажатия на ходу складываются, а не сбивают друг друга', (tester) async {
+      await pump(tester, longDocument(), size: const Size(500, 300), autofocus: true);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      final one = offsetOf(tester);
+
+      // Второе нажатие приходит, пока первое ещё едет: отсчёт от текущего
+      // места съел бы часть шага, и вдвоём они не дали бы двух шагов.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump(const Duration(milliseconds: 30));
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+
+      expect(offsetOf(tester), moreOrLessEquals(one * 3, epsilon: 0.5));
     });
 
     testWidgets('страница листает больше строки', (tester) async {
       await pump(tester, longDocument(), size: const Size(500, 300), autofocus: true);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-      await tester.pump();
+      await tester.pumpAndSettle();
       final line = offsetOf(tester);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.home);
-      await tester.pump();
+      await tester.pumpAndSettle();
       await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       expect(offsetOf(tester), greaterThan(line));
     });
@@ -446,8 +480,25 @@ void main() {
       await pump(tester, longDocument(), size: const Size(500, 300), autofocus: true);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(offsetOf(tester), 0, reason: 'выше начала листать некуда');
+    });
+
+    testWidgets('после края стрелка отсчитывает от края, а не от прежнего хода', (tester) async {
+      await pump(tester, longDocument(), size: const Size(500, 300), autofocus: true);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.home);
+      await tester.pumpAndSettle();
+      expect(offsetOf(tester), 0);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      final stepped = offsetOf(tester);
+
+      expect(stepped, greaterThan(0));
+      expect(stepped, lessThan(100), reason: 'шаг стрелки, а не остаток страницы');
     });
   });
 

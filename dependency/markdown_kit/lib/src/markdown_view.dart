@@ -139,6 +139,9 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
   ScrollController? _own;
   ScrollController get _scroll => widget.controller ?? (_own ??= ScrollController());
 
+  /// Куда едет начатый клавишей ход; null — список стоит или его ведут иначе.
+  double? _flying;
+
   /// Сколько раз пробовали подвести список к блоку, который ещё не построен.
   int _attempts = 0;
 
@@ -252,6 +255,8 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
     _keys.clear();
     _images.clear();
     _style = null;
+    // Документ сменился — начатый ход ведёт в место, которого больше нет.
+    _flying = null;
     _disposeRecognizers();
   }
 
@@ -451,6 +456,10 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
   ///
   /// Стрелки идут строками, страницы — почти экраном (с нахлёстом в десятую
   /// часть, чтобы не терять место чтения), `Home` и `End` — к краям.
+  ///
+  /// Шаг **доезжает**, а не переставляется: прыжок на полсотни точек глаз
+  /// читает как срыв картинки, и место чтения приходится искать заново. К краям
+  /// по-прежнему прыжком — там доводка не выходит (см. [_toEdge]).
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is KeyUpEvent || !_scroll.hasClients) {
       return KeyEventResult.ignored;
@@ -459,11 +468,17 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
     final position = _scroll.position;
     final page = position.viewportDimension * 0.9;
 
-    final target = switch (event.logicalKey) {
-      LogicalKeyboardKey.arrowDown => position.pixels + _lineStep,
-      LogicalKeyboardKey.arrowUp => position.pixels - _lineStep,
-      LogicalKeyboardKey.pageDown || LogicalKeyboardKey.space => position.pixels + page,
-      LogicalKeyboardKey.pageUp => position.pixels - page,
+    // Считаем не от того, где список сейчас, а от того, куда он едет: пока
+    // клавишу держат, нажатия приходят чаще, чем доезжает шаг, и отсчёт от
+    // текущего места съедал бы каждое второе — документ полз бы медленнее, чем
+    // жмут.
+    final from = _flying ?? position.pixels;
+
+    final (double, Duration)? step = switch (event.logicalKey) {
+      LogicalKeyboardKey.arrowDown => (from + _lineStep, _lineGlide),
+      LogicalKeyboardKey.arrowUp => (from - _lineStep, _lineGlide),
+      LogicalKeyboardKey.pageDown || LogicalKeyboardKey.space => (from + page, _pageGlide),
+      LogicalKeyboardKey.pageUp => (from - page, _pageGlide),
       _ => null,
     };
 
@@ -473,13 +488,30 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
       return KeyEventResult.handled;
     }
 
-    if (target == null) {
+    if (step == null) {
       return KeyEventResult.ignored;
     }
 
-    _scroll.jumpTo(target.clamp(position.minScrollExtent, position.maxScrollExtent));
+    _glideTo(step.$1.clamp(position.minScrollExtent, position.maxScrollExtent), step.$2);
 
     return KeyEventResult.handled;
+  }
+
+  /// Доехать до места плавно.
+  ///
+  /// Куда едем — помним сами: у прокрутки об этом не спросишь, а следующему
+  /// нажатию нужен именно конец начатого хода. Отметку снимает тот ход, который
+  /// её поставил: если пока ехали нажали снова (или крутанули колесом — тогда
+  /// ход обрывают за нас), отметка уже чужая, и трогать её нельзя.
+  void _glideTo(double target, Duration duration) {
+    _flying = target;
+    unawaited(
+      _scroll.animateTo(target, duration: duration, curve: Curves.easeOutCubic).whenComplete(() {
+        if (_flying == target) {
+          _flying = null;
+        }
+      }),
+    );
   }
 
   /// В начало или в конец документа.
@@ -493,6 +525,10 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
     if (!mounted || !_scroll.hasClients) {
       return;
     }
+
+    // Клавиша края обрывает начатый ход: дальше едут прыжками, и хвост
+    // прежнего отсчёта увёл бы следующую стрелку не оттуда.
+    _flying = null;
 
     final position = _scroll.position;
     final target = end ? position.maxScrollExtent : position.minScrollExtent;
@@ -517,6 +553,16 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
   /// Шаг стрелки. Три строки: по одной документ листать утомительно, а
   /// половиной экрана — уже страница.
   static const double _lineStep = 56;
+
+  /// За сколько доезжает шаг стрелки.
+  ///
+  /// Короче кадра было бы тем же прыжком, а длиннее — уже задержкой: документ
+  /// продолжал бы ехать, когда клавишу отпустили.
+  static const Duration _lineGlide = Duration(milliseconds: 110);
+
+  /// За сколько доезжает страница. Дольше строки — ход длиннее вдесятеро, и той
+  /// же длительностью он выглядел бы всё тем же срывом картинки.
+  static const Duration _pageGlide = Duration(milliseconds: 220);
 
   @override
   GestureRecognizer createLink(String text, String? href, String title) {
