@@ -27,6 +27,7 @@ void main() {
       FakeEntry.file('/home/notes.txt', content: utf8.encode('раз\nдва\nтри')),
       // Файл длиннее экрана: на нём видно, что страница листается.
       FakeEntry.file('/home/long.txt', content: utf8.encode(List.generate(500, (i) => 'строка $i').join('\n'))),
+      FakeEntry.file('/home/data.json', content: utf8.encode('{"a":1}')),
     ])..home = '/home';
     runtime = await testApp(provider: disk, modules: featureModules());
     await runtime.app.start();
@@ -132,6 +133,27 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(screen.controller.selection.baseIndex, lessThan(afterDown));
+      await disposeScreen(tester);
+    }),
+  );
+
+  testWidgets(
+    'Alt-Shift-F доходит до команды, а не тонет в тексте',
+    (tester) async => withDesktopPlatform(() async {
+      // Единственное сочетание редактора с буквой: все прочие его клавиши —
+      // функциональные или с `Cmd`. Буква в поле ввода — это набор, и важно,
+      // что команда её забирает себе целиком.
+      final screen = await openEditor(tester, name: 'data.json');
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+      await tester.pumpAndSettle();
+
+      expect(screen.controller.text, '{\n  "a": 1\n}\n');
+      expect(screen.modified, isTrue);
       await disposeScreen(tester);
     }),
   );
