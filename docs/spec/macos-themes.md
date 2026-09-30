@@ -114,7 +114,8 @@ FcThemeSpec (macos_themes.dart)    macOsLightTheme() / macOsDarkTheme()
 | Роль | Семантика macOS |
 |---|---|
 | `windowBackground` | `underPageBackgroundColor` |
-| `panelBackground`, `dialogListBackground`, `inputBackground` | `controlBackgroundColor` — в AppKit это фон `NSTableView` |
+| `panelBackground`, `inputBackground` | `controlBackgroundColor` — в AppKit это фон `NSTableView` |
+| `dialogListBackground` | своя поверхность, **прозрачностью**: вес `alternatingContentBackgroundColors[1]` |
 | `panelBorder`, `pathBorder`, `dialogListBorder`, `buttonBorder`, `inputBorder` | `separatorColor` |
 | `columnDivider` | `gridColor` — своя роль у сетки таблицы |
 | `rowText`, `directoryText`, `pathText`, `dialogTitleText`, `dialogLabel` | `labelColor` |
@@ -137,6 +138,13 @@ FcThemeSpec (macos_themes.dart)    macOsLightTheme() / macOsDarkTheme()
 фоном окна взят `underPageBackgroundColor` — буквально «то, что за страницей».
 Сторона расхождения у внешностей разная: на светлой подложка темнее содержимого,
 на тёмной светлее. Это правило macOS, а не наша непоследовательность.
+
+**Карточка раздела приподнята прозрачностью, а не цветом.** Она встаёт то в окно
+команды, то прямо на панель — сведения об объекте и находки показываются
+полноэкранным просмотром, — и любой сплошной цвет совпал бы с одной из двух
+поверхностей. Живьём так и вышло: взятая фоном содержимого, она пропала в
+сведениях, потому что фон панели тот же. Контракт разводит `panelBackground` и
+`dialogListBackground` нарочно, и это тот случай, когда видно, зачем.
 
 **Расхождения с референсом, и они намеренные:**
 

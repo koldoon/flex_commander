@@ -43,6 +43,19 @@ void main() {
       expect(dark.windowBackground, isNot(dark.panelBackground));
     });
 
+    test('карточка приподнята над обеими поверхностями, на каких стоит', () {
+      // Карточка раздела встаёт и в окне команды, и прямо на панели: сведения
+      // об объекте показываются полноэкранным просмотром. Сплошной цвет
+      // совпал бы с одной из двух — на живом приложении так и вышло, карточка
+      // в сведениях пропала.
+      for (final colors in [light, dark]) {
+        for (final under in [colors.panelBackground, colors.dialogBackground]) {
+          final over = Color.alphaBlend(colors.dialogListBackground, under);
+          expect(over, isNot(under), reason: 'карточка слилась с тем, на чём лежит');
+        }
+      }
+    });
+
     test('шестнадцать цветов ANSI — из профилей Terminal.app', () {
       expect(light.terminalAnsi, hasLength(16));
       expect(dark.terminalAnsi, hasLength(16));

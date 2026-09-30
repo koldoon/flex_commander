@@ -32,6 +32,7 @@ class MacOsTones {
     required this.windowBackground,
     required this.contentBackground,
     required this.control,
+    required this.card,
     required this.unemphasizedSelection,
     required this.separator,
     required this.grid,
@@ -103,6 +104,19 @@ class MacOsTones {
 
   /// `controlColor` — лицо элемента управления: кнопки, плашки.
   final Color control;
+
+  /// Приподнятая карточка: раздел настроек, раздел сведений, список находок.
+  ///
+  /// **Прозрачностью, а не цветом**, и это единственный способ, который здесь
+  /// работает. Карточка встаёт то на фон окна команды, то прямо на панель —
+  /// полноэкранные экраны (сведения об объекте, находки) рисуются поверх неё, —
+  /// и любой сплошной цвет совпадёт с одной из двух поверхностей и пропадёт.
+  /// Прозрачный тон считается от того, на чём лежит, и приподнят всегда.
+  ///
+  /// Вес взят у `alternatingContentBackgroundColors[1]`: на светлой это
+  /// `#F4F5F5`, то есть белый, убавленный примерно на четыре процента, — тем же
+  /// и берём. На тёмной AppKit прямо и даёт белый пятипроцентный.
+  final Color card;
 
   /// `unemphasizedSelectedContentBackgroundColor` — выделенное, но не в фокусе.
   final Color unemphasizedSelection;
@@ -206,6 +220,7 @@ const MacOsTones macOsLightTones = MacOsTones(
   windowBackground: Color(0xFFF6F6F6),
   contentBackground: Color(0xFFFFFFFF),
   control: Color(0xFFFFFFFF),
+  card: Color(0x0A000000),
   unemphasizedSelection: Color(0xFFDCDCDC),
   separator: Color(0x19000000),
   grid: Color(0xFFE6E6E6),
@@ -263,6 +278,7 @@ const MacOsTones macOsDarkTones = MacOsTones(
   windowBackground: Color(0xFF282828),
   contentBackground: Color(0xFF1E1E1E),
   control: Color(0x3FFFFFFF),
+  card: Color(0x0CFFFFFF),
   unemphasizedSelection: Color(0xFF464646),
   separator: Color(0x19FFFFFF),
   grid: Color(0xFF1A1A1A),
