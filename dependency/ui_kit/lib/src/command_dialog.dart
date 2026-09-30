@@ -953,7 +953,7 @@ class _FcButtonState extends State<FcButton> {
                   // Тень под кнопкой: она отделяет её от фона окна.
                   boxShadow: [
                     BoxShadow(
-                      color: colors.shadow,
+                      color: colors.controlShadow,
                       offset: Offset(0, metrics.buttonShadowOffset),
                       blurRadius: metrics.buttonShadowBlur,
                     ),

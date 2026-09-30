@@ -38,6 +38,8 @@ class MacOsTones {
     required this.grid,
     required this.scrim,
     required this.shadow,
+    required this.controlShadow,
+    required this.controlEdge,
     required this.pressed,
     required this.systemRed,
     required this.systemOrange,
@@ -146,6 +148,20 @@ class MacOsTones {
   /// подъём.
   final Color shadow;
 
+  /// Тень под встроенным элементом: кнопкой, полем цвета.
+  ///
+  /// На светлой её **нет вовсе**, и это не упрощение: современные элементы macOS
+  /// её не отбрасывают. Кнопка отличается от подложки заливкой, а не подъёмом;
+  /// любая тень на светлом даёт серый ореол и размывает край.
+  final Color controlShadow;
+
+  /// Обводка встроенного элемента.
+  ///
+  /// На светлой её тоже нет: у кнопки macOS видимого края нет, его роль играет
+  /// белая заливка на сером. На тёмной обводка остаётся — там заливка
+  /// прозрачная, и без края элемент растворяется в подложке.
+  final Color controlEdge;
+
   /// Нажатая кнопка. Плоского цвета для этого состояния в AppKit нет.
   /// На тёмной — осветление: затемнение на тёмном не читается.
   final Color pressed;
@@ -239,6 +255,8 @@ const MacOsTones macOsLightTones = MacOsTones(
   // ниже `tertiaryLabelColor`, иначе окно команды не читается как главное.
   scrim: Color(0x33000000),
   shadow: Color(0x1F000000),
+  controlShadow: Color(0x00000000),
+  controlEdge: Color(0x00000000),
   pressed: Color(0x1A000000),
   systemRed: Color(0xFFFF383C),
   systemOrange: Color(0xFFFF8D28),
@@ -296,6 +314,8 @@ const MacOsTones macOsDarkTones = MacOsTones(
   grid: Color(0xFF1A1A1A),
   scrim: Color(0x66000000),
   shadow: Color(0x80000000),
+  controlShadow: Color(0x80000000),
+  controlEdge: Color(0x19FFFFFF),
   pressed: Color(0x1AFFFFFF),
   systemRed: Color(0xFFFF4245),
   systemOrange: Color(0xFFFF9230),

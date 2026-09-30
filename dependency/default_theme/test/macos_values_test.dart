@@ -64,6 +64,21 @@ void main() {
       expect(light.shadow.a, lessThan(dark.shadow.a / 2));
     });
 
+    test('на светлой у кнопки ни тени, ни обводки — только заливка', () {
+      // Так выглядят современные элементы macOS: белая плашка на сером, без
+      // края и без подъёма. Любая тень на светлом даёт серый ореол.
+      expect(light.controlShadow.a, 0);
+      expect(light.buttonBorder.a, 0);
+
+      // И тогда заливка обязана отличаться от того, на чём кнопка лежит,
+      // иначе её не станет вовсе.
+      final card = Color.alphaBlend(light.dialogListBackground, light.dialogBackground);
+      expect(light.buttonBackground, isNot(card));
+
+      // На тёмной наоборот: заливка прозрачная, и без края элемент растворится.
+      expect(dark.buttonBorder.a, greaterThan(0));
+    });
+
     test('шестнадцать цветов ANSI — из профилей Terminal.app', () {
       expect(light.terminalAnsi, hasLength(16));
       expect(dark.terminalAnsi, hasLength(16));

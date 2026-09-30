@@ -174,7 +174,7 @@ class MacOsColors extends FcColors {
   Color get buttonPrimaryText => _onAccent;
 
   @override
-  Color get buttonBorder => tones.separator;
+  Color get buttonBorder => tones.controlEdge;
 
   @override
   Color get buttonPressed => tones.pressed;
@@ -208,6 +208,9 @@ class MacOsColors extends FcColors {
 
   @override
   Color get shadow => tones.shadow;
+
+  @override
+  Color get controlShadow => tones.controlShadow;
 
   /// Тень под миниатюрой — чёрный 45 %, как у референса, и менять её незачем:
   /// это значение замерено с собственного значка macOS

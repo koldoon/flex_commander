@@ -135,7 +135,7 @@ class _FcColorFieldState extends State<FcColorField> {
                 borderRadius: BorderRadius.circular(metrics.inputRadius),
                 boxShadow: [
                   BoxShadow(
-                    color: colors.shadow,
+                    color: colors.controlShadow,
                     offset: Offset(0, metrics.dialogShadowOffset),
                     blurRadius: metrics.dialogShadowBlur,
                   ),

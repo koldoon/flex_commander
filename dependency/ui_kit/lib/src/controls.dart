@@ -483,7 +483,7 @@ class _FcSelectState<T> extends State<FcSelect<T>> {
                 borderRadius: BorderRadius.circular(metrics.inputRadius),
                 boxShadow: [
                   BoxShadow(
-                    color: colors.shadow,
+                    color: colors.controlShadow,
                     offset: Offset(0, metrics.dialogShadowOffset),
                     blurRadius: metrics.dialogShadowBlur,
                   ),

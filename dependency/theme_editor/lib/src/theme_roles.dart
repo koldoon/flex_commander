@@ -164,6 +164,7 @@ final List<ColorRole> colorRoles = [
   ColorRole('inputSelection', 'Input', (colors) => colors.inputSelection),
   ColorRole('focusRing', 'Input', (colors) => colors.focusRing),
   ColorRole('shadow', 'Input', (colors) => colors.shadow),
+  ColorRole('controlShadow', 'Input', (colors) => colors.controlShadow),
   ColorRole('iconShadow', 'Input', (colors) => colors.iconShadow),
   ColorRole('syntaxKeyword', 'Syntax', (colors) => colors.syntaxKeyword),
   ColorRole('syntaxString', 'Syntax', (colors) => colors.syntaxString),

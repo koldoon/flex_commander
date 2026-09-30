@@ -168,6 +168,9 @@ class OverlayColors implements FcColors {
   Color get shadow => overrides['shadow'] ?? base.shadow;
 
   @override
+  Color get controlShadow => overrides['controlShadow'] ?? base.controlShadow;
+
+  @override
   Color get iconShadow => overrides['iconShadow'] ?? base.iconShadow;
 
   @override
