@@ -207,7 +207,7 @@ class MacOsColors extends FcColors {
   Color get focusRing => _accent.withValues(alpha: 0.5);
 
   @override
-  Color get shadow => Color(tones.brightness == Brightness.light ? 0x40000000 : 0x80000000);
+  Color get shadow => tones.shadow;
 
   /// Тень под миниатюрой — чёрный 45 %, как у референса, и менять её незачем:
   /// это значение замерено с собственного значка macOS

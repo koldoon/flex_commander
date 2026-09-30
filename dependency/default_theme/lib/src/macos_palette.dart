@@ -37,6 +37,7 @@ class MacOsTones {
     required this.separator,
     required this.grid,
     required this.scrim,
+    required this.shadow,
     required this.pressed,
     required this.systemRed,
     required this.systemOrange,
@@ -135,6 +136,16 @@ class MacOsTones {
   /// референсе: на светлой теме тот рецепт подложку **осветлял** бы.
   final Color scrim;
 
+  /// Тень под кнопкой, полосой заголовка и самим окном.
+  ///
+  /// Вес у внешностей **разный**, и это не вкус. На тёмной поверхности тень
+  /// почти не видна и работает только в полную силу. На светлой ровно наоборот:
+  /// четверть чёрного, размытая на две точки, читается не тенью, а серым
+  /// ореолом — он съедает край кнопки, и белая кнопка на светло-сером фоне
+  /// выглядит мутной. Там край держит обводка, а тень остаётся намёком на
+  /// подъём.
+  final Color shadow;
+
   /// Нажатая кнопка. Плоского цвета для этого состояния в AppKit нет.
   /// На тёмной — осветление: затемнение на тёмном не читается.
   final Color pressed;
@@ -227,6 +238,7 @@ const MacOsTones macOsLightTones = MacOsTones(
   // Вес подобран замером: текст под затемнением должен упасть по контрасту
   // ниже `tertiaryLabelColor`, иначе окно команды не читается как главное.
   scrim: Color(0x33000000),
+  shadow: Color(0x1F000000),
   pressed: Color(0x1A000000),
   systemRed: Color(0xFFFF383C),
   systemOrange: Color(0xFFFF8D28),
@@ -283,6 +295,7 @@ const MacOsTones macOsDarkTones = MacOsTones(
   separator: Color(0x19FFFFFF),
   grid: Color(0xFF1A1A1A),
   scrim: Color(0x66000000),
+  shadow: Color(0x80000000),
   pressed: Color(0x1AFFFFFF),
   systemRed: Color(0xFFFF4245),
   systemOrange: Color(0xFFFF9230),
