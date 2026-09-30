@@ -40,6 +40,7 @@ class MacOsTones {
     required this.shadow,
     required this.controlShadow,
     required this.controlEdge,
+    required this.cardEdge,
     required this.pressed,
     required this.systemRed,
     required this.systemOrange,
@@ -162,6 +163,17 @@ class MacOsTones {
   /// прозрачная, и без края элемент растворяется в подложке.
   final Color controlEdge;
 
+  /// Обводка карточки раздела.
+  ///
+  /// На светлой её нет — по той же причине, по какой её нет у кнопки: край
+  /// современной поверхности macOS держит заливка, а не линия. Тогда заливка
+  /// обязана быть различима на обеих подложках, и это сторожит тест: без края
+  /// слишком слабый тон означал бы, что карточки не видно вовсе.
+  ///
+  /// На тёмной обводка остаётся: там карточка приподнята белым в пять
+  /// процентов, и одного этого тона мало.
+  final Color cardEdge;
+
   /// Нажатая кнопка. Плоского цвета для этого состояния в AppKit нет.
   /// На тёмной — осветление: затемнение на тёмном не читается.
   final Color pressed;
@@ -257,6 +269,7 @@ const MacOsTones macOsLightTones = MacOsTones(
   shadow: Color(0x1F000000),
   controlShadow: Color(0x00000000),
   controlEdge: Color(0x00000000),
+  cardEdge: Color(0x00000000),
   pressed: Color(0x1A000000),
   systemRed: Color(0xFFFF383C),
   systemOrange: Color(0xFFFF8D28),
@@ -316,6 +329,7 @@ const MacOsTones macOsDarkTones = MacOsTones(
   shadow: Color(0x80000000),
   controlShadow: Color(0x80000000),
   controlEdge: Color(0x19FFFFFF),
+  cardEdge: Color(0x19FFFFFF),
   pressed: Color(0x1AFFFFFF),
   systemRed: Color(0xFFFF4245),
   systemOrange: Color(0xFFFF9230),

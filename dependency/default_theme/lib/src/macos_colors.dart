@@ -157,7 +157,7 @@ class MacOsColors extends FcColors {
   Color get dialogListBackground => tones.card;
 
   @override
-  Color get dialogListBorder => tones.separator;
+  Color get dialogListBorder => tones.cardEdge;
 
   // --- кнопки окна команды ---
 

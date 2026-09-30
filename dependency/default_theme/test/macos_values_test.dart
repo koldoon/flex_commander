@@ -48,10 +48,18 @@ void main() {
       // об объекте показываются полноэкранным просмотром. Сплошной цвет
       // совпал бы с одной из двух — на живом приложении так и вышло, карточка
       // в сведениях пропала.
+      // Требуется различимый перепад, а не просто «не совпало»: на светлой
+      // внешности у карточки нет обводки, и держит её только тон. Разница в
+      // один-два уровня прошла бы проверку на неравенство и пропала бы на
+      // экране.
       for (final colors in [light, dark]) {
         for (final under in [colors.panelBackground, colors.dialogBackground]) {
           final over = Color.alphaBlend(colors.dialogListBackground, under);
-          expect(over, isNot(under), reason: 'карточка слилась с тем, на чём лежит');
+          expect(
+            _contrast(over, under),
+            greaterThanOrEqualTo(1.04),
+            reason: 'карточка неразличима на том, на чём лежит',
+          );
         }
       }
     });
@@ -77,6 +85,10 @@ void main() {
 
       // На тёмной наоборот: заливка прозрачная, и без края элемент растворится.
       expect(dark.buttonBorder.a, greaterThan(0));
+
+      // У карточки то же правило: на светлой края нет, на тёмной есть.
+      expect(light.dialogListBorder.a, 0);
+      expect(dark.dialogListBorder.a, greaterThan(0));
     });
 
     test('шестнадцать цветов ANSI — из профилей Terminal.app', () {
