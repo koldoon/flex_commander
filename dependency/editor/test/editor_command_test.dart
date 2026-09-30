@@ -70,6 +70,13 @@ void main() {
   ///
   /// Кнопки в чистом тесте не нажать, а `Enter` и `Esc` окна — это ровно
   /// `onSubmit` и `onDismiss` его описания.
+  /// Дождаться вопроса.
+  ///
+  /// Оборотами очереди его не поймать: право на запись выясняется **попыткой
+  /// записать**, то есть походом на диск, и сколько очередь ни крути, быстрее
+  /// диск не станет. На быстром диске одного оборота хватало, на раннере — нет.
+  Future<void> waitForDialog() => waitUntil(() => runtime.app.view.dialogs.isNotEmpty);
+
   Future<void> answer({bool yes = true}) async {
     final dialog = runtime.app.view.dialogs.single;
     (yes ? dialog.onSubmit : dialog.onDismiss)!();
@@ -320,10 +327,7 @@ void main() {
 
       runtime.app.left.setCursorToName('notes.txt');
       unawaited((runtime.commands.create(EditFileCommand.commandId)!).executeWith());
-      // Временем, а не оборотами очереди: право на запись выясняется попыткой
-      // записать, то есть походом на диск, и сколько очередь ни крути, быстрее
-      // диск не станет.
-      await waitUntil(() => runtime.app.view.dialogs.isNotEmpty);
+      await waitForDialog();
 
       expect(runtime.app.view.dialogs.single.title, 'Read-only file');
       // Пока не ответили, экрана нет: спрашивают до открытия, а не после часа
@@ -338,7 +342,7 @@ void main() {
 
       runtime.app.left.setCursorToName('notes.txt');
       unawaited((runtime.commands.create(EditFileCommand.commandId)!).executeWith());
-      await pumpEventQueue();
+      await waitForDialog();
       await answer();
       await waitUntil(() => openEditor() != null);
 
@@ -362,10 +366,7 @@ void main() {
       }
       runtime.app.left.setCursorToName('notes.txt');
       unawaited((runtime.commands.create(EditFileCommand.commandId)!).executeWith());
-      // Временем, а не оборотами очереди: право на запись выясняется попыткой
-      // записать, то есть походом на диск, и сколько очередь ни крути, быстрее
-      // диск не станет.
-      await waitUntil(() => runtime.app.view.dialogs.isNotEmpty);
+      await waitForDialog();
 
       expect(runtime.app.view.dialogs.single.title, 'Read-only file');
       await answer(yes: false);
@@ -377,7 +378,7 @@ void main() {
       }
       runtime.app.left.setCursorToName('notes.txt');
       unawaited((runtime.commands.create(EditFileCommand.commandId)!).executeWith());
-      await pumpEventQueue();
+      await waitForDialog();
 
       // Третий ответ живёт в самом окне: `Enter` по-прежнему открывает на
       // чтение, и соглашаться вслепую на путь с паролем администратора не
@@ -401,7 +402,7 @@ void main() {
 
       runtime.app.left.setCursorToName('notes.txt');
       unawaited((runtime.commands.create(EditFileCommand.commandId)!).executeWith());
-      await pumpEventQueue();
+      await waitForDialog();
       await answer(yes: false);
       await pumpEventQueue();
 
