@@ -104,16 +104,21 @@ class FcPathPlate extends StatelessWidget {
             final scaler = MediaQuery.textScalerOf(context);
             final suffix = trailing;
 
-            // Что остаётся пути: вся плашка минус слот с его зазором и минус
-            // приписка.
+            // Сколько занимает приписка — тем же стилем, каким она набрана.
             final suffixWidth = suffix == null ? 0.0 : textWidthOf(_gap + suffix, style, scaler);
 
-            // Что остаётся пути: вся плашка минус слот с его зазором и минус
-            // приписка.
-            final free = math.max(
+            // Что остаётся после слота, и что из этого достаётся приписке:
+            // своя ширина, но не больше, чем есть. Приписки в узкой панели
+            // одной хватало, чтобы плашка вылезла за края, а со слотом за край
+            // выводили бы они вдвоём.
+            final afterSlot = math.max(
               0.0,
-              constraints.maxWidth - (leading == null ? 0 : leadingWidth + metrics.labelPadding) - suffixWidth,
+              constraints.maxWidth - (leading == null ? 0 : leadingWidth + metrics.labelPadding),
             );
+            final suffixBox = math.min(suffixWidth, afterSlot);
+
+            // Что остаётся пути — остальное.
+            final free = math.max(0.0, afterSlot - suffixBox);
 
             final pathText =
                 content?.call(context, free, style) ??
@@ -146,9 +151,7 @@ class FcPathPlate extends StatelessWidget {
                 Flexible(child: pathText),
                 if (suffix != null)
                   SizedBox(
-                    // Не шире плашки: приписки в узкой панели одной хватало,
-                    // чтобы плашка вылезла за края.
-                    width: math.min(suffixWidth, constraints.maxWidth),
+                    width: suffixBox,
                     child: Text(
                       _gap + suffix,
                       maxLines: 1,

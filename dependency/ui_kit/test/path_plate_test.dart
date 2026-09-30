@@ -84,6 +84,41 @@ void main() {
       expect(path, endsWith(shown.substring(2)), reason: 'конец пути потерян');
     });
 
+    testWidgets('слот и приписка вместе не выводят плашку за край', (tester) async {
+      // Приписка стоит коробкой, и ограничить её надо не всей плашкой, а тем,
+      // что осталось после слота: иначе за край выводят они вдвоём.
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(
+            extensions: [
+              FcTheme(colors: DefaultColors(), metrics: metrics, icons: DefaultIcons(), fonts: DefaultFonts()),
+            ],
+          ),
+          home: const Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 150,
+                height: 300,
+                child: FcPanelFrame(
+                  header: FcPathPlate(
+                    path: path,
+                    trailing: '128.4 MB',
+                    leading: SizedBox(width: 40, height: 12),
+                    leadingWidth: 40,
+                  ),
+                  child: SizedBox(),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull, reason: 'ряд вылез за плашку');
+      expect(tester.getRect(find.byType(FcPathPlate)).width, lessThanOrEqualTo(150));
+    });
+
     testWidgets('путь со слотом вместе не вылезают за плашку', (tester) async {
       await pumpPlate(tester, width: 393, leading: slot, leadingWidth: 40);
 
