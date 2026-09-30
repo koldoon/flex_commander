@@ -92,6 +92,18 @@ void main() {
       }
     });
 
+    test('активная плашка отличается от пассивной, и заметно', () {
+      // Живьём они были неразличимы: `unemphasizedSelection` и `controlColor` на
+      // тёмной внешности сходятся почти в один тон, а поверх фона окна пассивная
+      // выходила даже светлее активной. Оттенками серого это не развести —
+      // активная взята акцентом, как выбранный сегмент переключателя macOS.
+      for (final colors in [light, dark]) {
+        final active = Color.alphaBlend(colors.pathBackground, colors.windowBackground);
+        final passive = Color.alphaBlend(colors.pathInactiveBackground, colors.windowBackground);
+        expect(_contrast(active, passive), greaterThanOrEqualTo(1.5), reason: 'плашки панелей не различить');
+      }
+    });
+
     test('разделитель светлее того, что делит, а не темнее', () {
       // `gridColor` на тёмной внешности `#1A1A1A` — темнее и панели, и
       // карточки: линия ушла бы в тень вместо того, чтобы делить. Поэтому
@@ -149,6 +161,7 @@ void main() {
       expect(withPink.cursorBackground, pink);
       expect(withPink.buttonPrimaryBackground, pink);
       expect(withPink.progress, pink);
+      expect(withPink.pathBackground, pink);
       expect(withPink.focusRing, pink.withValues(alpha: 0.5));
       expect(withPink.inputSelection, pink.withValues(alpha: 0.3));
 
@@ -198,10 +211,6 @@ void main() {
         expect(_contrast(colors.inputText, colors.inputBackground), greaterThanOrEqualTo(4.5));
         expect(_contrast(colors.dialogLabel, colors.dialogBackground), greaterThanOrEqualTo(4.5));
         expect(
-          _contrast(colors.pathText, colors.pathBackground, under: colors.windowBackground),
-          greaterThanOrEqualTo(4.5),
-        );
-        expect(
           _contrast(colors.buttonText, colors.buttonBackground, under: colors.dialogBackground),
           greaterThanOrEqualTo(4.5),
         );
@@ -225,6 +234,7 @@ void main() {
           greaterThanOrEqualTo(3),
         );
         expect(_contrast(colors.cursorText, colors.cursorBackground), greaterThanOrEqualTo(3));
+        expect(_contrast(colors.pathText, colors.pathBackground), greaterThanOrEqualTo(3));
         expect(_contrast(colors.buttonPrimaryText, colors.buttonPrimaryBackground), greaterThanOrEqualTo(3));
       });
 

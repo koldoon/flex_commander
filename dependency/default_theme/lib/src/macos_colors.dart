@@ -105,20 +105,26 @@ class MacOsColors extends FcColors {
 
   // --- плашка пути ---
 
-  /// Активная плашка — выделенное не в фокусе, пассивная — лицо элемента
-  /// управления. Пара `emphasized`/`unemphasized` у AppKit готовая, и показывает
-  /// она ровно то, что показывает плашка: какая панель принимает клавиши.
+  /// Плашка активной панели — **акцент**, как выбранный сегмент переключателя.
+  ///
+  /// Образец взят у него же: в macOS выбранный сегмент залит системным акцентом
+  /// и подписан белым, а невыбранный — нейтральной заливкой. Плашка показывает
+  /// ровно то же самое — какая панель принимает клавиши, — и различать их
+  /// оттенками серого мало: `unemphasizedSelection` и `controlColor` на тёмной
+  /// внешности сходятся так близко, что различие пропадает вовсе.
   @override
-  Color get pathBackground => tones.unemphasizedSelection;
+  Color get pathBackground => _accent;
 
   @override
   Color get pathBorder => tones.separator;
 
   @override
-  Color get pathText => tones.label;
+  Color get pathText => _onAccent;
 
+  /// Пассивная — «выделенное, но не в фокусе»: та самая пара AppKit, вторая
+  /// половина которой теперь досталась акценту.
   @override
-  Color get pathInactiveBackground => tones.control;
+  Color get pathInactiveBackground => tones.unemphasizedSelection;
 
   @override
   Color get pathInactiveText => tones.secondaryLabel;

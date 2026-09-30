@@ -124,8 +124,8 @@ FcThemeSpec (macos_themes.dart)    macOsLightTheme() / macOsDarkTheme()
 | `inputText` | `textColor` — набираемый текст непрозрачен |
 | `inputHint` | `placeholderTextColor` |
 | `controlText` у `buttonText`, `functionButtonText` | `controlTextColor` |
-| `pathBackground` | `unemphasizedSelectedContentBackgroundColor` |
-| `pathInactiveBackground`, `functionButtonBackground`, `buttonBackground`, `dialogTitleBackground` | `controlColor` |
+| `pathBackground` | **акцент**, как выбранный сегмент переключателя; пассивная — `unemphasizedSelectedContentBackgroundColor` |
+| `functionButtonBackground`, `buttonBackground`, `dialogTitleBackground` | `controlColor` |
 | `dialogBackground` | `underPageBackgroundColor`, как и окно |
 | `syntax*` (семь) | темы Xcode |
 | `terminal*` | профиль `Clear *` |
@@ -189,7 +189,15 @@ FcThemeSpec (macos_themes.dart)    macOsLightTheme() / macOsDarkTheme()
 
 `cursorBackground`, `cursorText`, `iconSelected`, `markedBar` — нет, см. §5 —
 `buttonPrimaryBackground`, `buttonPrimaryText`, `inputSelection`, `focusRing`,
-`progress`. Акцент в macOS красит **выделенное и подтверждающее**, а не
+`progress`, `pathBackground`, `pathText`.
+
+**Плашка активной панели — тоже акцент**, и образец взят у переключателя macOS:
+выбранный сегмент там залит акцентом и подписан белым, невыбранный — нейтральной
+заливкой. Оттенками серого эту пару развести не вышло: на тёмной внешности
+`unemphasizedSelection` и `controlColor` сходятся почти в один тон, а поверх фона
+окна пассивная выходила даже **светлее** активной. Живьём они были неразличимы —
+и это при том, что плашка показывает единственное, что человеку нужно знать
+постоянно: какая панель принимает клавиши. Акцент в macOS красит **выделенное и подтверждающее**, а не
 оформление вообще, поэтому список короткий.
 
 **Вес выделения в поле не выдуман:** `DVTSourceTextSelectionColor` темы Xcode
