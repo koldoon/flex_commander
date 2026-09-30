@@ -74,6 +74,16 @@ class TextEditor implements FcBackendModule, FcFrontendModule {
           read: () => settingsOf().maxFileSize,
           write: (value) => settingsOf().maxFileSize = value,
         ),
+        SettingsField.integer(
+          'maxFormatSize',
+          defaultValue: EditorSettings.defaultMaxFormatSize,
+          title: strings.tr('Largest file to format'),
+          unit: strings.tr('bytes'),
+          min: 1024,
+          max: 100 * 1024 * 1024,
+          read: () => settingsOf().maxFormatSize,
+          write: (value) => settingsOf().maxFormatSize = value,
+        ),
       ], save: settings.save);
     });
 
@@ -83,6 +93,9 @@ class TextEditor implements FcBackendModule, FcFrontendModule {
     registry.command((context) => CloseEditorCommand());
     registry.command((context) => ToggleEditorWrapCommand());
     registry.command((context) => ToggleEditorNumbersCommand());
+    // Предел спрашивается у настроек в момент нажатия, а не при установке: его
+    // могли только что поменять.
+    registry.command((context) => FormatDocumentCommand(maxSize: () => settingsOf().maxFormatSize));
 
     registry.command((context) => FcFindTextCommand(id: findCommandId, screenId: EditorScreen.screenId));
     registry.command((context) => FcFindNextCommand(id: findNextCommandId, screenId: EditorScreen.screenId));
@@ -101,6 +114,11 @@ class TextEditor implements FcBackendModule, FcFrontendModule {
     );
     registry.binding(
       KeyBinding.inState<EditorScreen>('Cmd-W', ToggleEditorWrapCommand.commandId, context: KeyContext.editor),
+    );
+    // То же сочетание, что в привычных редакторах (`docs/spec/formatters.md`,
+    // §8).
+    registry.binding(
+      KeyBinding.inState<EditorScreen>('Alt-Shift-F', FormatDocumentCommand.commandId, context: KeyContext.editor),
     );
   }
 }
@@ -144,6 +162,12 @@ const Map<String, String> _russian = {
   'Show line numbers in the editor': 'Показывать номера строк в редакторе',
   'Show line numbers: On': 'Номера строк: показаны',
   'Show line numbers: Off': 'Номера строк: скрыты',
+  'editor|Format': 'Форматировать',
+  'Format the document': 'Привести документ в читаемый вид',
+  'Already formatted': 'Уже отформатировано',
+  'Too large to format: {size}, limit is {limit}': 'Слишком велик для форматирования: {size}, предел — {limit}',
+  'Not valid {what}: {why}': 'Это не {what}: {why}',
+  'Not valid {what}: {why} at line {line}, column {column}': 'Это не {what}: {why} — строка {line}, столбец {column}',
 
   // Открытие.
   'Opening {name}…': 'Открывается {name}…',
@@ -162,5 +186,6 @@ const Map<String, String> _russian = {
   'Wrap long lines': 'Переносить длинные строки',
   'Show line numbers': 'Показывать номера строк',
   'Largest file to open': 'Наибольший открываемый файл',
+  'Largest file to format': 'Наибольший форматируемый файл',
   'bytes': 'байт',
 };

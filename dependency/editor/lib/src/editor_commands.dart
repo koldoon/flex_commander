@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
@@ -421,6 +422,125 @@ class ToggleEditorNumbersCommand extends AppCommand {
 
     screen.toggleLineNumbers();
     context.app.toasts.show(screen.showLineNumbers ? tr('Show line numbers: On') : tr('Show line numbers: Off'));
+  }
+}
+
+/// Привести документ в читаемый вид.
+///
+/// Форматирует не сама: умение приносит модуль форматтера, а команда берёт из
+/// реестра первого, кто взялся за этот файл (`docs/spec/formatters.md`, §3).
+/// В отличие от показа это **правка**: документ становится изменённым, и
+/// возвращает его обычная отмена.
+class FormatDocumentCommand extends AppCommand {
+  FormatDocumentCommand({required this.maxSize});
+
+  static const String commandId = 'editor.format';
+
+  /// Предел размера — настройкой модуля. Спрашивается при каждом нажатии:
+  /// настройку могли только что поменять.
+  final int Function() maxSize;
+
+  @override
+  String get id => commandId;
+
+  /// Подпись постоянная, в отличие от показа: там `F5` переключает два вида, а
+  /// здесь клавиша делает одно дело. Оговорка нужна, чтобы «Format» не
+  /// перевелось как формат файла.
+  @override
+  String get label => tr('Format', context: 'editor');
+
+  @override
+  Set<String> get keywords => const {'pretty', 'indent', 'json', 'beautify'};
+
+  @override
+  String get description => tr('Format the document');
+
+  static EditorScreen? _editorOf(Application? app) {
+    final screen = app?.view.contentAt(ViewportPosition.fullscreen);
+
+    return screen is EditorScreen ? screen : null;
+  }
+
+  /// Форматтер для правимого файла — первый по приоритету, кто взялся.
+  ///
+  /// Тип содержимого редактору неизвестен: файл уже прочитан, и определять его
+  /// ради ответа «моё ли» никто не станет (`docs/spec/formatters.md`, §2).
+  static FormatterSpec? _formatterFor(Application app, EditorScreen screen) {
+    for (final spec in app.formatters) {
+      if (spec.accepts(screen.entry, null)) {
+        return spec;
+      }
+    }
+
+    return null;
+  }
+
+  /// В файле, открытом только на чтение, форматировать нечего: правка в нём не
+  /// сохранится, а помеченный несохранённым документ, который нельзя записать, —
+  /// обещание того, чего не будет.
+  ///
+  /// Предел размера здесь **не** спрашивается нарочно: приглушённая подпись не
+  /// объясняет, почему, а нажатие обязано ответить. Отказ приходит тостом.
+  @override
+  bool isExecutable(CommandContext context) {
+    final screen = _editorOf(context.app);
+    if (screen == null || screen.readOnly) {
+      return false;
+    }
+
+    return _formatterFor(context.app, screen) != null;
+  }
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    final screen = _editorOf(context.app);
+    if (screen == null || screen.readOnly) {
+      return;
+    }
+
+    final spec = _formatterFor(context.app, screen);
+    if (spec == null) {
+      return;
+    }
+
+    final limit = maxSize();
+    if (screen.entry.size > limit) {
+      context.app.toasts.show(
+        tr(
+          'Too large to format: {size}, limit is {limit}',
+          args: {'size': formatBytesLong(screen.entry.size), 'limit': formatBytesLong(limit)},
+        ),
+      );
+
+      return;
+    }
+
+    try {
+      if (!screen.format(spec.format)) {
+        // Нажатие без ответа — ошибка: на экране ничего не поменялось, и без
+        // слов непонятно, сработала клавиша или нет.
+        context.app.toasts.show(tr('Already formatted'));
+      }
+    } on FormatException catch (error) {
+      // Кривой документ остаётся кривым, а отказ называет место
+      // (`docs/spec/formatters.md`, §§5, 6).
+      context.app.toasts.show(_refusal(spec.title, error, screen.controller.text));
+    }
+  }
+
+  /// Отказ называет место: «строка 4, столбец 12» ведёт прямо туда, а смещение
+  /// в знаках человеку не говорит ничего.
+  String _refusal(String what, FormatException error, String text) {
+    final place = placeOfError(error, text);
+    final why = error.message;
+    if (place == null) {
+      return tr('Not valid {what}: {why}', args: {'what': what, 'why': why});
+    }
+
+    return tr(
+      'Not valid {what}: {why} at line {line}, column {column}',
+      args: {'what': what, 'why': why, 'line': place.line, 'column': place.column},
+    );
   }
 }
 
