@@ -58,6 +58,7 @@ export 'src/theme/theme_service.dart';
 // --- Службы с экраном ---
 export 'src/os/clipboard.dart';
 export 'src/os/file_clipboard.dart';
+export 'src/os/system_accent.dart';
 export 'src/os/system_fonts.dart';
 export 'src/os/system_icons.dart';
 export 'src/os/system_images.dart';

@@ -138,6 +138,9 @@ class OverlayColors implements FcColors {
   Color get buttonText => overrides['buttonText'] ?? base.buttonText;
 
   @override
+  Color get buttonPrimaryText => overrides['buttonPrimaryText'] ?? base.buttonPrimaryText;
+
+  @override
   Color get buttonBorder => overrides['buttonBorder'] ?? base.buttonBorder;
 
   @override

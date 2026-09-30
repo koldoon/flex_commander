@@ -980,7 +980,11 @@ class _FcButtonState extends State<FcButton> {
                 ),
                 // Center с множителями, а не `alignment` у Container: с ним кнопка
                 // заняла бы всю предложенную ширину, а нужна ширина подписи.
-                child: Center(widthFactor: 1, heightFactor: 1, child: Text(widget.label, style: theme.buttonStyle)),
+                child: Center(
+                  widthFactor: 1,
+                  heightFactor: 1,
+                  child: Text(widget.label, style: widget.primary ? theme.buttonPrimaryStyle : theme.buttonStyle),
+                ),
               ),
             ),
           ),

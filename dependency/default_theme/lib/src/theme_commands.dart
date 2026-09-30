@@ -1,6 +1,8 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
+import 'package:flutter/painting.dart';
 
+import 'macos_themes.dart';
 import 'theme_settings.dart';
 
 /// Выбрать тему.
@@ -80,5 +82,63 @@ class RestoreThemeCommand extends AppCommand {
     // Незнакомое имя служба игнорирует: модуль темы могли отключить между
     // запусками, и это не повод не открыться.
     env.app.theme.use(settings.section(ThemeSettings.new).themeId);
+  }
+}
+
+/// Держит оформления macOS в согласии с акцентом системы.
+///
+/// Перевыкладывает их **модуль тем**, а не модуль акцента, и это не мелочь:
+/// иначе платформенный модуль знал бы про две конкретные темы — зависимость
+/// наизнанку. Акцент он только приносит, а что им красить, решает тот, чьи темы.
+class FollowAccentCommand extends AppCommand {
+  FollowAccentCommand(this.env);
+
+  final FcContext env;
+
+  static const String commandId = 'app.theme.follow_accent';
+
+  SystemAccent? _accent;
+  Color? _light;
+  Color? _dark;
+
+  @override
+  String get id => commandId;
+
+  @override
+  String get label => tr('Follow system accent');
+
+  @override
+  bool isExecutable(CommandContext context) => true;
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    // Службы может не быть вовсе: канала нет на другой платформе и в тестах, а
+    // модуль акцента можно выключить. `resolveAll` для этого и годится —
+    // `resolve` бросил бы.
+    final accent = env.resolveAll<SystemAccent>().firstOrNull;
+    if (accent == null) {
+      return;
+    }
+    _accent = accent;
+    accent.addListener(_repaint);
+
+    // И сразу: стартовые команды идут в порядке объявления модулей, а модуль
+    // акцента объявлен позже темы — то есть к этому мгновению он ещё не
+    // спрашивал. Но порядок модулей — не то, на что стоит опираться, и если
+    // ответ уже приехал, он не должен пропасть.
+    _repaint();
+  }
+
+  void _repaint() {
+    final accent = _accent;
+    if (accent == null || (accent.light == _light && accent.dark == _dark)) {
+      return;
+    }
+    _light = accent.light;
+    _dark = accent.dark;
+    // `register` заменяет тему по имени **на том же месте списка**: порядок не
+    // съедет, а выбор человека и не при чём — он хранится именем.
+    env.app.theme.register(macOsLightTheme(accent: _light));
+    env.app.theme.register(macOsDarkTheme(accent: _dark));
   }
 }

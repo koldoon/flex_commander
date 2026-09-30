@@ -4,6 +4,7 @@ import 'default_colors.dart';
 import 'default_fonts.dart';
 import 'default_icons.dart';
 import 'default_metrics.dart';
+import 'macos_themes.dart';
 import 'theme_commands.dart';
 
 /// Оформление по умолчанию — то, с которым приложение выглядит как референс.
@@ -41,6 +42,14 @@ class DefaultTheme implements FcFrontendModule {
       ),
     );
 
+    // Два оформления по цветам macOS — **после** референсного, и это не вкус.
+    // Порядок регистрации задаёт четыре вещи разом: первую тему в списке
+    // (`available.first`), умолчание поля выбора в настройках, тему, на которую
+    // откатываются при незнакомом имени, и порядок обхода по кругу. А через
+    // выбранную тему — и все эталонные снимки. Переставить нельзя.
+    registry.theme(macOsLightTheme());
+    registry.theme(macOsDarkTheme());
+
     final settings = registry.settings;
     registry.command((context) => SwitchThemeCommand(context, settings));
     // Клавиши у смены темы нет, а назначить её можно: привязка без клавиши
@@ -48,6 +57,7 @@ class DefaultTheme implements FcFrontendModule {
     // (`docs/spec/key-bindings.md`, §5).
     registry.binding(KeyBinding.unbound(SwitchThemeCommand.commandId, context: KeyContext.everywhere));
     registry.startup((context) => RestoreThemeCommand(context, settings));
+    registry.startup((context) => FollowAccentCommand(context));
   }
 }
 
@@ -59,6 +69,13 @@ const Map<String, String> _russian = {
   'Switch theme': 'Сменить оформление',
   'Choose the application appearance': 'Выбрать внешний вид приложения',
   'Restore theme': 'Вернуть оформление',
+  'Follow system accent': 'Следить за акцентом системы',
   'Default theme': 'Оформление',
   'Default': 'Обычное',
+  // Названия нарочно не «Light» и «Dark»: короткие слова первыми понадобятся
+  // чему-нибудь ещё (яркость, вес шрифта), а словарь на язык один — два разных
+  // перевода одной строки это ошибка сборки. И название заодно говорит, откуда
+  // взяты цвета.
+  'macOS Light': 'Светлое macOS',
+  'macOS Dark': 'Тёмное macOS',
 };

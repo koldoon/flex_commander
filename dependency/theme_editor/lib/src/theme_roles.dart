@@ -154,6 +154,7 @@ final List<ColorRole> colorRoles = [
   ColorRole('buttonBackground', 'Dialog buttons', (colors) => colors.buttonBackground),
   ColorRole('buttonPrimaryBackground', 'Dialog buttons', (colors) => colors.buttonPrimaryBackground),
   ColorRole('buttonText', 'Dialog buttons', (colors) => colors.buttonText),
+  ColorRole('buttonPrimaryText', 'Dialog buttons', (colors) => colors.buttonPrimaryText),
   ColorRole('buttonBorder', 'Dialog buttons', (colors) => colors.buttonBorder),
   ColorRole('buttonPressed', 'Dialog buttons', (colors) => colors.buttonPressed),
   ColorRole('inputBackground', 'Input', (colors) => colors.inputBackground),

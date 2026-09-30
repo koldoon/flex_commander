@@ -296,6 +296,54 @@ void main() {
     expect(read.metrics['rowHeight'], 26.0);
     expect(read.fixedFont, 'JetBrains Mono');
   });
+
+  group('тему перевыложил её модуль', () {
+    test('база освежается и у темы, у которой правок ещё нет', () {
+      // Случай не выдуманный: оформления macOS перевыкладываются при каждой
+      // смене системного акцента, а запомненная база засеяна при запуске —
+      // когда акцент ещё не спрашивали.
+      themes.use('light');
+      expect(overlay.pristine.colors, isA<DefaultColors>());
+
+      const pink = Color(0xFFFF2D55);
+      themes.register(
+        const FcThemeSpec(
+          id: 'light',
+          title: 'Light',
+          colors: MacOsColors(tones: macOsLightTones, accent: pink),
+          metrics: DefaultMetrics(),
+          icons: DefaultIcons(),
+          fonts: DefaultFonts(),
+        ),
+      );
+
+      // Если бы база протухла, редактор показал бы «тронутые» цвета, которых
+      // никто не трогал, а «Reset» вернул бы прежний акцент.
+      expect(overlay.pristine.colors, isA<MacOsColors>());
+      expect(overlay.pristine.colors.cursorBackground, pink);
+    });
+
+    test('правки переезжают на свежую базу, а не теряются', () {
+      themes.use('light');
+      overlay.setColor('rowText', const Color(0xFF123456));
+
+      const pink = Color(0xFFFF2D55);
+      themes.register(
+        const FcThemeSpec(
+          id: 'light',
+          title: 'Light',
+          colors: MacOsColors(tones: macOsLightTones, accent: pink),
+          metrics: DefaultMetrics(),
+          icons: DefaultIcons(),
+          fonts: DefaultFonts(),
+        ),
+      );
+
+      // Правка человека цела, а всё, о чём она молчит, взято у свежей базы.
+      expect(themes.current.colors.rowText, const Color(0xFF123456));
+      expect(themes.current.colors.cursorBackground, pink);
+    });
+  });
 }
 
 /// Тема, объявленная заново: важен только изменившийся фон окна.

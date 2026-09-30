@@ -41,8 +41,9 @@ keys as standard function keys"*. Otherwise `F3` dims the screen instead of open
 ## Status
 
 Work in progress, macOS only for now — the tree contains just `macos/`, and the
-platform-specific parts are isolated in the local file system module. One dark theme out of
-the box, changeable in the application. Interface in Russian and English.
+platform-specific parts are isolated in the local file system module. Three themes out of the
+box: the reference dark one, plus light and dark built from the colors of macOS
+itself and following the system accent color. Changeable in the application. Interface in Russian and English.
 
 The design documents are in Russian and indexed in [`docs/README.md`](docs/README.md).
 What is planned next is in [`docs/roadmap.md`](docs/roadmap.md); what changed from release

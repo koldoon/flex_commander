@@ -33,6 +33,7 @@ import 'package:fc_zip/fc_zip.dart';
 import '../modules/app_shell.dart';
 import '../modules/clipboard/system_file_clipboard.dart';
 import '../modules/dnd/system_drag_and_drop.dart';
+import '../modules/accent/system_accent.dart';
 import '../modules/fonts/system_fonts.dart';
 import '../modules/icons/system_icons.dart';
 import '../modules/images/system_images.dart';
@@ -94,6 +95,10 @@ List<FcModule> featureModules() => [
   // он нужен, чтобы предлагать шрифт списком, а не заставлять набирать имя
   // (`docs/spec/theme-editor.md`, §12).
   const SystemFontList(),
+  // Акцентный цвет системы: им оформления macOS красят выделение, кнопку по
+  // умолчанию и обводку фокуса. Канал двусторонний — акцент меняют на ходу
+  // (`docs/spec/macos-themes.md`, §5).
+  const SystemAccentColor(),
   // Разбор картинок, которых не умеет Flutter: `HEIC` и всё, что читает
   // система, а Skia — нет. Просмотрщик спрашивает его последним, когда свой
   // разбор не справился (`docs/spec/image-viewer.md`, §12).

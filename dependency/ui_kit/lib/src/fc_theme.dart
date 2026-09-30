@@ -112,6 +112,9 @@ class FcTheme extends ThemeExtension<FcTheme> {
 
   late final TextStyle buttonStyle = uiStyle.copyWith(color: colors.buttonText);
 
+  /// Подпись кнопки подтверждения: своя заливка — своя подпись.
+  late final TextStyle buttonPrimaryStyle = uiStyle.copyWith(color: colors.buttonPrimaryText);
+
   late final TextStyle inputStyle = uiStyle.copyWith(color: colors.inputText);
 
   @override
