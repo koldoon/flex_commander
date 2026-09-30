@@ -53,8 +53,16 @@ class MacOsColors extends FcColors {
   @override
   Color get panelBorder => tones.separator;
 
+  /// Разделитель — `separatorColor`, а не `gridColor`.
+  ///
+  /// Сетка таблицы и разделительная линия в AppKit разные роли, и на тёмной это
+  /// видно: `gridColor` там `#1A1A1A`, то есть **темнее** и панели, и карточки —
+  /// линия ушла бы в тень вместо того, чтобы делить. Разделитель обязан быть
+  /// светлее того, что делит, и `separatorColor` полупрозрачно-белый именно
+  /// затем. На светлой оба дают одно и то же `#E6E6E6`, поэтому там ничего не
+  /// меняется.
   @override
-  Color get columnDivider => tones.grid;
+  Color get columnDivider => tones.separator;
 
   // --- список файлов ---
 

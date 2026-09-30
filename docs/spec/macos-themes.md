@@ -117,7 +117,7 @@ FcThemeSpec (macos_themes.dart)    macOsLightTheme() / macOsDarkTheme()
 | `panelBackground`, `inputBackground` | `controlBackgroundColor` — в AppKit это фон `NSTableView` |
 | `dialogListBackground` | своя поверхность, **прозрачностью**: вес `alternatingContentBackgroundColors[1]` |
 | `panelBorder`, `pathBorder`, `dialogListBorder`, `buttonBorder`, `inputBorder` | `separatorColor` |
-| `columnDivider` | `gridColor` — своя роль у сетки таблицы |
+| `columnDivider` | `separatorColor` — **не `gridColor`**: на тёмной тот темнее и панели, и карточки, и линия уходила бы в тень вместо того, чтобы делить |
 | `rowText`, `directoryText`, `pathText`, `dialogTitleText`, `dialogLabel` | `labelColor` |
 | `sizeText`, `secondaryText`, `icon`, `pathInactiveText`, `functionKeyNumber`, `dialogText` | `secondaryLabelColor` |
 | `headerText` | `headerTextColor` |
@@ -154,9 +154,8 @@ FcThemeSpec (macos_themes.dart)    macOsLightTheme() / macOsDarkTheme()
 на тёмном фоне тень почти не видна обеим. На светлом видна обеим, и кнопке она
 только мешает — край размывается, и белая кнопка выглядит мутной.
 
-То же и у карточки раздела: на светлой обводки нет, её край держит тон. На
-тёмной обводка остаётся у обоих — там и кнопка, и карточка приподняты
-полупрозрачным белым, и одного тона мало.
+То же и у карточки раздела, и **в обеих внешностях**: края нет ни у кнопки, ни у
+карточки, ни на светлой, ни на тёмной. Правило одно.
 
 Раз края нет, **заливка обязана отличаться от подложки**, иначе элемента не
 станет вовсе. Это сторожит тест, и требует он различимого перепада, а не просто

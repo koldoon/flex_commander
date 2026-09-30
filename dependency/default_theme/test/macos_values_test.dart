@@ -72,23 +72,33 @@ void main() {
       expect(light.shadow.a, lessThan(dark.shadow.a / 2));
     });
 
-    test('на светлой у кнопки ни тени, ни обводки — только заливка', () {
-      // Так выглядят современные элементы macOS: белая плашка на сером, без
-      // края и без подъёма. Любая тень на светлом даёт серый ореол.
-      expect(light.controlShadow.a, 0);
-      expect(light.buttonBorder.a, 0);
+    test('ни у кнопки, ни у карточки нет края и подъёма — только заливка', () {
+      // Так выглядят современные поверхности macOS в обеих внешностях: плашка
+      // на подложке, без обводки и без тени. Правило одно на светлую и тёмную.
+      for (final colors in [light, dark]) {
+        expect(colors.controlShadow.a, 0);
+        expect(colors.buttonBorder.a, 0);
+        expect(colors.dialogListBorder.a, 0);
+      }
+    });
 
-      // И тогда заливка обязана отличаться от того, на чём кнопка лежит,
-      // иначе её не станет вовсе.
-      final card = Color.alphaBlend(light.dialogListBackground, light.dialogBackground);
-      expect(light.buttonBackground, isNot(card));
+    test('кнопка различима на карточке, на которой лежит', () {
+      // Следствие предыдущего: раз края нет, всё держит заливка. Кнопка стоит
+      // внутри карточки раздела, а та — на фоне окна команды.
+      for (final colors in [light, dark]) {
+        final card = Color.alphaBlend(colors.dialogListBackground, colors.dialogBackground);
+        final button = Color.alphaBlend(colors.buttonBackground, card);
+        expect(_contrast(button, card), greaterThanOrEqualTo(1.1), reason: 'кнопка сливается с карточкой');
+      }
+    });
 
-      // На тёмной наоборот: заливка прозрачная, и без края элемент растворится.
-      expect(dark.buttonBorder.a, greaterThan(0));
-
-      // У карточки то же правило: на светлой края нет, на тёмной есть.
-      expect(light.dialogListBorder.a, 0);
-      expect(dark.dialogListBorder.a, greaterThan(0));
+    test('разделитель светлее того, что делит, а не темнее', () {
+      // `gridColor` на тёмной внешности `#1A1A1A` — темнее и панели, и
+      // карточки: линия ушла бы в тень вместо того, чтобы делить. Поэтому
+      // разделитель взят `separatorColor`.
+      final card = Color.alphaBlend(dark.dialogListBackground, dark.dialogBackground);
+      final divider = Color.alphaBlend(dark.columnDivider, card);
+      expect(divider.computeLuminance(), greaterThan(card.computeLuminance()));
     });
 
     test('шестнадцать цветов ANSI — из профилей Terminal.app', () {
