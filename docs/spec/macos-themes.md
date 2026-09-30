@@ -120,6 +120,7 @@ FcThemeSpec (macos_themes.dart)    macOsLightTheme() / macOsDarkTheme()
 | `columnDivider` | `separatorColor` — **не `gridColor`**: на тёмной тот темнее и панели, и карточки, и линия уходила бы в тень вместо того, чтобы делить |
 | `rowText`, `directoryText`, `pathText`, `dialogTitleText`, `dialogLabel` | `labelColor` |
 | `sizeText`, `secondaryText`, `icon`, `pathInactiveText`, `functionKeyNumber`, `dialogText` | `secondaryLabelColor` |
+| `pathSecondaryText` | подпись плашки с прозрачностью — приглушать надо то, чем пишут **по ней** |
 | `headerText` | `headerTextColor` |
 | `inputText` | `textColor` — набираемый текст непрозрачен |
 | `inputHint` | `placeholderTextColor` |

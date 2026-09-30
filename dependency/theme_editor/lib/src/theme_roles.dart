@@ -138,6 +138,7 @@ final List<ColorRole> colorRoles = [
   ColorRole('pathBackground', 'Path plate', (colors) => colors.pathBackground),
   ColorRole('pathBorder', 'Path plate', (colors) => colors.pathBorder),
   ColorRole('pathText', 'Path plate', (colors) => colors.pathText),
+  ColorRole('pathSecondaryText', 'Path plate', (colors) => colors.pathSecondaryText),
   ColorRole('pathInactiveBackground', 'Path plate', (colors) => colors.pathInactiveBackground),
   ColorRole('pathInactiveText', 'Path plate', (colors) => colors.pathInactiveText),
   ColorRole('functionButtonBackground', 'Function keys', (colors) => colors.functionButtonBackground),

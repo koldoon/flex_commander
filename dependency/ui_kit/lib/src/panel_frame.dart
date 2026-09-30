@@ -156,7 +156,7 @@ class FcPathPlate extends StatelessWidget {
                       _gap + suffix,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: style.copyWith(color: colors.secondaryText),
+                      style: style.copyWith(color: active ? colors.pathSecondaryText : colors.pathInactiveText),
                     ),
                   ),
               ],

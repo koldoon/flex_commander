@@ -121,6 +121,11 @@ class MacOsColors extends FcColors {
   @override
   Color get pathText => _onAccent;
 
+  /// Крошки приглушаются **подписью плашки**, а не подписью списка: на акцентной
+  /// заливке приглушать надо то, чем по ней пишут.
+  @override
+  Color get pathSecondaryText => _onAccent.withValues(alpha: 0.65);
+
   /// Пассивная — «выделенное, но не в фокусе»: та самая пара AppKit, вторая
   /// половина которой теперь досталась акценту.
   @override

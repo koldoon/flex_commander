@@ -90,6 +90,9 @@ class OverlayColors implements FcColors {
   Color get pathText => overrides['pathText'] ?? base.pathText;
 
   @override
+  Color get pathSecondaryText => overrides['pathSecondaryText'] ?? base.pathSecondaryText;
+
+  @override
   Color get pathInactiveBackground => overrides['pathInactiveBackground'] ?? base.pathInactiveBackground;
 
   @override

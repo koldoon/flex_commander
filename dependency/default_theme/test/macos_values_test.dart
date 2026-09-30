@@ -235,6 +235,15 @@ void main() {
         );
         expect(_contrast(colors.cursorText, colors.cursorBackground), greaterThanOrEqualTo(3));
         expect(_contrast(colors.pathText, colors.pathBackground), greaterThanOrEqualTo(3));
+        // Крошки приглушены, но читаемы: приглушать надо то, чем пишут по
+        // плашке, а не подпись списка файлов — иначе на акцентной заливке
+        // выходит чёрным по синему.
+        expect(_contrast(colors.pathSecondaryText, colors.pathBackground), greaterThanOrEqualTo(2));
+        expect(
+          colors.pathSecondaryText.computeLuminance() > colors.pathBackground.computeLuminance(),
+          colors.pathText.computeLuminance() > colors.pathBackground.computeLuminance(),
+          reason: 'крошки и текущий каталог должны быть с одной стороны от заливки',
+        );
         expect(_contrast(colors.buttonPrimaryText, colors.buttonPrimaryBackground), greaterThanOrEqualTo(3));
       });
 
