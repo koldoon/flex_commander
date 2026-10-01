@@ -24,3 +24,13 @@ class FcHorizontalDragRecognizer extends HorizontalDragGestureRecognizer {
   bool hasSufficientGlobalDistanceToAccept(PointerDeviceKind pointerDeviceKind, double? deviceTouchSlop) =>
       globalDistanceMoved.abs() > kFcDragSlop;
 }
+
+/// Перетаскивание вдоль, начинающееся с [kFcDragSlop]: перестановка строк,
+/// которые и щёлкаются тоже (`docs/spec/favorites-sidebar.md`, §7).
+class FcVerticalDragRecognizer extends VerticalDragGestureRecognizer {
+  FcVerticalDragRecognizer({super.debugOwner});
+
+  @override
+  bool hasSufficientGlobalDistanceToAccept(PointerDeviceKind pointerDeviceKind, double? deviceTouchSlop) =>
+      globalDistanceMoved.abs() > kFcDragSlop;
+}

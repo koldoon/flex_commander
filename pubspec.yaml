@@ -46,6 +46,7 @@ workspace:
   - dependency/mermaid
   - dependency/navigation
   - dependency/panels
+  - dependency/places
   - dependency/platform
   # Своя копия re_editor: в ней две правки, без которых выделение в редакторе и
   # просмотрщике разрывается между строками. Членство в воркспейсе и есть
@@ -126,6 +127,9 @@ dependencies:
 
   fc_panels:
     path: dependency/panels
+
+  fc_places:
+    path: dependency/places
 
   fc_search:
     path: dependency/search

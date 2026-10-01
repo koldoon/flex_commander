@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:fc_places/fc_places.dart';
 import 'package:fc_search/fc_search.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
@@ -184,6 +185,36 @@ void main() {
       await tester.pump(const Duration(milliseconds: 20));
     });
   }
+
+  /// Боковая полоса избранного — эталон экрана `Main Window — favorites
+  /// sidebar` (`docs/spec/favorites-sidebar.md`): ввод у полосы, курсор на
+  /// «Downloads», одно место приглушено — туда не дошли.
+  testWidgets('боковая полоса', (tester) async {
+    if (!fontsReady) {
+      markTestSkipped('Шрифты не собрались: Ubuntu, FontAwesome или Consolas недоступны');
+      return;
+    }
+
+    final app = await openApp(tester, rightPath: '/Users/koldoon/Developer');
+    // Под `flutter test` полоса по умолчанию скрыта (`PlacesSettings.visibleByDefault`).
+    app.commands.run(TogglePlacesCommand.commandId);
+    await tester.pumpAndSettle();
+    final places = app.view.contentAt(ViewportPosition.sidebar)! as PlacesState;
+    places.add('/Volumes/shark');
+    places.add('/Users/koldoon/backup.zip');
+    await places.open(places.places.length - 2);
+    app.left.setCursorToName('INSTALL');
+    app.right.setMarks({'/Users/koldoon/Developer/LICENSE', '/Users/koldoon/Developer/fetch.xml'});
+    app.view.setFocus(ViewportPosition.sidebar);
+    places.moveCursor(3);
+    // Тост о неудачном переходе снимку не нужен — ждём, пока уйдёт.
+    await tester.pump(const Duration(seconds: 10));
+    await tester.pumpAndSettle();
+
+    await expectLater(find.byType(FlexCommanderApp), matchesGoldenFile('goldens/anchor_places.png'));
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
 
   view('панель кратким видом', 'anchor_panel_brief.png', 'brief');
   view('панель деревом', 'anchor_panel_tree.png', 'tree');

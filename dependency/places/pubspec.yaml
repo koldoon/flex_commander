@@ -1,0 +1,35 @@
+name: fc_places
+description: "Боковая полоса избранного: места слева от панелей, щелчок — и панель там."
+publish_to: 'none'
+version: 1.0.0
+
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Модуль знает только API — ни о ядре, ни о других модулях он не подозревает.
+  fc_api:
+    path: ../api
+
+  fc_ui_api:
+    path: ../ui_api
+
+  fc_ui_kit:
+    path: ../ui_kit
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # Тесты собирают настоящее приложение с полосой: переход проверяется
+  # целиком, от щелчка до каталога в панели.
+  fc_test_kit:
+    path: ../test_kit
+
+  flex_commander:
+    path: ../..

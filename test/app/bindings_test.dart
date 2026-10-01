@@ -76,6 +76,8 @@ void main() {
       'background.leave',
       'terminal.leaveLine',
       'terminal.closeRun',
+      // Боковая полоса: `Esc` возвращает ввод панели — при своём содержимом.
+      'places.leave',
       'viewer.close',
       'viewer.close',
       'editor.close',

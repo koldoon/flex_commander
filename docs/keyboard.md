@@ -400,6 +400,26 @@ CommandRegistry.dispatch(combination, app)
 `panel.openWithSystem`, объявленным раньше, — там терминал по этой клавише не
 развернётся, пока одна из двух не переедет. Подробности — `spec/terminal.md`, §5.
 
+### Боковая полоса избранного
+
+Места слева от панелей ([`spec/favorites-sidebar.md`](spec/favorites-sidebar.md)).
+Ввод отдаётся ей так же, как командной строке, — клавишей; пока он у неё,
+панельных клавиш нет.
+
+| Клавиша | Команда | Действие |
+|---|---|---|
+| `Ctrl-Cmd-S` | `places.toggle` | показать или спрятать полосу (как в Finder) |
+| `Ctrl-Cmd-T` | `places.add` | текущий каталог активной панели — на полосу (как в Finder) |
+| `Ctrl-Cmd-Left` | `places.focus` | ввод полосе; спрятанную показывает |
+| `Up`, `Down`, `Home`, `End`, `PgUp`, `PgDn` | `places.up` … `places.last` | ход по местам |
+| `Enter` | `places.open` | перейти в активной панели; ввод — ей |
+| `Cmd-Enter` | `places.openOther` | перейти в соседней; активная та же, ввод остаётся |
+| `F2`, `Shift-F6` | `places.rename` | своё имя месту |
+| `Del`, `Cmd-Bsp`, `F8` | `places.remove` | убрать место |
+| `Esc`, `Tab`, `Right` | `places.leave` | вернуть ввод панели |
+
+Мышью: щелчок — переход в активной панели, `Cmd`-щелчок — в соседней.
+
 ### Занятые системой сочетания
 
 `Cmd-H` на macOS забирает главное меню приложения («Hide APP_NAME», см.

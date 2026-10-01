@@ -20,6 +20,7 @@ import 'package:fc_key_presets/fc_key_presets.dart';
 import 'package:fc_local_fs/fc_local_fs.dart';
 import 'package:fc_navigation/fc_navigation.dart';
 import 'package:fc_panels/fc_panels.dart';
+import 'package:fc_places/fc_places.dart';
 import 'package:fc_search/fc_search.dart';
 import 'package:fc_ssh/fc_ssh.dart';
 import 'package:fc_tar/fc_tar.dart';
@@ -77,6 +78,9 @@ List<FcModule> featureModules() => [
   // раньше. Вне находок команда невыполнима, и `Enter` достаётся навигации.
   const FileSearch(),
   const Navigation(),
+  // Боковая полоса избранного: места слева от панелей. Клавиши у неё свои и
+  // действуют, только пока ввод у неё, — порядок ей не важен.
+  const Places(),
   const FileOps(),
   // Перетаскивание мышью. Платформенного в дартовой части нет — только имя
   // канала; без своего раннера канал молчит, и это ровно «перетаскивания нет».

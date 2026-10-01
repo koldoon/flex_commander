@@ -33,6 +33,7 @@ Flutter, а не мы. Вреда вышло два. Часть значений
 FlexCommanderApp                      MaterialApp, тема, AppScope
 +-- ApplicationView                   Scaffold без AppBar
     +-- Expanded
+    |   +-- PlacesView                боковая полоса избранного (fc_places), слева от экрана, если показана
     |   +-- screens.active.build()    что видно сейчас; ядро о содержимом не знает
     |       +- FilesScreen            fc_panels
     |       |   +-- SplitView                 две панели + перетаскиваемый разделитель
