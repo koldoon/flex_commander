@@ -51,30 +51,48 @@ class WindowTitleBar extends StatelessWidget {
             // Ряд — по настройке; полоса остаётся всегда: за неё таскают окно
             // и разворачивают его двойным щелчком, и к наборам это отношения
             // не имеет (`docs/spec/panel-sessions.md`, §3).
-            if (app.moduleSettings('fc.shell').section(ShellSettings.new).sessionsInTitleBar)
-              Row(
-                children: [
-                  // Место светофора и свободная ручка за ним: ряд начинается
-                  // только здесь, чтобы не залезть на системные кнопки и не
-                  // оставить окно без места, за которое его берут.
-                  SizedBox(width: metrics.windowControlsWidth + metrics.windowDragHandleWidth),
-                  Expanded(
-                    child: Padding(
-                      // Справа ряд кончается там же, где панели под ним: поле
-                      // окна одно на всё содержимое.
-                      padding: EdgeInsets.only(right: metrics.windowSidePadding),
-                      // И опущен на оптический сдвиг: середина светофора ниже
-                      // середины полосы, а равняться ряд должен по нему.
-                      // Сдвигом, а не полем: разметку он не меняет, и высота
-                      // полосы остаётся ровно той, что назначила тема.
-                      child: Transform.translate(
-                        offset: Offset(0, metrics.windowTitleBarContentNudge),
-                        child: const PanelRow(),
+            //
+            // И не над полноэкранным: просмотрщик и редактор закрывают собой
+            // панели, а живой ряд над ними менял набор «за кадром» — щелчок
+            // делал что-то, чего человек не видел вовсе (`panel-sessions.md`,
+            // §11). Пока полосе нечего сказать полноэкранному, ряда нет.
+            //
+            // Слушатель — во всю полосу, а не по своему содержимому: пустой
+            // ряд не вправе схлопнуть полосу, за которую таскают окно.
+            Positioned.fill(
+              child: ListenableBuilder(
+                listenable: app.view,
+                builder: (context, _) {
+                  if (!app.moduleSettings('fc.shell').section(ShellSettings.new).sessionsInTitleBar ||
+                      app.view.contentAt(ViewportPosition.fullscreen) != null) {
+                    return const SizedBox.shrink();
+                  }
+                  return Row(
+                    children: [
+                      // Место светофора и свободная ручка за ним: ряд начинается
+                      // только здесь, чтобы не залезть на системные кнопки и не
+                      // оставить окно без места, за которое его берут.
+                      SizedBox(width: metrics.windowControlsWidth + metrics.windowDragHandleWidth),
+                      Expanded(
+                        child: Padding(
+                          // Справа ряд кончается там же, где панели под ним: поле
+                          // окна одно на всё содержимое.
+                          padding: EdgeInsets.only(right: metrics.windowSidePadding),
+                          // И опущен на оптический сдвиг: середина светофора ниже
+                          // середины полосы, а равняться ряд должен по нему.
+                          // Сдвигом, а не полем: разметку он не меняет, и высота
+                          // полосы остаётся ровно той, что назначила тема.
+                          child: Transform.translate(
+                            offset: Offset(0, metrics.windowTitleBarContentNudge),
+                            child: const PanelRow(),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                ],
+                    ],
+                  );
+                },
               ),
+            ),
           ],
         ),
       ),

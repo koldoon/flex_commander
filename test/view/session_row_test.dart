@@ -75,6 +75,25 @@ void main() {
       expect(find.byKey(PanelRow.newPanelKey), findsOneWidget, reason: 'кнопка нового набора — последней');
     });
 
+    testWidgets('под полноэкранным просмотрщиком ряда нет, а полоса осталась', (tester) async {
+      // Живая находка 1 октября 2026: просмотрщик закрывал собой панели, а
+      // ряд над ним оставался живым — щелчок по записи менял набор где-то
+      // «за кадром», и человек этого не видел вовсе. Пока полосе нечего
+      // показать полноэкранному, ряд прячется: полоса остаётся, за неё по-
+      // прежнему таскают окно.
+      await pumpApp(tester);
+      expect(find.byType(PanelRow), findsOneWidget);
+
+      app.view.pushViewportContent(ViewportPosition.fullscreen, _Screen());
+      await tester.pumpAndSettle();
+      expect(find.byType(PanelRow), findsNothing);
+      expect(find.byType(WindowTitleBar), findsOneWidget);
+
+      app.view.popViewportContent(ViewportPosition.fullscreen);
+      await tester.pumpAndSettle();
+      expect(find.byType(PanelRow), findsOneWidget, reason: 'закрыли просмотр — ряд вернулся');
+    });
+
     testWidgets('непоказанный набор перечисляется в ряду', (tester) async {
       await pumpApp(tester);
       await press(tester, LogicalKeyboardKey.keyT, modifiers: [commandKey, LogicalKeyboardKey.shift]);
@@ -365,4 +384,16 @@ void main() {
       expect(panelTitle(panel, app.panels), 'сборка');
     });
   });
+}
+
+/// Полноэкранное содержимое, какое угодно: ряду важно лишь, что оно есть.
+class _Screen extends ChangeNotifier implements ViewportState {
+  @override
+  bool get takesKeyboard => false;
+
+  @override
+  ViewportState? get inner => null;
+
+  @override
+  void close() {}
 }
