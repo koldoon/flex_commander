@@ -293,6 +293,9 @@ class _PanelChip extends StatelessWidget {
                 FcSideMarks(
                   left: shownLeft,
                   right: shownRight,
+                  // Погасшая — своей ролью: светлая и непрозрачная, иначе на
+                  // синей плашке тёмной macOS она пропадала.
+                  dimColor: colors.sideMarkOff,
                   leftKey: PanelRow.leftMarkKey,
                   rightKey: PanelRow.rightMarkKey,
                 ),

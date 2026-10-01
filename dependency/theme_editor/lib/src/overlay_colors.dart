@@ -75,6 +75,9 @@ class OverlayColors implements FcColors {
   Color get markedBar => overrides['markedBar'] ?? base.markedBar;
 
   @override
+  Color get sideMarkOff => overrides['sideMarkOff'] ?? base.sideMarkOff;
+
+  @override
   Color get icon => overrides['icon'] ?? base.icon;
 
   @override

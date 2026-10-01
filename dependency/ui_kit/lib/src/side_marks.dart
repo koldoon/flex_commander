@@ -11,7 +11,7 @@ import 'fc_theme.dart';
 /// Здесь, а не в ряду наборов: тем же знаком набор помечен и в окне выбора, а
 /// два способа нарисовать одно и то же однажды разойдутся.
 class FcSideMarks extends StatelessWidget {
-  const FcSideMarks({super.key, required this.left, required this.right, this.leftKey, this.rightKey});
+  const FcSideMarks({super.key, required this.left, required this.right, this.leftKey, this.rightKey, this.dimColor});
 
   final bool left;
   final bool right;
@@ -21,6 +21,13 @@ class FcSideMarks extends StatelessWidget {
   /// двусмысленной, когда открыты оба.
   final Key? leftKey;
   final Key? rightKey;
+
+  /// Цвет погасшей ячейки; null — цвет рамки панели.
+  ///
+  /// Его задаёт тот, кто знает свой фон. Рамка панели годится на фоне списка,
+  /// но не везде: у тёмного оформления macOS она прозрачна, и на синей плашке
+  /// набора погасшая ячейка пропадала совсем — пара читалась одной меткой.
+  final Color? dimColor;
 
   /// Сколько места занимает.
   ///
@@ -37,7 +44,10 @@ class FcSideMarks extends StatelessWidget {
     Widget cell({required bool lit, required Key? key}) => SizedBox(
       width: theme.metrics.markedBarWidth,
       height: theme.metrics.iconSize,
-      child: ColoredBox(color: lit ? theme.colors.markedBar : theme.colors.panelBorder, key: lit ? key : null),
+      child: ColoredBox(
+        color: lit ? theme.colors.markedBar : dimColor ?? theme.colors.panelBorder,
+        key: lit ? key : null,
+      ),
     );
 
     return Row(

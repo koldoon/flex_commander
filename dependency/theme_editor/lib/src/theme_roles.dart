@@ -133,6 +133,7 @@ final List<ColorRole> colorRoles = [
   ColorRole('cursorText', 'File list', (colors) => colors.cursorText),
   ColorRole('markedBackground', 'File list', (colors) => colors.markedBackground),
   ColorRole('markedBar', 'File list', (colors) => colors.markedBar),
+  ColorRole('sideMarkOff', 'File list', (colors) => colors.sideMarkOff),
   ColorRole('icon', 'File list', (colors) => colors.icon),
   ColorRole('iconSelected', 'File list', (colors) => colors.iconSelected),
   ColorRole('pathBackground', 'Path plate', (colors) => colors.pathBackground),

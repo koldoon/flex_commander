@@ -214,6 +214,25 @@ void main() {
       expect(app.left, same(app.right));
     });
 
+    testWidgets('погасшая ячейка видна на плашке — и в тёмной macOS', (tester) async {
+      // У тёмного оформления macOS рамка панели прозрачна, и погасшая ячейка,
+      // крашенная ею, пропадала на синей плашке: пара читалась одной меткой.
+      await pumpApp(tester);
+      app.theme.use(MacOsThemeIds.dark);
+      await tester.pumpAndSettle();
+
+      final colors = FcTheme.of(tester.element(find.byType(PanelRow))).colors;
+      expect(colors.panelBorder.a, 0, reason: 'проверка про ту самую тему, где рамка прозрачна');
+
+      final marks = find.descendant(of: find.byType(PanelRow), matching: find.byType(FcSideMarks));
+      expect(marks, findsWidgets);
+      final cells = find.descendant(of: marks.first, matching: find.byType(ColoredBox));
+      final painted = [for (final cell in cells.evaluate()) (cell.widget as ColoredBox).color];
+      expect(painted, contains(colors.sideMarkOff), reason: 'погасшая — своей ролью');
+      expect(colors.sideMarkOff, isNot(colors.markedBar), reason: 'погасшая отлична от горящей');
+      expect(painted.where((color) => color.a == 0), isEmpty, reason: 'прозрачной ячейки нет');
+    });
+
     testWidgets('нажатие по записи показывает набор в активной панели', (tester) async {
       await pumpApp(tester);
       await press(tester, LogicalKeyboardKey.keyT, modifiers: [commandKey, LogicalKeyboardKey.shift]);
