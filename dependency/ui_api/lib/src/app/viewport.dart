@@ -294,6 +294,16 @@ abstract interface class ApplicationView implements Listenable {
   /// подтверждение, — и клавиши принадлежат верхнему.
   List<DialogSpec> get dialogs;
 
+  /// Те же окна вместе с идентификаторами — тем, кто рисует стопку: дочернему
+  /// нужно найти своего родителя ([DialogSpec.parent]).
+  List<OpenDialog> get openDialogs;
+
+  /// Идентификатор верхнего окна; null — окон нет.
+  ///
+  /// Им называют родителя те, кого поднимают кнопкой открытого окна:
+  /// подтверждение, ввод имени, выбор файла.
+  String? get topDialogId;
+
   /// Показывает окно и возвращает его идентификатор — по нему же закрывать.
   ///
   /// Окно **не область**: ни [activeArea], ни [sourceArea] оно не меняет.
@@ -302,4 +312,12 @@ abstract interface class ApplicationView implements Listenable {
   String showDialog(DialogSpec spec);
 
   void closeDialog(String dialogId);
+}
+
+/// Открытое окно: идентификатор, которым его закрывают, и описание.
+class OpenDialog {
+  const OpenDialog(this.id, this.spec);
+
+  final String id;
+  final DialogSpec spec;
 }

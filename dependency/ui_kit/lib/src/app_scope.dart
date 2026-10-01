@@ -100,6 +100,23 @@ class KeysScope extends InheritedWidget {
   bool updateShouldNotify(KeysScope oldWidget) => oldWidget.takesKeys != takesKeys;
 }
 
+/// Окно, внутри которого стоит виджет: его идентификатор в стопке.
+///
+/// Нужен тому, кто поднимает дочернее окно изнутри своего: вопрос посреди
+/// работы и разбор её ошибки встают поверх окна работы и называют его
+/// родителем (`docs/spec/child-dialogs.md`). Ставит его слой окон.
+class DialogScope extends InheritedWidget {
+  const DialogScope({super.key, required this.dialogId, required super.child});
+
+  final String dialogId;
+
+  /// Без подписки: идентификатор у окна не меняется, пока оно открыто.
+  static String? maybeOf(BuildContext context) => context.getInheritedWidgetOfExactType<DialogScope>()?.dialogId;
+
+  @override
+  bool updateShouldNotify(DialogScope oldWidget) => oldWidget.dialogId != dialogId;
+}
+
 /// Достаются ли клавиши тому, что виджет рисует, — с оглядкой на его место.
 ///
 /// Вопрос задаётся отсюда, а не `app.view.takesKeys`: место берётся из дерева

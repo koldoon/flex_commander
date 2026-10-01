@@ -131,18 +131,23 @@ void main() {
     expect(tester.widget<FcButton>(find.widgetWithText(FcButton, 'Background')).onPressed, isNull);
   });
 
-  testWidgets('ошибка после начала работы форму не воскрешает', (tester) async {
+  testWidgets('ошибка после начала работы встаёт окном поверх хода дела', (tester) async {
     await pump(tester);
 
     await work(TaskOperation<void, void>((op, _) async {}));
     run.error = '/backup: permission denied';
     await tester.pump();
+    await tester.pump();
 
-    // Править ввод поздно: работа была начата. Остаётся сказать, что не вышло.
+    // Править ввод поздно: работа была начата. Форма не воскресает, ход дела
+    // остаётся на месте — а разбор ошибки встаёт над ним отдельным окном
+    // (`docs/spec/child-dialogs.md`, §4.3).
     expect(find.text('форма'), findsNothing);
-    expect(find.text('Probe failed'), findsOneWidget);
-    expect(find.text('/backup: permission denied'), findsOneWidget);
-    expect(find.widgetWithText(FcButton, 'Close'), findsOneWidget);
+    expect(find.byType(CommandDialogProgress), findsOneWidget, reason: 'контекст виден под ошибкой');
+    final failure = run.app.view.dialogs.single.content;
+    expect(failure, isA<CommandDialogConfirm>());
+    expect((failure as CommandDialogConfirm).error, '/backup: permission denied');
+    expect(failure.message, 'Probe failed');
   });
 
   testWidgets('ошибка до начала работы остаётся в форме', (tester) async {
@@ -156,7 +161,7 @@ void main() {
     expect(find.text('Probe failed'), findsNothing);
   });
 
-  testWidgets('вопрос по ходу работы вытесняет всё остальное', (tester) async {
+  testWidgets('вопрос по ходу работы встаёт окном поверх, а ход дела остаётся', (tester) async {
     await pump(tester);
 
     final running = work(
@@ -170,12 +175,47 @@ void main() {
         );
       }),
     );
+    // Ход дела показывается, когда работа задержалась дольше мига.
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.pump();
 
-    expect(find.text('File exists'), findsOneWidget);
-    expect(find.byType(CommandDialogProgress), findsNothing);
+    expect(find.byType(CommandDialogProgress), findsOneWidget, reason: 'вопрос ход дела не прячет');
+    final question = run.app.view.dialogs.single.content;
+    expect(question, isA<CommandDialogQuestion>());
+    expect((question as CommandDialogQuestion).request.message, 'File exists');
 
-    await tester.tap(find.widgetWithText(FcButton, 'Overwrite'));
+    run.answer(TransferAnswers.overwrite);
+    await running;
+    await tester.pump();
+    await tester.pump();
+    expect(run.app.view.dialogs, isEmpty, reason: 'ответили — окно вопроса ушло');
+  });
+
+  testWidgets('вопрос, пришедший без окна, встаёт сразу, как окно вернули', (tester) async {
+    // Так возвращают работу из фона: вопрос ждал, окна не было, — поднялось
+    // окно работы, и вопрос встаёт над ним тем же ходом
+    // (`docs/spec/child-dialogs.md`, §4.2).
+    final running = work(
+      TaskOperation<void, void>((op, _) async {
+        await op.ask(
+          OperationRequest(
+            message: 'File exists',
+            options: const [TransferAnswers.skip, TransferAnswers.overwrite],
+            enterOption: TransferAnswers.skip,
+          ),
+        );
+      }),
+    );
+    await tester.pump();
+    expect(run.question, isNotNull);
+    expect(run.app.view.dialogs, isEmpty, reason: 'окна ещё нет');
+
+    await pump(tester);
+    await tester.pump();
+
+    expect(run.app.view.dialogs.single.content, isA<CommandDialogQuestion>());
+
+    run.answer(TransferAnswers.skip);
     await running;
   });
 }

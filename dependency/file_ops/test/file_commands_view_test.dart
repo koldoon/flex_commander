@@ -524,9 +524,11 @@ void main() {
       await tester.tap(find.widgetWithText(FcButton, 'Copy'));
       await settle(tester);
 
-      // Вопрос о занятом имени — самый широкий набор кнопок: пять штук.
-      expect(find.byType(FcButton), findsNWidgets(5));
-      final tops = tester.widgetList<FcButton>(find.byType(FcButton)).map((button) {
+      // Вопрос о занятом имени — самый широкий набор кнопок: пять штук. Он
+      // встаёт окном над окном работы, у которого кнопки свои.
+      final buttons = find.descendant(of: find.byType(CommandDialogQuestion), matching: find.byType(FcButton));
+      expect(buttons, findsNWidgets(5));
+      final tops = tester.widgetList<FcButton>(buttons).map((button) {
         return tester.getTopLeft(find.byWidget(button)).dy;
       });
 
@@ -721,11 +723,20 @@ void main() {
 
       /// Просит прервать и ждёт вопроса: он появится, когда работа дойдёт до
       /// ближайшей проверки — то есть закончит текущий файл.
+      /// Кнопка окна вопроса: оно встаёт над окном работы, и у того свои
+      /// кнопки — «Cancel» есть у обоих (`docs/spec/child-dialogs.md`).
+      Finder inQuestion(String label) =>
+          find.descendant(of: find.byType(CommandDialogQuestion), matching: find.widgetWithText(FcButton, label));
+
       Future<void> askAbort(WidgetTester tester, {LogicalKeyboardKey? key}) async {
         if (key != null) {
           await tester.sendKeyEvent(key);
         }
         await tester.pump(const Duration(milliseconds: 250));
+        // Вопрос — дочернее окно над окном работы: оно встаёт следующим кадром
+        // (`docs/spec/child-dialogs.md`, §4.2).
+        await tester.pump();
+        await tester.pump();
       }
 
       /// Ждёт конца работы вместе с оставшимися медленными файлами.
@@ -740,12 +751,12 @@ void main() {
         await askAbort(tester, key: LogicalKeyboardKey.escape);
 
         expect(find.textContaining('Abort the operation?'), findsOneWidget);
-        expect(find.widgetWithText(FcButton, 'Abort'), findsOneWidget);
-        expect(find.widgetWithText(FcButton, 'Cancel'), findsOneWidget);
+        expect(inQuestion('Abort'), findsOneWidget);
+        expect(inQuestion('Cancel'), findsOneWidget);
         // Работа не прервана и не закончена: она ждёт ответа.
         expect(await provider.resolvePath().run('/home/bin/$lastFile'), isNull);
 
-        await tester.tap(find.widgetWithText(FcButton, 'Abort'));
+        await tester.tap(inQuestion('Abort'));
         await finish(tester);
       });
 
@@ -756,10 +767,10 @@ void main() {
         // Заведомо дольше, чем занял бы весь остаток задания.
         await tester.pump(const Duration(seconds: 2));
 
-        expect(find.widgetWithText(FcButton, 'Abort'), findsOneWidget);
+        expect(inQuestion('Abort'), findsOneWidget);
         expect(await provider.resolvePath().run('/home/bin/$lastFile'), isNull);
 
-        await tester.tap(find.widgetWithText(FcButton, 'Abort'));
+        await tester.tap(inQuestion('Abort'));
         await finish(tester);
       });
 
@@ -767,7 +778,7 @@ void main() {
         await startSlowCopy(tester);
         await askAbort(tester, key: LogicalKeyboardKey.escape);
 
-        await tester.tap(find.widgetWithText(FcButton, 'Cancel'));
+        await tester.tap(inQuestion('Cancel'));
         await finish(tester);
 
         // Окно закрылось само: работа кончилась, а не прервалась.
@@ -779,7 +790,7 @@ void main() {
         await startSlowCopy(tester);
         await askAbort(tester, key: LogicalKeyboardKey.escape);
 
-        await tester.tap(find.widgetWithText(FcButton, 'Abort'));
+        await tester.tap(inQuestion('Abort'));
         await finish(tester);
 
         expect(find.byType(FcProgressBar), findsNothing);
@@ -795,7 +806,9 @@ void main() {
         // Esc: отказ от прерывания — работа продолжается.
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pump();
-        expect(find.widgetWithText(FcButton, 'Abort'), findsNothing);
+        // Окно вопроса уходит следом за ответом — следующим кадром.
+        await tester.pump();
+        expect(inQuestion('Abort'), findsNothing);
         expect(find.byType(FcProgressBar), findsNWidgets(2));
 
         // Enter: подтверждение — «Abort» стоит вариантом по умолчанию.
@@ -811,12 +824,13 @@ void main() {
         await startSlowCopy(tester);
 
         // Тот же смысл, что и у Esc, — и тот же вопрос.
+        // Вопроса ещё нет — «Cancel» на экране один, у окна работы.
         await tester.tap(find.widgetWithText(FcButton, 'Cancel'));
         await askAbort(tester);
 
-        expect(find.widgetWithText(FcButton, 'Abort'), findsOneWidget);
+        expect(inQuestion('Abort'), findsOneWidget);
 
-        await tester.tap(find.widgetWithText(FcButton, 'Abort'));
+        await tester.tap(inQuestion('Abort'));
         await finish(tester);
       });
     });

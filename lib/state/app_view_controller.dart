@@ -300,31 +300,58 @@ class AppViewController extends ChangeNotifier implements ApplicationView {
     notifyListeners();
   }
 
-  final List<_OpenDialog> _dialogs = [];
+  final List<OpenDialog> _dialogs = [];
   var _nextDialog = 0;
 
   @override
   List<DialogSpec> get dialogs => [for (final dialog in _dialogs) dialog.spec];
 
   @override
+  List<OpenDialog> get openDialogs => List.unmodifiable(_dialogs);
+
+  @override
+  String? get topDialogId => _dialogs.isEmpty ? null : _dialogs.last.id;
+
+  @override
   String showDialog(DialogSpec spec) {
     final id = 'dialog#${_nextDialog++}';
-    _dialogs.add(_OpenDialog(id, spec));
+    _dialogs.add(OpenDialog(id, spec));
     notifyListeners();
     return id;
   }
 
+  /// Окна, которые закрываются прямо сейчас: отказ потомка вправе сам закрыть
+  /// родителя — окно ошибки закрывает и окно работы, — и второй заход в то же
+  /// закрытие должен быть пустым.
+  final Set<String> _closing = {};
+
+  /// Закрыть окно — и его потомков, сверху вниз.
+  ///
+  /// Потомку говорится **отказ** (его `onDismiss`), а не молчаливое удаление:
+  /// за подтверждением ждёт ответа тот, кто его поднял, и без ответа он ждал
+  /// бы вечно (`docs/spec/child-dialogs.md`, §4.1).
   @override
   void closeDialog(String dialogId) {
-    final before = _dialogs.length;
-    _dialogs.removeWhere((dialog) => dialog.id == dialogId);
-    if (_dialogs.length != before) {
-      notifyListeners();
+    if (_closing.contains(dialogId) || !_dialogs.any((dialog) => dialog.id == dialogId)) {
+      return;
     }
+    _closing.add(dialogId);
+    try {
+      final children = [
+        for (final dialog in _dialogs)
+          if (dialog.spec.parent == dialogId) dialog,
+      ];
+      for (final child in children.reversed) {
+        child.spec.onDismiss?.call();
+        closeDialog(child.id);
+      }
+      _dialogs.removeWhere((dialog) => dialog.id == dialogId);
+    } finally {
+      _closing.remove(dialogId);
+    }
+    notifyListeners();
   }
 
-  /// Идентификатор окна вместе с его описанием: описание неизменяемо, а найти
-  /// окно надо по тому, что вернули показавшему.
   void _afterChange() {
     _watchActive();
     notifyListeners();
@@ -362,11 +389,4 @@ class AppViewController extends ChangeNotifier implements ApplicationView {
     }
     super.dispose();
   }
-}
-
-class _OpenDialog {
-  const _OpenDialog(this.id, this.spec);
-
-  final String id;
-  final DialogSpec spec;
 }

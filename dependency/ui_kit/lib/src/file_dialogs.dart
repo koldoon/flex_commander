@@ -98,8 +98,12 @@ Future<void> askFile(
   );
   state.close = close;
 
+  // Родитель — окно, кнопкой которого это подняли: встаёт по его центру и
+  // уходит вместе с ним (`docs/spec/child-dialogs.md`).
+  final parent = view.topDialogId;
   dialogId = view.showDialog(
     DialogSpec(
+      parent: parent,
       title: title,
       // Своё имя — чтобы окно помнило размер: дерево тянут вниз, когда каталог
       // глубокий, и делать это каждый раз заново незачем.

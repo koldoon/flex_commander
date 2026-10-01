@@ -38,8 +38,12 @@ Future<void> askName(
   state.close = close;
   state.save = save;
 
+  // Родитель — окно, кнопкой которого это подняли: встаёт по его центру и
+  // уходит вместе с ним (`docs/spec/child-dialogs.md`).
+  final parent = view.topDialogId;
   dialogId = view.showDialog(
     DialogSpec(
+      parent: parent,
       title: title,
       takesFocus: true,
       content: _NameForm(state: state, submitLabel: submitLabel),
@@ -68,8 +72,12 @@ Future<void> askConfirm(
     }
   }
 
+  // Родитель — окно, кнопкой которого это подняли: встаёт по его центру и
+  // уходит вместе с ним (`docs/spec/child-dialogs.md`).
+  final parent = view.topDialogId;
   dialogId = view.showDialog(
     DialogSpec(
+      parent: parent,
       title: title,
       takesFocus: true,
       content: CommandDialogConfirm(

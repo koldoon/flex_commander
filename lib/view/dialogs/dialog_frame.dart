@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -34,6 +35,9 @@ class DialogFrame extends StatefulWidget {
     this.hugsContent = false,
     this.id,
     this.resizable = false,
+    this.anchor,
+    this.placed,
+    this.onTop = true,
   });
 
   /// Имя окна: под ним оно помнит о себе всё, что переживает перезапуск
@@ -74,6 +78,26 @@ class DialogFrame extends StatefulWidget {
 
   final Widget child;
 
+  /// Где стоит окно-родитель; null — окно верхнего уровня.
+  ///
+  /// Дочернее встаёт **по центру родителя**: вопрос рядом с тем, о чём он, а
+  /// родитель виден вокруг (`docs/spec/child-dialogs.md`, §4.4). Слушаемое,
+  /// а не значение: родителя таскают, и дочернее идёт за ним.
+  final ValueListenable<Rect?>? anchor;
+
+  /// Куда окно встало — для его потомков.
+  ///
+  /// Сообщается **после** кадра: читать чужой размер посреди раскладки
+  /// нельзя, а дочернее появляется позже родителя, и к его первому кадру
+  /// место родителя уже известно.
+  final ValueNotifier<Rect?>? placed;
+
+  /// Верхнее ли окно стопки: клавиши — ему.
+  ///
+  /// Окно, снова ставшее верхним, возвращает себе фокус — туда, где он был:
+  /// закрыли подтверждение — курсор там же, где стоял в настройках.
+  final bool onTop;
+
   @override
   State<DialogFrame> createState() => _DialogFrameState();
 }
@@ -86,6 +110,10 @@ class _DialogFrameState extends State<DialogFrame> {
   /// фокус само (поле ввода), рама его не забирает, а события всё равно
   /// поднимаются сюда от поля.
   final FocusNode _node = FocusNode(debugLabel: 'dialog frame');
+
+  /// Область фокуса окна — своим узлом: он помнит, где внутри стоял фокус,
+  /// и возвращает его туда, когда окно снова становится верхним.
+  final FocusScopeNode _scope = FocusScopeNode(debugLabel: 'dialog');
 
   /// Куда окно отодвинули от места, назначенного командой.
   ///
@@ -139,9 +167,43 @@ class _DialogFrameState extends State<DialogFrame> {
     }
   }
 
+  /// Сообщить потомкам, где окно встало, — после кадра: значение слушают
+  /// их раскладки, а менять слушаемое посреди своей нельзя.
+  void _reportPlace(Rect place) {
+    final placed = widget.placed;
+    if (placed == null || placed.value == place) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        placed.value = place;
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(DialogFrame oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.onTop && !oldWidget.onTop) {
+      // Дочернее закрылось — фокус обратно, после кадра: дочернее ещё в
+      // дереве, и его область только что отпустила фокус.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        if (_scope.focusedChild == null) {
+          _node.requestFocus();
+        } else {
+          _scope.requestFocus();
+        }
+      });
+    }
+  }
+
   @override
   void dispose() {
     _node.dispose();
+    _scope.dispose();
     super.dispose();
   }
 
@@ -515,8 +577,11 @@ class _DialogFrameState extends State<DialogFrame> {
             // палитра растёт по мере набора, окно выбора вида — вслед за
             // настройками того вида, на котором курсор.
             metrics.dialogTopInset,
+            anchor: widget.anchor,
+            onPlaced: _reportPlace,
           ),
           child: FocusScope(
+            node: _scope,
             autofocus: true,
             // Обработчик стоит на самой области окна: если внутри есть поле
             // ввода, событие поднимется сюда от него, а если фокусировать
@@ -693,7 +758,22 @@ class DialogWidth extends StatelessWidget {
 /// Ниже [minWidth] не жмёт: на узком экране важнее прочитать окно, чем попасть
 /// точно над панелью.
 class _OverArea extends SingleChildLayoutDelegate {
-  const _OverArea(this.area, this.minWidth, this.inset, this.shift, this.keepVisible, this.topInset);
+  _OverArea(
+    this.area,
+    this.minWidth,
+    this.inset,
+    this.shift,
+    this.keepVisible,
+    this.topInset, {
+    this.anchor,
+    this.onPlaced,
+  }) : super(relayout: anchor);
+
+  /// Где стоит родитель; есть — окно встаёт по его центру.
+  final ValueListenable<Rect?>? anchor;
+
+  /// Куда встало окно.
+  final ValueChanged<Rect>? onPlaced;
 
   final DialogArea area;
   final double minWidth;
@@ -752,6 +832,13 @@ class _OverArea extends SingleChildLayoutDelegate {
     // краем в поле и заходит на соседнюю.
     final right = math.max(low, high - childSize.width);
     var x = (size.width * area.center - childSize.width / 2).clamp(math.min(low, right), right).toDouble();
+    final parent = anchor?.value;
+    if (parent != null) {
+      // Дочернее — по центру родителя, а не своей области: вопрос рядом с
+      // тем, о чём он (`docs/spec/child-dialogs.md`, §4.4). За край окна
+      // приложения не выходит — это ниже, общим правилом.
+      x = parent.center.dx - childSize.width / 2;
+    }
 
     // За край окна приложения не выпускаем: на узком окне важнее видеть окно
     // целиком, чем держать его точно над панелью.
@@ -761,7 +848,10 @@ class _OverArea extends SingleChildLayoutDelegate {
     final freeHeight = math.max(0.0, size.height - childSize.height);
     // Высокое окно поднимается ровно настолько, чтобы поместиться: обещание
     // «не дёргаться» кончается там, где начинается «не влезло».
-    final y = math.min(topInset, freeHeight);
+    final y =
+        parent == null
+            ? math.min(topInset, freeHeight)
+            : (parent.center.dy - childSize.height / 2).clamp(0.0, freeHeight).toDouble();
 
     // Отодвинутое руками окно уехать совсем не может: тянут за полосу
     // заголовка, и спрятанное под край не вернуть ничем.
@@ -770,11 +860,13 @@ class _OverArea extends SingleChildLayoutDelegate {
     // приложения меняет размер, и уведённое к правому краю обязано остаться
     // достижимым после того, как приложение сузили.
     final visible = math.min(keepVisible, childSize.width);
-    return Offset(
+    final place = Offset(
       (x + shift.dx).clamp(visible - childSize.width, size.width - visible),
       // По вертикали полоса заголовка видна целиком: за неё и тянут.
       (y + shift.dy).clamp(0.0, freeHeight),
     );
+    onPlaced?.call(place & childSize);
+    return place;
   }
 
   @override
@@ -784,7 +876,8 @@ class _OverArea extends SingleChildLayoutDelegate {
       oldDelegate.inset != inset ||
       oldDelegate.shift != shift ||
       oldDelegate.keepVisible != keepVisible ||
-      oldDelegate.topInset != topInset;
+      oldDelegate.topInset != topInset ||
+      oldDelegate.anchor != anchor;
 }
 
 /// Заголовок, который **не** решает, какой окну быть ширины.
