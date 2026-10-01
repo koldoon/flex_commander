@@ -10,6 +10,7 @@ import 'column_chain.dart';
 import 'file_colors.dart';
 import 'file_type_icon.dart';
 import 'mark_drag.dart';
+import 'panel_drag.dart';
 import 'panels_settings.dart';
 import 'row_cache.dart';
 
@@ -137,6 +138,12 @@ class ColumnsViewState extends State<ColumnsView> {
   int _shownCursor = -1;
   String? _shownPath;
   int _shownCount = -1;
+
+  /// Что обвести, пока над видом несут брошенное: строку-каталог или столбец
+  /// целиком. Считается там же, где решается, куда ляжет, — по точке, а не по
+  /// пути: каталог, в который вошли, виден и строкой, и столбцом справа, и
+  /// обвести надо то, на что указали.
+  Rect? _dropRect;
 
   @override
   void initState() {
@@ -450,6 +457,36 @@ class ColumnsViewState extends State<ColumnsView> {
     return rows[place];
   }
 
+  /// Куда ляжет брошенное: в каталог под указателем, а указали на файл или на
+  /// пустое место столбца — в каталог, который этот столбец показывает.
+  ///
+  /// Не в каталог панели: в столбцах под указателем видно несколько каталогов
+  /// сразу, и промахнуться тут дороже обычного (`panel-view-columns.md`, §9).
+  /// Мимо столбцов — в шапке пустого места справа — бросать некуда.
+  DropSpot? _dropSpotAt(Offset local) {
+    _dropRect = null;
+    if (!widget.panel.source.canWrite) {
+      return null;
+    }
+    final at = _columnAt(local);
+    final columns = _shownChain.columns;
+    final rows = _rows;
+    if (at < 0 || at >= columns.length || columns[at].owner >= rows.length) {
+      return null;
+    }
+    final left = _shownEdges[at] - (_ribbon.hasClients ? _ribbon.offset : 0);
+    final width = _shownWidths[at];
+    final index = _indexAt(local);
+    if (index != null && index < rows.length && rows[index].isDirectory) {
+      final place = columns[at].rows.indexOf(index);
+      _dropRect = Rect.fromLTWH(left, _headerHeight + place * _step - _scrollOf(at), width, _step);
+      return DropSpot(destination: rows[index].path, entry: rows[index]);
+    }
+    final owner = rows[columns[at].owner];
+    _dropRect = Rect.fromLTWH(left, 0, width, _headerHeight + _height);
+    return DropSpot(destination: owner.path, entry: owner);
+  }
+
   /// Строки **своего столбца** между двумя номерами: чужое раскрытое
   /// поддерево, лежащее между соседями по каталогу, пометке не достаётся.
   List<int> _rowsBetween(int low, int high) {
@@ -691,76 +728,84 @@ class ColumnsViewState extends State<ColumnsView> {
               _shownWidths = places;
               _shownEdges = edges;
 
-              return SingleChildScrollView(
-                controller: _ribbon,
-                scrollDirection: Axis.horizontal,
-                child: SizedBox(
-                  height: constraints.maxHeight,
-                  // Не уже обзора: иначе при короткой цепочке лента
-                  // оказывается меньше панели и фон за ней просвечивает.
-                  width: math.max(lane, constraints.maxWidth),
-                  child: Stack(
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          for (var at = 0; at < places.length; at++) ...[
-                            if (at > 0) SizedBox(width: divider, child: ColoredBox(color: theme.colors.columnDivider)),
-                            SizedBox(
-                              width: places[at],
-                              // Место без столбца — пустое: показывать в нём
-                              // пока нечего, но оно есть, и лента от этого не
-                              // меняет ширины.
-                              child:
-                                  at >= chain.columns.length
-                                      ? const SizedBox.expand()
-                                      : _Column(
-                                        panel: panel,
-                                        rows: rows,
-                                        column: chain.columns[at],
-                                        // Строка, из которой вырос столбец справа; -1 —
-                                        // столбец последний. Спрашивается у цепочки, а не
-                                        // выводится из `selected`: в последнем столбце
-                                        // выбранное — это курсор, и справа от него может не
-                                        // быть ничего (файл, закрытая ветвь).
-                                        nextOwner: at + 1 < chain.columns.length ? chain.columns[at + 1].owner : -1,
-                                        current: at == chain.current,
-                                        nameSide:
-                                            widget.settings().trimsNameInMiddle ? FcTrimSide.middle : FcTrimSide.tail,
-                                        colors: FileColors(
-                                          rules: widget.settings().fileColors,
-                                          types: AppScope.read(context).contentTypes,
+              // Приём брошенного — общий на все виды; своё у столбцов только
+              // геометрия (`panel_drag.dart`).
+              return PanelDropArea(
+                panel: panel,
+                spotAt: _dropSpotAt,
+                highlightOf: (_) => _dropRect,
+                child: SingleChildScrollView(
+                  controller: _ribbon,
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                    height: constraints.maxHeight,
+                    // Не уже обзора: иначе при короткой цепочке лента
+                    // оказывается меньше панели и фон за ней просвечивает.
+                    width: math.max(lane, constraints.maxWidth),
+                    child: Stack(
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            for (var at = 0; at < places.length; at++) ...[
+                              if (at > 0)
+                                SizedBox(width: divider, child: ColoredBox(color: theme.colors.columnDivider)),
+                              SizedBox(
+                                width: places[at],
+                                // Место без столбца — пустое: показывать в нём
+                                // пока нечего, но оно есть, и лента от этого не
+                                // меняет ширины.
+                                child:
+                                    at >= chain.columns.length
+                                        ? const SizedBox.expand()
+                                        : _Column(
+                                          panel: panel,
+                                          rows: rows,
+                                          column: chain.columns[at],
+                                          // Строка, из которой вырос столбец справа; -1 —
+                                          // столбец последний. Спрашивается у цепочки, а не
+                                          // выводится из `selected`: в последнем столбце
+                                          // выбранное — это курсор, и справа от него может не
+                                          // быть ничего (файл, закрытая ветвь).
+                                          nextOwner: at + 1 < chain.columns.length ? chain.columns[at + 1].owner : -1,
+                                          current: at == chain.current,
+                                          nameSide:
+                                              widget.settings().trimsNameInMiddle ? FcTrimSide.middle : FcTrimSide.tail,
+                                          colors: FileColors(
+                                            rules: widget.settings().fileColors,
+                                            types: AppScope.read(context).contentTypes,
+                                          ),
+                                          step: _step,
+                                          controller: _verticalOf(rows[chain.columns[at].owner].path),
+                                          onPress: _onPress,
                                         ),
-                                        step: _step,
-                                        controller: _verticalOf(rows[chain.columns[at].owner].path),
-                                        onPress: _onPress,
-                                      ),
-                            ),
+                              ),
+                            ],
                           ],
-                        ],
-                      ),
-                      // Захваты границ — **поверх** столбцов, а не в зазоре
-                      // между ними: проверка попадания идёт по размеру
-                      // родителя, и всё, что нарисовано шире зазора, до жеста
-                      // не доходит (урок `FcSplitView`).
-                      // Захват — только у настоящего столбца: у пустого
-                      // места тянуть нечего.
-                      for (var at = 0; at < chain.columns.length; at++)
-                        Positioned(
-                          left: edges[at] + places[at] + divider / 2 - _ColumnGrip.width / 2,
-                          top: 0,
-                          bottom: 0,
-                          width: _ColumnGrip.width,
-                          child: _ColumnGrip(
-                            // Ширина считается **от положения указателя**, а не
-                            // набегает из его смещений: смещения приходят чаще,
-                            // чем рисуются кадры, и граница отставала бы тем
-                            // сильнее, чем быстрее движение (урок `FcSplitView`).
-                            onDrag: (position) => _resize(chain, rows, at, position - edges[at]),
-                            onReset: () => _resetWidth(chain, rows, at),
-                          ),
                         ),
-                    ],
+                        // Захваты границ — **поверх** столбцов, а не в зазоре
+                        // между ними: проверка попадания идёт по размеру
+                        // родителя, и всё, что нарисовано шире зазора, до жеста
+                        // не доходит (урок `FcSplitView`).
+                        // Захват — только у настоящего столбца: у пустого
+                        // места тянуть нечего.
+                        for (var at = 0; at < chain.columns.length; at++)
+                          Positioned(
+                            left: edges[at] + places[at] + divider / 2 - _ColumnGrip.width / 2,
+                            top: 0,
+                            bottom: 0,
+                            width: _ColumnGrip.width,
+                            child: _ColumnGrip(
+                              // Ширина считается **от положения указателя**, а не
+                              // набегает из его смещений: смещения приходят чаще,
+                              // чем рисуются кадры, и граница отставала бы тем
+                              // сильнее, чем быстрее движение (урок `FcSplitView`).
+                              onDrag: (position) => _resize(chain, rows, at, position - edges[at]),
+                              onReset: () => _resetWidth(chain, rows, at),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -867,16 +912,23 @@ class _ColumnState extends State<_Column> {
         final onTrail = !widget.current && index == column.selected;
         final marked = panel.isMarked(row);
         return _cache.of(index, [row, underCursor, entered, onTrail, marked, active], () {
-          return _ColumnRow(
-            row: row,
-            nameSide: widget.nameSide,
-            color: widget.colors.of(row, FcTheme.of(context).colors),
-            underCursor: underCursor,
-            entered: entered,
-            onTrail: onTrail,
-            marked: marked,
-            panelActive: active,
-            onPress: () => widget.onPress(index),
+          // Строку можно утащить — тем же жестом и по тому же правилу, что в
+          // таблице (`panel_drag.dart`).
+          return panelDragSource(
+            context: context,
+            panel: panel,
+            entry: row,
+            child: _ColumnRow(
+              row: row,
+              nameSide: widget.nameSide,
+              color: widget.colors.of(row, FcTheme.of(context).colors),
+              underCursor: underCursor,
+              entered: entered,
+              onTrail: onTrail,
+              marked: marked,
+              panelActive: active,
+              onPress: () => widget.onPress(index),
+            ),
           );
         });
       },

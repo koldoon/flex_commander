@@ -219,6 +219,79 @@ void main() {
     });
   });
 
+  group('столбцы', () {
+    /// Левая панель показывает столбцы. Живая находка 1 октября 2026: вид
+    /// обещал перетаскивание «даром» (`panel-view-columns.md`, §9), а
+    /// подключить его забыли — ни тянуть, ни бросать было нельзя.
+    Future<void> pumpColumns(WidgetTester tester) async {
+      await pumpApp(tester);
+      await app.left.setView(ColumnsView.viewId);
+      await tester.pumpAndSettle();
+    }
+
+    Finder cell(String name) => find.descendant(of: find.byType(ColumnsView), matching: find.text(name));
+
+    testWidgets('брошенное на каталог ложится в него', (tester) async {
+      await pumpColumns(tester);
+
+      await sendDrop(tester, 'drop', at: tester.getCenter(cell('docs')), paths: const ['/outside/dropped.txt']);
+      await startWork(tester, 'Copy');
+
+      expect(await provider.resolvePath().run('/home/docs/dropped.txt'), isNotNull);
+    });
+
+    testWidgets('брошенное на файл ложится в каталог его столбца', (tester) async {
+      await pumpColumns(tester);
+
+      await sendDrop(tester, 'drop', at: tester.getCenter(cell('note.txt')), paths: const ['/outside/dropped.txt']);
+      await startWork(tester, 'Copy');
+
+      expect(await provider.resolvePath().run('/home/dropped.txt'), isNotNull);
+    });
+
+    testWidgets('брошенное в пустое место столбца ложится в его каталог', (tester) async {
+      await pumpColumns(tester);
+
+      final note = tester.getCenter(cell('note.txt'));
+      final view = tester.getRect(find.byType(ColumnsView));
+      await sendDrop(tester, 'drop', at: Offset(note.dx, view.bottom - 8), paths: const ['/outside/dropped.txt']);
+      await startWork(tester, 'Copy');
+
+      expect(await provider.resolvePath().run('/home/dropped.txt'), isNotNull);
+    });
+
+    testWidgets('строку столбца тащат наружу', (tester) async {
+      final asked = <MethodCall>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel(SystemDropService.channelName),
+        (call) async {
+          asked.add(call);
+          return true;
+        },
+      );
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+          const MethodChannel(SystemDropService.channelName),
+          null,
+        ),
+      );
+      await pumpColumns(tester);
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(cell('note.txt')),
+        kind: PointerDeviceKind.mouse,
+        buttons: kPrimaryMouseButton,
+      );
+      await gesture.moveBy(const Offset(24, 0));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(asked.map((call) => call.method), ['beginDrag']);
+      expect((asked.single.arguments as Map)['paths'], ['/home/note.txt']);
+    });
+  });
+
   group('наружу', () {
     late List<MethodCall> asked;
 
