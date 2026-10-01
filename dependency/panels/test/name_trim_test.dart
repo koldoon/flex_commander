@@ -3,6 +3,7 @@ import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -82,6 +83,48 @@ void main() {
     expect(name, startsWith('невер'));
     expect(name, endsWith('ширины'), reason: 'ради хвоста всё и затевалось');
     expect(name, contains('…'));
+
+    await disposeScreen(tester);
+  });
+
+  /// Найдено на живом: в сетке значков от имени без пробелов оставалось одно
+  /// многоточие на второй строке. Плашку под именем мерили по имени целиком, а
+  /// набирали в неё обрезанное серединой — оно переносится по-другому, вторая
+  /// строка не влезала и срезалась.
+  testWidgets('в сетке обрезанное серединой имя видно целиком', (tester) async {
+    // Подобрано под Ahem: в две строки, и вторая у необрезанного короче.
+    const solid = 'yosemit yyyyyy.png';
+    final runtime = await testApp(
+      provider: InMemoryTreeProvider([FakeEntry.directory('/home'), FakeEntry.file('/home/$solid', size: 10)])
+        ..home = '/home',
+      modules: featureModules(),
+    );
+    await runtime.app.start();
+    tester.view.physicalSize = const Size(900, 400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+    settingsOf(runtime).nameTrim = PanelsSettings.trimMiddle;
+    await runtime.app.left.setView(IconsView.viewId);
+    await tester.pumpAndSettle();
+
+    // Обе панели смотрят в один каталог — берётся сетка левой.
+    final name = find.byWidgetPredicate((widget) => widget is Text && (widget.data ?? '').startsWith('yosemit')).first;
+    final shown = tester.widget<Text>(name).data!;
+    expect(shown, contains('…'));
+    expect(shown, endsWith('.png'), reason: 'ради хвоста серединой и режут');
+
+    final paragraph = tester.renderObject<RenderParagraph>(find.descendant(of: name, matching: find.byType(RichText)));
+    expect(paragraph.didExceedMaxLines, isFalse, reason: 'обрезанное имя должно влезть в свои строки целиком');
+
+    // И коробка под имя не уже его самой длинной строки — ровно это и ломалось:
+    // её мерили по необрезанному имени, у которого последняя строка короче.
+    final box = tester.getSize(find.ancestor(of: name, matching: find.byType(SizedBox)).first);
+    final widest = paragraph
+        .getBoxesForSelection(TextSelection(baseOffset: 0, extentOffset: shown.length))
+        .fold<double>(0, (width, line) => width > line.right ? width : line.right);
+    expect(box.width + 0.01, greaterThanOrEqualTo(widest));
 
     await disposeScreen(tester);
   });

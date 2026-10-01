@@ -167,16 +167,18 @@ class IconTile extends StatelessWidget {
     // Плашка облегает имя: не всю отведённую ширину, а самую длинную строку
     // набранного. Короткое имя — короткая плашка; имя в две строки — плашка по
     // длинной из них, а не во всю плитку.
-    final taken = math.min(
-      room,
-      textWidestLine(
-        entry.name,
-        FcTheme.effective(context, style),
-        room,
-        MediaQuery.textScalerOf(context),
-        maxLines: nameLines,
-      ),
-    );
+    //
+    // Мерится **показанное**, а не имя: обрезанное серединой переносится
+    // по-своему, и плашка по необрезанному оказывалась уже его второй строки —
+    // та срезалась, и под значком оставалось одно многоточие. У обрезки хвоста
+    // показанное и есть имя: многоточие ставит сам набор, и мерка его знает.
+    final measured = FcTheme.effective(context, style);
+    final scaler = MediaQuery.textScalerOf(context);
+    final shown =
+        nameSide == FcTrimSide.middle
+            ? trimTextMiddle(entry.name, measured, room, scaler, maxLines: nameLines)
+            : entry.name;
+    final taken = math.min(room, textWidestLine(shown, measured, room, scaler, maxLines: nameLines));
 
     final Widget text = Padding(
       // Снизу поле: буквы упирались в нижний край плашки. Сверху их отбивает
