@@ -50,6 +50,9 @@ SCREENS = [
     ('Screen table', 'design_anchor.png', '1AEC2F05-A775-4866-AF7C-3109DA659692'),
     ('Screen brief', 'anchor_panel_brief.png', '2050F604-D705-4C4F-BEE2-87F46CBB1FA9'),
     ('Screen tree', 'anchor_panel_tree.png', '9ADC3C0C-E182-4358-A0A5-46B0674DEDAD'),
+    ('Screen columns', 'anchor_panel_columns.png', 'DEDB624E-5A54-4FC5-B5A6-1FA8CDBD110F'),
+    ('Screen combined', 'anchor_panel_combined.png', '7696E679-3F00-47BE-B177-5EC3FB7B159B'),
+    ('Screen icons', 'anchor_panel_icons.png', '0A66A693-4EF1-40B2-AD97-FEB8C3CC2111'),
 ]
 
 PANEL = (14, 29, 59)

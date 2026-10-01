@@ -22,7 +22,7 @@ description: Дизайн-система Flex Commander в Sketch — файл d
 | `Foundations` | шапка, 75 плашек ролей (и ещё по 75 у оформлений macOS — кадры `02a`, `02b`), 24 образца набора и каталог 15 ролей `FcIcons`, линейки 94 метрик, таблица `FcTheme → стиль + цвет` |
 | `Components` | витрина: `Controls`, `Panel parts`, `Surfaces`, `Dialogs` |
 | `Screens` | главное окно в каждом из трёх видов панели и оно же с окном команды |
-| `Symbols` | 69 мастеров |
+| `Symbols` | 71 мастер |
 
 Рядом: `docs/design/design.png` — светлый референс исходного приложения,
 и `~/Documents/Flex Commander Theme.sketch` — его же исходник в Sketch, годится
@@ -61,7 +61,7 @@ grep -E '^\s*double get \w+ =>' dependency/default_theme/lib/src/default_metrics
   группа `terminal/`: у цветов ANSI роли нет, есть номер (`terminal/ansi-4`).
   Алиасов у swatch нет, поэтому примитивов палитры в файле нет: происхождение
   цвета написано подписью под плашкой.
-- **30 стилей текста** — `UI/*`, `Fixed/*`, `Icon/*`. Стиль в Sketch несёт цвет,
+- **32 стиля текста** — `UI/*`, `Fixed/*`, `Icon/*`. Стиль в Sketch несёт цвет,
   поэтому стиль — это пара «набор × роль цвета». Шрифтов ровно три и других
   быть не должно: `Ubuntu` — интерфейс, `Consolas` — список файлов
   (`DefaultFonts.fixed`), `FontAwesome` — иконки. **`Menlo` не используется**:
