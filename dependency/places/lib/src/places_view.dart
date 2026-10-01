@@ -228,6 +228,10 @@ class _PlacesList extends StatelessWidget {
     return LayoutBuilder(
       builder: (listContext, constraints) {
         return Stack(
+          // Линия вставки стоит серединой на границе строк, и над первой
+          // строкой половина её — выше списка. Обрезанная, она там
+          // превращалась в огрызок; место есть — поле под плашкой.
+          clipBehavior: Clip.none,
           children: [
             ListView.builder(
               controller: scroll,
