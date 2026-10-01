@@ -74,11 +74,25 @@ List<SettingsPage> themeEditorPages(
   put(
     fontSection,
     _fontField(
-      'fixed',
+      'list',
       title: 'File list font',
-      description: 'Monospaced, so that sizes and dates stand in columns',
-      // Только моноширинные: пропорциональным шрифтом столбцы размеров и дат
-      // перестают стоять столбцами, и выбрать его — значит сломать список.
+      description: 'Any font; sizes and dates keep their columns with table digits',
+      // Любой: столбцы держат табличные цифры набора списка, а коду и
+      // терминалу этот выбор не достаётся — у них свой, моноширинный
+      // (`docs/spec/list-font.md`).
+      installed: fonts,
+      defaultValue: base.list,
+      read: () => themes.current.fonts.list,
+      write: (value) => overlay.setListFont(value == base.list ? null : value),
+    ),
+  );
+  put(
+    fontSection,
+    _fontField(
+      'fixed',
+      title: 'Monospaced font',
+      description: 'Code blocks, the terminal, the command line, the text viewer and editor',
+      // Только моноширинные: код без них не читается, а терминал не работает.
       installed: [
         for (final font in fonts)
           if (font.fixedPitch) font,
@@ -92,8 +106,8 @@ List<SettingsPage> themeEditorPages(
     fontSection,
     SettingsField.list(
       'fixedFallback',
-      title: 'File list fallback fonts',
-      description: 'What to set the list in when the font above is not installed',
+      title: 'Monospaced fallback fonts',
+      description: 'What to use when the monospaced font is not installed',
       hint: 'Menlo',
       defaultValue: base.fixedFallback,
       read: () => themes.current.fonts.fixedFallback,

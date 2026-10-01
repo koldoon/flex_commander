@@ -33,17 +33,22 @@ class ThemeEdit {
   /// что выберет система».
   String? uiFont;
 
-  /// Шрифт списка файлов; null — берётся у темы.
+  /// Моноширинный шрифт (код, терминал, просмотр); null — берётся у темы.
   String? fixedFont;
 
-  /// Запасные шрифты списка; null — берутся у темы.
+  /// Шрифт списка файлов; null — берётся у темы, а там, где он у темы выведен
+  /// из моноширинного, — идёт за [fixedFont] (`docs/spec/list-font.md`, §2).
+  String? listFont;
+
+  /// Запасные моноширинного шрифта; null — берутся у темы.
   List<String>? fallback;
 
   /// Нечего применять: тема останется такой, какой её объявил модуль.
-  bool get isEmpty => colors.isEmpty && metrics.isEmpty && uiFont == null && fixedFont == null && fallback == null;
+  bool get isEmpty =>
+      colors.isEmpty && metrics.isEmpty && uiFont == null && fixedFont == null && listFont == null && fallback == null;
 
   /// Сколько ролей поправлено — это число и говорит «Reset all».
-  int get length => colors.length + metrics.length + [uiFont, fixedFont, fallback].nonNulls.length;
+  int get length => colors.length + metrics.length + [uiFont, fixedFont, listFont, fallback].nonNulls.length;
 
   /// Забыть все правки; имя и база остаются — своя тема не исчезает оттого, что
   /// её вернули к базовой.
@@ -52,6 +57,7 @@ class ThemeEdit {
     metrics.clear();
     uiFont = null;
     fixedFont = null;
+    listFont = null;
     fallback = null;
   }
 
@@ -62,6 +68,7 @@ class ThemeEdit {
     copy.metrics.addAll(metrics);
     copy.uiFont = uiFont;
     copy.fixedFont = fixedFont;
+    copy.listFont = listFont;
     copy.fallback = fallback == null ? null : [...fallback!];
     return copy;
   }
@@ -75,6 +82,7 @@ class ThemeEdit {
     'fonts': {
       if (uiFont case final font?) 'ui': font,
       if (fixedFont case final font?) 'fixed': font,
+      if (listFont case final font?) 'list': font,
       if (fallback case final list?) 'fixedFallback': list,
     },
   };
@@ -113,6 +121,7 @@ class ThemeEdit {
     if (stored['fonts'] case final Map<String, dynamic> fonts) {
       edit.uiFont = fonts['ui'] is String ? fonts['ui'] as String : null;
       edit.fixedFont = fonts['fixed'] is String ? fonts['fixed'] as String : null;
+      edit.listFont = fonts['list'] is String ? fonts['list'] as String : null;
       edit.fallback =
           fonts['fixedFallback'] is List
               ? [

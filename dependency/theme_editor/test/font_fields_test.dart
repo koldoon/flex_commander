@@ -114,4 +114,35 @@ void main() {
     (fieldOf('fixed', fonts: installed) as SettingsOption).write(const DefaultFonts().fixed);
     expect(overlay.currentEdit.fixedFont, isNull, reason: 'запись, повторяющая тему, правкой не считается');
   });
+
+  group('шрифт списка — своей ролью (`docs/spec/list-font.md`)', () {
+    const installed = [SystemFont(family: 'Ubuntu', fixedPitch: false), SystemFont(family: 'Menlo', fixedPitch: true)];
+
+    test('списку предлагается любой шрифт, моноширинной роли — только моноширинные', () {
+      final list = fieldOf('list', fonts: installed) as SettingsOption;
+      expect(list.allowed.keys, containsAll(['Ubuntu', 'Menlo']));
+      final fixed = fieldOf('fixed', fonts: installed) as SettingsOption;
+      expect(fixed.allowed.keys, isNot(contains('Ubuntu')));
+    });
+
+    test('выбрали шрифт списка — моноширинный не тронут', () {
+      (fieldOf('list', fonts: installed) as SettingsOption).write('Ubuntu');
+      expect(themes.current.fonts.list, 'Ubuntu');
+      expect(themes.current.fonts.fixed, const DefaultFonts().fixed, reason: 'код и терминал — прежним');
+    });
+
+    test('поправили моноширинный, а шрифт списка не называли — список идёт за ним', () {
+      // Раньше это была одна роль, и правили её ради списка: своя тема с
+      // поправленным моноширинным не должна сменить шрифт панелей сама собой.
+      (fieldOf('fixed', fonts: installed) as SettingsOption).write('Menlo');
+      expect(themes.current.fonts.list, 'Menlo');
+    });
+
+    test('шрифт списка едет в файл темы и обратно', () {
+      final edit = ThemeEdit(id: 'mine', base: 'default', title: 'Mine')..listFont = 'Ubuntu';
+      final back = ThemeEdit.fromJson(edit.toJson());
+      expect(back?.listFont, 'Ubuntu');
+      expect(back?.fixedFont, isNull);
+    });
+  });
 }

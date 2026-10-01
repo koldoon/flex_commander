@@ -79,6 +79,8 @@ class ThemeOverlay {
 
   void setFixedFont(String? value) => _edit((edit) => edit.fixedFont = value);
 
+  void setListFont(String? value) => _edit((edit) => edit.listFont = value);
+
   void setFallback(List<String>? value) => _edit((edit) => edit.fallback = value);
 
   /// Забыть правки темы, что на экране; возвращает, сколько их было.
@@ -199,7 +201,13 @@ class ThemeOverlay {
               // Глифы иконок не правятся: это кодовые точки шрифта, и
               // перебирать их вслепую человеку не по чему (§12).
               icons: base.icons,
-              fonts: OverlayFonts(base.fonts, uiFont: edit.uiFont, fixedFont: edit.fixedFont, fallback: edit.fallback),
+              fonts: OverlayFonts(
+                base.fonts,
+                uiFont: edit.uiFont,
+                fixedFont: edit.fixedFont,
+                listFont: edit.listFont,
+                fallback: edit.fallback,
+              ),
             );
 
     _applied[edit.id] = spec;

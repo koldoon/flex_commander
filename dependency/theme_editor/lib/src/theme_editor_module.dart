@@ -94,9 +94,13 @@ const Map<String, String> _russian = {
   'Interface font': 'Шрифт интерфейса',
   'Family name; empty means the one the system picks': 'Название семейства; пусто — тот, что выберет система',
   'File list font': 'Шрифт списка файлов',
-  'Monospaced, so that sizes and dates stand in columns': 'Моноширинный, чтобы размеры и даты стояли столбцами',
-  'File list fallback fonts': 'Запасные шрифты списка',
-  'What to set the list in when the font above is not installed': 'Чем набрать список, если шрифта выше в системе нет',
+  'Any font; sizes and dates keep their columns with table digits':
+      'Любой; размеры и даты держат столбцы табличными цифрами',
+  'Monospaced font': 'Моноширинный шрифт',
+  'Code blocks, the terminal, the command line, the text viewer and editor':
+      'Врезки кода, терминал, командная строка, просмотрщик и редактор текста',
+  'Monospaced fallback fonts': 'Запасные моноширинного',
+  'What to use when the monospaced font is not installed': 'Чем набирать, если моноширинного шрифта в системе нет',
 };
 
 /// Множественные формы: ключ — форма `other`, какой её назвали на месте.

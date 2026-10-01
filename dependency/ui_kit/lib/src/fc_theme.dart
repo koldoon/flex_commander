@@ -54,11 +54,24 @@ class FcTheme extends ThemeExtension<FcTheme> {
   );
 
   /// Строка списка файлов.
+  late final TextStyle rowStyle = listStyle.copyWith(color: colors.rowText);
+
+  /// Набор списка файлов — своим шрифтом ([FcFonts.list]), а не моноширинным
+  /// кода и терминала (`docs/spec/list-font.md`).
   ///
-  /// С запасными семействами: шрифт списка берётся из системы, и на машине, где
-  /// его нет, подстановку надо назвать самим — иначе список набирается
-  /// пропорциональным, и столбцы разъезжаются.
-  late final TextStyle rowStyle = fixedStyle.copyWith(color: colors.rowText);
+  /// **Запасные** — моноширинный темы и его запасные: не нашлось шрифта
+  /// списка — список набирается как раньше, и столбцы остаются столбцами.
+  ///
+  /// **Табличные цифры**: у пропорционального шрифта цифры разной ширины, и
+  /// столбец размеров ходил бы ступенями. У моноширинного это не меняет ничего.
+  ///
+  /// Межстрочная и разрядка — те же, что у моноширинного: высота строки списка
+  /// от выбора шрифта не прыгает.
+  late final TextStyle listStyle = fixedStyle.copyWith(
+    fontFamily: fonts.list,
+    fontFamilyFallback: fonts.list == fonts.fixed ? fonts.fixedFallback : [fonts.fixed, ...fonts.fixedFallback],
+    fontFeatures: const [FontFeature.tabularFigures()],
+  );
 
   /// Моноширинный набор: семейство **вместе с запасными** и своей межстрочной.
   ///
@@ -91,8 +104,8 @@ class FcTheme extends ThemeExtension<FcTheme> {
   /// у остальных нет.
   static const double terminalLineHeight = 1.2;
 
-  /// Колонки с числами и датами. Шрифт списка моноширинный, поэтому отдельная
-  /// настройка цифр не нужна — столбец и так не «прыгает».
+  /// Колонки с числами и датами: цифры у набора списка и так табличные
+  /// ([listStyle]), и столбец не «прыгает» ни при каком шрифте.
   late final TextStyle numericStyle = rowStyle;
 
   late final TextStyle headerStyle = uiStyle.copyWith(color: colors.headerText);
