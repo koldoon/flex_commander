@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/gestures.dart';
@@ -43,7 +44,9 @@ class _PlacesViewState extends State<PlacesView> {
     super.dispose();
   }
 
-  double _rowHeight(FcMetrics metrics) => metrics.rowHeight;
+  /// Шаг строки — тот же, что у списка панели: «Icon size» делает строки
+  /// выше и там, и здесь.
+  double _rowHeight(FcMetrics metrics) => FileIconSize.listRow(metrics, AppScope.read(context).fileIcons);
 
   /// Позиция между строками под точкой списка: 0 — над первой, n — под
   /// последней.
@@ -224,6 +227,9 @@ class _PlacesList extends StatelessWidget {
     final metrics = theme.metrics;
     final places = state.places;
     final slot = dropSlot;
+    final icons = AppScope.read(context).fileIcons;
+    final rowHeight = FileIconSize.listRow(metrics, icons);
+    final iconSize = FileIconSize.of(metrics, icons);
 
     return LayoutBuilder(
       builder: (listContext, constraints) {
@@ -236,13 +242,14 @@ class _PlacesList extends StatelessWidget {
             ListView.builder(
               controller: scroll,
               padding: EdgeInsets.zero,
-              itemExtent: metrics.rowHeight,
+              itemExtent: rowHeight,
               itemCount: places.length,
               itemBuilder: (context, index) {
                 final renaming = state.renaming == index;
                 final row = _PlaceRow(
                   state: state,
                   place: places[index],
+                  iconSize: iconSize,
                   selected: focused && state.cursor == index,
                   renaming: renaming,
                 );
@@ -286,7 +293,7 @@ class _PlacesList extends StatelessWidget {
               Positioned(
                 left: 0,
                 right: 0,
-                top: slot * metrics.rowHeight - (scroll.hasClients ? scroll.offset : 0) - _DropLine.height / 2,
+                top: slot * rowHeight - (scroll.hasClients ? scroll.offset : 0) - _DropLine.height / 2,
                 height: _DropLine.height,
                 child: const _DropLine(),
               ),
@@ -324,10 +331,17 @@ class _DropLine extends StatelessWidget {
 }
 
 class _PlaceRow extends StatelessWidget {
-  const _PlaceRow({required this.state, required this.place, required this.selected, required this.renaming});
+  const _PlaceRow({
+    required this.state,
+    required this.place,
+    required this.iconSize,
+    required this.selected,
+    required this.renaming,
+  });
 
   final PlacesState state;
   final Place place;
+  final double iconSize;
   final bool selected;
   final bool renaming;
 
@@ -350,13 +364,6 @@ class _PlaceRow extends StatelessWidget {
     final metrics = theme.metrics;
     final name = state.nameOf(place);
     final style = selected ? theme.uiStyle.copyWith(color: colors.cursorText) : theme.uiStyle;
-    final glyph = TextStyle(
-      fontFamily: theme.icons.fontFamily,
-      fontSize: metrics.iconSize,
-      color: selected ? colors.iconSelected : colors.icon,
-      height: 1,
-    );
-
     final row = Padding(
       padding: EdgeInsets.only(bottom: metrics.rowGap),
       child: DecoratedBox(
@@ -371,8 +378,15 @@ class _PlaceRow extends StatelessWidget {
           child: Row(
             children: [
               SizedBox(
-                width: metrics.iconSize,
-                child: Center(child: Text(String.fromCharCode(_iconOf(theme.icons).codePoint), style: glyph)),
+                width: iconSize,
+                child: Center(
+                  child: _PlaceIcon(
+                    path: state.localPathOf(place),
+                    glyph: _iconOf(theme.icons),
+                    size: iconSize,
+                    selected: selected,
+                  ),
+                ),
               ),
               SizedBox(width: metrics.iconGap),
               Expanded(
@@ -391,6 +405,91 @@ class _PlaceRow extends StatelessWidget {
     // попытка (`docs/spec/favorites-sidebar.md`, §5.3).
     return state.isUnreachable(place) ? Opacity(opacity: 0.5, child: row) : row;
   }
+}
+
+/// Значок места: значок системы, если он включён и у места есть путь на этой
+/// машине, иначе — глиф места.
+///
+/// Спрашивает ту же службу значков, что и строка панели, — каталогом с этим
+/// путём: правила значков и флаг «System icons» действуют здесь так же, как
+/// там. Берётся только **картинка**: глиф папки из правил хуже своего глифа
+/// места — дома, загрузок, программ (`docs/spec/favorites-sidebar.md`, §2).
+class _PlaceIcon extends StatefulWidget {
+  const _PlaceIcon({required this.path, required this.glyph, required this.size, required this.selected});
+
+  final String? path;
+  final IconData glyph;
+  final double size;
+  final bool selected;
+
+  @override
+  State<_PlaceIcon> createState() => _PlaceIconState();
+}
+
+class _PlaceIconState extends State<_PlaceIcon> {
+  ImageProvider? _picture;
+
+  /// О чём спрашивали в последний раз: строки списка переиспользуются, и
+  /// опоздавший ответ про чужое место не должен лечь на эту строку.
+  String _askedFor = '';
+
+  @override
+  Widget build(BuildContext context) {
+    _resolve(context);
+    final picture = _picture;
+    if (picture != null) {
+      // Картинка как есть, без перекраски под курсором — как в панели.
+      return Image(
+        image: picture,
+        width: widget.size,
+        height: widget.size,
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.medium,
+      );
+    }
+    final theme = FcTheme.of(context);
+    return Text(
+      String.fromCharCode(widget.glyph.codePoint),
+      style: TextStyle(
+        fontFamily: theme.icons.fontFamily,
+        fontSize: theme.metrics.iconSize,
+        color: widget.selected ? theme.colors.iconSelected : theme.colors.icon,
+        height: 1,
+      ),
+    );
+  }
+
+  void _resolve(BuildContext context) {
+    final path = widget.path;
+    final icons = AppScope.read(context).fileIcons;
+    final ratio = MediaQuery.devicePixelRatioOf(context);
+    final key = '$path|${widget.size}|$ratio';
+    if (key == _askedFor) {
+      return;
+    }
+    _askedFor = key;
+    _picture = null;
+    if (path == null || icons == null) {
+      return;
+    }
+    final slash = path.lastIndexOf('/');
+    final entry = FileEntry(
+      name: slash < 0 || slash == path.length - 1 ? path : path.substring(slash + 1),
+      kind: EntryKind.directory,
+      path: path,
+      displayPath: path,
+      realPath: path,
+    );
+    final answer = icons.resolve(entry, pixels: (widget.size * ratio).round(), stillWanted: () => mounted);
+    _picture = _pictureOf(answer.now);
+    answer.later?.then((icon) {
+      if (mounted && key == _askedFor) {
+        setState(() => _picture = _pictureOf(icon));
+      }
+    });
+  }
+
+  static ImageProvider? _pictureOf(FileIcon icon) => icon is IconPicture ? icon.image : null;
 }
 
 /// Имя места на месте подписи: `Enter` — принять, `Esc` — отказ.

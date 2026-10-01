@@ -72,6 +72,32 @@ class PlacesState extends ChangeNotifier implements ViewportState {
 
   String _key(String address) => PlaceAddress.normalize(address, home: _home);
 
+  /// Путь места на этой машине; null — у места его нет.
+  ///
+  /// Нужен значку системы: она рисует его по настоящему пути. У сервера и у
+  /// места в архиве пути этой машины нет, у `~` без известного домашнего
+  /// каталога — тоже.
+  String? localPathOf(Place place) {
+    switch (PlaceAddress.kindOf(place.address)) {
+      case PlaceKind.server || PlaceKind.archive:
+        return null;
+      default:
+        break;
+    }
+    final address = PlaceAddress.normalize(place.address);
+    if (address.startsWith('/')) {
+      return address;
+    }
+    final home = _home;
+    if (home.isEmpty) {
+      return null;
+    }
+    if (address == '~') {
+      return home;
+    }
+    return address.startsWith('~/') ? '$home${address.substring(1)}' : null;
+  }
+
   /// Индекс места с таким адресом; -1 — такого нет.
   int indexOf(String address) {
     final key = _key(address);
