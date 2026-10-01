@@ -59,6 +59,35 @@ class DefaultIcons extends FcIcons {
   @override
   IconData get exclamation => _icon(0xf12a);
 
+  @override
+  IconData get home => _icon(0xf015);
+
+  /// `fa-desktop` — монитор.
+  @override
+  IconData get desktop => _icon(0xf108);
+
+  /// `fa-file-text-o` — контурный, в одном весе с [file].
+  @override
+  IconData get documents => _icon(0xf0f6);
+
+  @override
+  IconData get downloads => _icon(0xf019);
+
+  /// `fa-th` — сетка, как Launchpad.
+  @override
+  IconData get applications => _icon(0xf00a);
+
+  /// `fa-hdd-o` — диск.
+  @override
+  IconData get volume => _icon(0xf0a0);
+
+  @override
+  IconData get server => _icon(0xf233);
+
+  /// `fa-archive` — ящик.
+  @override
+  IconData get archive => _icon(0xf187);
+
   // Анализатор предлагает сделать IconData константой — но именно этого мы и
   // не хотим: шрифт берётся у темы, а она известна только во время работы.
   // ignore: non_const_argument_for_const_parameter

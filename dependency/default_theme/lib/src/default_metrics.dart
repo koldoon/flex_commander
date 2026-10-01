@@ -344,4 +344,13 @@ class DefaultMetrics extends FcMetrics {
 
   @override
   double get minPanelWidth => 220;
+
+  @override
+  double get sidebarWidth => 150;
+
+  @override
+  double get sidebarMinWidth => 100;
+
+  @override
+  double get sidebarMaxWidth => 320;
 }

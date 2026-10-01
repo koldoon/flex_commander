@@ -1,6 +1,8 @@
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flutter/material.dart';
 
+import '../state/app_view_controller.dart';
+
 import 'dialogs/command_dialog_layer.dart';
 import 'dialogs/credentials_layer.dart';
 import 'dialogs/elevation_layer.dart';
@@ -52,6 +54,48 @@ class AppShell extends StatelessWidget {
       left: _column(context, app, ViewportPosition.left),
       right: _column(context, app, ViewportPosition.right),
     );
+  }
+
+  /// Боковая полоса и рабочая область — рядом, через зазор.
+  ///
+  /// Полоса стоит **по высоте панелей**, над командной строкой, а не рядом с
+  /// ней: строка остаётся во всю ширину окна (`spec/favorites-sidebar.md`, §2).
+  /// Ширину полоса держит сама — как полоса командной строки держит свою
+  /// высоту.
+  Widget _panelsRow(BuildContext context, Application app) {
+    final work = _MeasuredPanels(view: app.view, child: _workArea(context, app));
+    final sidebar = _sidebar(context, app);
+    if (sidebar == null) {
+      return work;
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        sidebar,
+        SizedBox(width: FcTheme.of(context).metrics.areaGap),
+        // Край окна слева теперь у полосы: рамка левой панели замыкается.
+        Expanded(child: WindowEdges(left: false, child: work)),
+      ],
+    );
+  }
+
+  /// Боковая полоса избранного; null — её нет: ни виджета, ни зазора.
+  ///
+  /// Под полноэкранным её нет, как нет там и командной строки: просмотрщику и
+  /// редактору отдано всё окно, а переходить из них по местам некуда.
+  Widget? _sidebar(BuildContext context, Application app) {
+    if (app.view.contentAt(ViewportPosition.fullscreen) != null) {
+      return null;
+    }
+    final content = app.view.contentAt(ViewportPosition.sidebar);
+    if (content == null) {
+      return null;
+    }
+    final build = app.views.builderFor(content);
+    if (build == null) {
+      return null;
+    }
+    return ViewportScope(position: ViewportPosition.sidebar, child: build(context, content));
   }
 
   /// Панель и всё, что стоит под ней, — столбец областей через зазор.
@@ -203,7 +247,7 @@ class AppShell extends StatelessWidget {
                   Expanded(
                     child: Padding(
                       padding: EdgeInsets.symmetric(horizontal: metrics.windowSidePadding),
-                      child: ListenableBuilder(listenable: app.view, builder: (context, _) => _workArea(context, app)),
+                      child: ListenableBuilder(listenable: app.view, builder: (context, _) => _panelsRow(context, app)),
                     ),
                   ),
                   Padding(
@@ -249,5 +293,65 @@ class AppShell extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Рабочая область, которая умеет сказать, где она стоит.
+///
+/// Окна команд встают над своей панелью, и место это — доля ширины окна. С
+/// боковой полосой панели занимают окно не целиком, и долю разделителя уже
+/// нельзя считать долей окна. Сколько отняла полоса, видно только по
+/// раскладке, — её и спрашивают, **когда окно встаёт**, а не запоминают
+/// заранее: ширину полосы тянут мышью, и запомненное устарело бы молча.
+class _MeasuredPanels extends StatefulWidget {
+  const _MeasuredPanels({required this.view, required this.child});
+
+  final ApplicationView view;
+  final Widget child;
+
+  @override
+  State<_MeasuredPanels> createState() => _MeasuredPanelsState();
+}
+
+class _MeasuredPanelsState extends State<_MeasuredPanels> {
+  double _windowWidth = 0;
+  double _sidePadding = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller?.measurePanels(_measure);
+  }
+
+  @override
+  void dispose() {
+    _controller?.measurePanels(null);
+    super.dispose();
+  }
+
+  AppViewController? get _controller => switch (widget.view) {
+    final AppViewController controller => controller,
+    _ => null,
+  };
+
+  /// Доля окна от левого края рабочей области до правого края окна.
+  ///
+  /// Поле окна в долю не входит: без полосы ответ — всё окно, ровно как
+  /// считали до неё, и окна команд не сдвигаются ни на точку.
+  DialogArea _measure() {
+    final box = context.findRenderObject();
+    if (!mounted || box is! RenderBox || !box.hasSize || _windowWidth <= 0) {
+      return DialogArea.window;
+    }
+    final left = box.localToGlobal(Offset.zero).dx - _sidePadding;
+    final start = (left / _windowWidth).clamp(0.0, 0.9);
+    return start <= 0 ? DialogArea.window : DialogArea(start: start);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _windowWidth = MediaQuery.sizeOf(context).width;
+    _sidePadding = FcTheme.of(context).metrics.windowSidePadding;
+    return widget.child;
   }
 }

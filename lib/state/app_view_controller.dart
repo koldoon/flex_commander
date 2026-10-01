@@ -300,6 +300,28 @@ class AppViewController extends ChangeNotifier implements ApplicationView {
     notifyListeners();
   }
 
+  /// Сколько окна досталось панелям — от края боковой полосы до правого
+  /// края; спрашивается у раскладки.
+  ///
+  /// Меряет шелл ([measurePanels]): ширину полосы держит её модуль и тянут
+  /// мышью, вывести её отсюда не из чего. Нет мерила — всё окно, как было до
+  /// полосы.
+  DialogArea Function()? _panels;
+
+  /// Шелл даёт мерило рабочей области; null — забирает.
+  void measurePanels(DialogArea Function()? measure) => _panels = measure;
+
+  @override
+  DialogArea panelArea(ViewportPosition side) {
+    final panels = _panels?.call() ?? DialogArea.window;
+    final split = panels.start + panels.width * _app.splitRatio;
+    return switch (side) {
+      ViewportPosition.left => DialogArea(start: panels.start, end: split),
+      ViewportPosition.right => DialogArea(start: split, end: panels.end),
+      _ => panels,
+    };
+  }
+
   final List<OpenDialog> _dialogs = [];
   var _nextDialog = 0;
 

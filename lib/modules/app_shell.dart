@@ -767,6 +767,7 @@ const Map<String, String> _russian = {
   'Markdown viewer': 'Markdown',
   'Text editor': 'Редактор',
   'Command line': 'Командная строка',
+  'Sidebar': 'Боковая полоса',
   'Everywhere': 'Везде',
   // Окошко записи.
   'Where it works': 'Где действует',

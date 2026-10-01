@@ -99,8 +99,7 @@ class ChooseHistoryCommand extends AppCommand {
     final view = context.app.view;
     // Окно встаёт над своей панелью: история у каждой своя, и вставать оно
     // должно там, куда поведёт (`docs/spec/dialog-placement.md`, §3).
-    final ratio = context.app.splitRatio;
-    final area = identical(panel, context.app.left) ? DialogArea(end: ratio) : DialogArea(start: ratio);
+    final area = view.panelArea(identical(panel, context.app.left) ? ViewportPosition.left : ViewportPosition.right);
     late final String dialogId;
     state.close = () => view.closeDialog(dialogId);
     dialogId = view.showDialog(

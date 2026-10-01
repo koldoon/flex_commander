@@ -553,4 +553,14 @@ abstract class FcMetrics {
 
   /// Минимальная ширина панели при перетаскивании разделителя.
   double get minPanelWidth;
+
+  /// Ширина боковой полосы избранного, пока её не тянули
+  /// (`docs/spec/favorites-sidebar.md`, §2).
+  double get sidebarWidth;
+
+  /// Уже полосу не утянуть: имена мест превратились бы в многоточия.
+  double get sidebarMinWidth;
+
+  /// Шире — полоса отнимает у панелей больше, чем даёт.
+  double get sidebarMaxWidth;
 }

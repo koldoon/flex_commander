@@ -270,7 +270,7 @@ class SelectSessionCommand extends AppCommand {
         title: label,
         // Над своей панелью, как окно адреса и окно истории: «набор слева» и
         // «набор справа» иначе неотличимы на вид.
-        area: side == ViewportPosition.left ? DialogArea(end: app.splitRatio) : DialogArea(start: app.splitRatio),
+        area: view.panelArea(side),
         takesFocus: true,
         ownWidth: true,
         content: SessionsDialogForm(state: state),

@@ -7,6 +7,26 @@ import 'fc_tooltip.dart';
 import 'text_trim.dart';
 import 'trimmed_text.dart';
 
+/// Стоит ли левый край области у края окна.
+///
+/// Обычно да: левая панель прижата к окну, и с той стороны её рамка открыта
+/// ([PanelOuterEdge]). Появилась слева боковая полоса избранного — край у окна
+/// теперь её, а у панели — сосед, и рамка обязана замкнуться. Кто стоит слева,
+/// знает шелл; он и ставит эту отметку над панелями
+/// (`docs/spec/favorites-sidebar.md`, §8).
+class WindowEdges extends InheritedWidget {
+  const WindowEdges({super.key, required this.left, required super.child});
+
+  /// Левый край области — край окна.
+  final bool left;
+
+  /// Без отметки — край окна: так было до боковой полосы.
+  static bool leftOf(BuildContext context) => context.dependOnInheritedWidgetOfExactType<WindowEdges>()?.left ?? true;
+
+  @override
+  bool updateShouldNotify(WindowEdges oldWidget) => oldWidget.left != left;
+}
+
 /// Внешний край окна, к которому прижата панель.
 ///
 /// Единственное, зачем панели знать свою сторону: с этого края рамка не
@@ -264,7 +284,7 @@ class FcPanelFrame extends StatelessWidget {
   /// фон, и лежит она поверх.
   final bool fillsFrame;
 
-  Border _border(FcTheme theme) {
+  Border _border(FcTheme theme, {required bool leftAtWindow}) {
     final side = BorderSide(color: theme.colors.panelBorder, width: theme.metrics.strokeWidth);
 
     // Внешний край не рисуется, **пока он и правда край окна**: там рамке не
@@ -275,7 +295,7 @@ class FcPanelFrame extends StatelessWidget {
     // краем, и рамка обязана замкнуться: иначе в отступе видна открытая
     // сторона панели.
     final flush = theme.metrics.windowSidePadding == 0;
-    final openLeft = flush && (outerEdge == PanelOuterEdge.left || outerEdge == PanelOuterEdge.both);
+    final openLeft = flush && leftAtWindow && (outerEdge == PanelOuterEdge.left || outerEdge == PanelOuterEdge.both);
     final openRight = flush && (outerEdge == PanelOuterEdge.right || outerEdge == PanelOuterEdge.both);
 
     return Border(
@@ -290,7 +310,7 @@ class FcPanelFrame extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
     final metrics = theme.metrics;
-    final border = _border(theme);
+    final border = _border(theme, leftAtWindow: WindowEdges.leftOf(context));
     // Скругление — только у замкнутой рамки. Дело не в красоте: `BoxDecoration`
     // с разными сторонами и радиусом не рисуется вовсе, а у прижатой к краю
     // панели одна сторона не рисуется.

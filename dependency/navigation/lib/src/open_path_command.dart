@@ -68,13 +68,10 @@ class OpenPathCommand extends AppCommand {
   /// Окно встаёт над своей панелью.
   ///
   /// Иначе «открыть путь в левой» и «открыть путь в правой» неотличимы на вид:
-  /// заголовок читают не в первую очередь. Левая панель занимает долю
-  /// `splitRatio` — её середина приходится на половину этой доли; правая
-  /// начинается там же и тянется до края.
-  DialogArea areaOf(CommandContext context) {
-    final ratio = context.app.splitRatio;
-    return _isLeft(context) ? DialogArea(end: ratio) : DialogArea(start: ratio);
-  }
+  /// заголовок читают не в первую очередь. Где панель стоит, знает раскладка:
+  /// слева от панелей бывает боковая полоса.
+  DialogArea areaOf(CommandContext context) =>
+      context.app.view.panelArea(_isLeft(context) ? ViewportPosition.left : ViewportPosition.right);
 
   @override
   bool isExecutable(CommandContext context) {

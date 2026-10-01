@@ -19,6 +19,7 @@ enum KeyContext {
   markdownViewer('Markdown viewer'),
   editor('Text editor'),
   commandLine('Command line'),
+  sidebar('Sidebar'),
 
   /// Клавиша принадлежит приложению целиком и отнимает нажатие у всех
   /// остальных контекстов — поэтому спорит с каждым из них.

@@ -69,6 +69,33 @@ abstract class FcIcons {
 
   /// Битая ссылка: в референсе такого случая не было.
   IconData get exclamation;
+
+  // Знакомые места боковой полосы (`docs/spec/favorites-sidebar.md`, §2):
+  // узнаются по адресу, а не по имени, и всё прочее — [folder].
+
+  /// Домашний каталог.
+  IconData get home;
+
+  /// «Рабочий стол».
+  IconData get desktop;
+
+  /// «Документы».
+  IconData get documents;
+
+  /// «Загрузки».
+  IconData get downloads;
+
+  /// «Программы».
+  IconData get applications;
+
+  /// Корень и подключённые тома.
+  IconData get volume;
+
+  /// Удалённое место: `ssh://`, `ftp://`.
+  IconData get server;
+
+  /// Место внутри архива.
+  IconData get archive;
 }
 
 /// Роль по имени — для правил, приехавших из файла настроек.
@@ -93,6 +120,14 @@ extension FcIconRoles on FcIcons {
     'branchOpen' => branchOpen,
     'circleOutline' => circleOutline,
     'exclamation' => exclamation,
+    'home' => home,
+    'desktop' => desktop,
+    'documents' => documents,
+    'downloads' => downloads,
+    'applications' => applications,
+    'volume' => volume,
+    'server' => server,
+    'archive' => archive,
     _ => null,
   };
 }

@@ -323,4 +323,7 @@ final List<MetricRole> metricRoles = [
   MetricRole('rowTextVerticalNudge', 'Common sizes', MetricKind.gap, (metrics) => metrics.rowTextVerticalNudge),
   MetricRole('resizeHandleWidth', 'Common sizes', MetricKind.size, (metrics) => metrics.resizeHandleWidth),
   MetricRole('minPanelWidth', 'Common sizes', MetricKind.size, (metrics) => metrics.minPanelWidth),
+  MetricRole('sidebarWidth', 'Common sizes', MetricKind.size, (metrics) => metrics.sidebarWidth),
+  MetricRole('sidebarMinWidth', 'Common sizes', MetricKind.size, (metrics) => metrics.sidebarMinWidth),
+  MetricRole('sidebarMaxWidth', 'Common sizes', MetricKind.size, (metrics) => metrics.sidebarMaxWidth),
 ];

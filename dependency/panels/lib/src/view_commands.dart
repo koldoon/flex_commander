@@ -116,9 +116,8 @@ class ChoosePanelViewCommand extends AppCommand {
   /// «вид левой» и «вид правой» иначе неотличимы на вид, а заголовок читают не
   /// в первую очередь.
   DialogArea areaOf(CommandContext context) {
-    final ratio = context.app.splitRatio;
     final left = identical(SetPanelViewCommand.panelOf(context), context.app.left);
-    return left ? DialogArea(end: ratio) : DialogArea(start: ratio);
+    return context.app.view.panelArea(left ? ViewportPosition.left : ViewportPosition.right);
   }
 
   @override

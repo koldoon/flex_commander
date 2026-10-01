@@ -290,4 +290,13 @@ class OverlayMetrics implements FcMetrics {
 
   @override
   double get minPanelWidth => overrides['minPanelWidth'] ?? base.minPanelWidth;
+
+  @override
+  double get sidebarWidth => overrides['sidebarWidth'] ?? base.sidebarWidth;
+
+  @override
+  double get sidebarMinWidth => overrides['sidebarMinWidth'] ?? base.sidebarMinWidth;
+
+  @override
+  double get sidebarMaxWidth => overrides['sidebarMaxWidth'] ?? base.sidebarMaxWidth;
 }
