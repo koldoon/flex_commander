@@ -42,6 +42,13 @@ WINDOWS = [
     ('Panel View', 'anchor_view.png', '6A0FB066-0F88-44FB-8BEE-175A6790AD1A'),
     ('View Brief', 'anchor_view_brief.png', 'E0148491-23B5-430B-B5F7-341D712B7B65'),
     ('View Tree', 'anchor_view_tree.png', '4D4819F3-A936-4608-970C-4636FC0BF065'),
+    ('View Columns', 'anchor_view_columns.png', '692D504D-6CAE-495A-94CE-4C2418C4A077'),
+    ('View Combined', 'anchor_view_combined.png', 'A051D95E-D167-4B48-BCD7-94AEB66A133C'),
+    ('View Icons', 'anchor_view_icons.png', 'CFC4352B-9A30-4B04-B2EC-FEA89F73D110'),
+    ('Keymap', 'anchor_keys.png', 'EC158F27-B9F1-4B18-8D54-D8EA894B65B2'),
+    ('Settings Search', 'anchor_presets.png', '44082AD9-456B-4799-B225-63318CDDAD22'),
+    ('Import Set', 'anchor_preset_file.png', '62B0ACFF-5B57-4F84-9AE6-FF43C26D712D'),
+    ('Multi Rename', 'anchor_multi_rename.png', 'E64C69B5-2913-40BD-A7F9-9A3ECE2E8FEB'),
 ]
 
 # Экран целиком: левая панель в каждом из объявленных видов. Здесь сверяется не
