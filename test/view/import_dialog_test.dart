@@ -70,7 +70,7 @@ void main() {
   }
 
   testWidgets('в дереве видны файлы, из которых окно читает, — и только они', (tester) async {
-    await openImport(tester, 'Bring a set from a file');
+    await openImport(tester, 'Preset');
 
     // Набор лежит в json: искать его среди картинок и архивов незачем.
     expect(inTree('work.json'), findsOneWidget);
@@ -82,7 +82,7 @@ void main() {
   });
 
   testWidgets('выбранный в дереве файл сам встаёт в поле имени', (tester) async {
-    await openImport(tester, 'Bring a set from a file');
+    await openImport(tester, 'Preset');
 
     expect(nameField(tester), isNot('work.json'), reason: 'подставлено умолчание — проверять нечего');
 
@@ -98,7 +98,7 @@ void main() {
   });
 
   testWidgets('в файл не заходят: щелчок по нему только выбирает', (tester) async {
-    await openImport(tester, 'Bring a set from a file');
+    await openImport(tester, 'Preset');
 
     await tester.tap(inTree('work.json'));
     await tester.pumpAndSettle();
@@ -114,7 +114,7 @@ void main() {
   });
 
   testWidgets('длинный путь не растягивает окно, а обрезается', (tester) async {
-    await openImport(tester, 'Bring a theme from a file');
+    await openImport(tester, 'Theme');
 
     final before = tester.getRect(find.byType(CommandDialogForm)).width;
 
@@ -140,7 +140,7 @@ void main() {
   });
 
   testWidgets('курсор дерева упирается в края плашки', (tester) async {
-    await openImport(tester, 'Bring a set from a file');
+    await openImport(tester, 'Preset');
 
     final plate = tester.getRect(find.descendant(of: find.byType(FcDirectoryTree), matching: find.byType(FcPlate)));
     // Строка курсора — та, что выбрана: у неё и мерим края.
@@ -157,7 +157,7 @@ void main() {
   });
 
   testWidgets('брошенный в дерево файл — тот же выбор', (tester) async {
-    await openImport(tester, 'Bring a theme from a file');
+    await openImport(tester, 'Theme');
 
     final tree = tester.getCenter(find.byType(FcDirectoryTree));
     await sendDrop(tester, 'dragEntered', at: tree, paths: const ['/home/docs/dark.json']);

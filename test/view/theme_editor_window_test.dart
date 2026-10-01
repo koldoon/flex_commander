@@ -139,7 +139,7 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('обмен темами — кнопками рядом с выбором и полем под ним', (tester) async {
+  testWidgets('обмен темами — кнопками рядом с выбором', (tester) async {
     await openSettings(tester);
 
     // «Export» — про выбранное оформление, и место ему при нём.
@@ -150,8 +150,9 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
 
-    // «Import» — своим полем: это про оформление, которого в списке ещё нет.
-    await tester.tap(buttonIn('Bring a theme from a file', 'Import'));
+    // «Import» — в том же ряду: кнопки обмена стоят вместе, и искать
+    // загрузку отдельно от выгрузки человеку незачем.
+    await tester.tap(buttonIn('Theme', 'Import'));
     await tester.pumpAndSettle();
     expect(find.text('Import theme'), findsWidgets);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);

@@ -85,7 +85,6 @@ const Map<String, String> _russian = {
       'Взять оформление из файла: оно встанет в список и станет выбранным',
   'Theme «{name}» imported': 'Оформление «{name}» загружено',
   'This is not a theme: the file does not read': 'Это не оформление: файл не читается',
-  'Bring a theme from a file': 'Взять оформление из файла',
   'Reset theme': 'Вернуть оформление',
   'Drop every change made to the theme': 'Забыть все правки оформления',
   'Apply theme changes': 'Применить правки оформления',

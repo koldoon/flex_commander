@@ -72,6 +72,7 @@ const Map<String, String> _themeActionLabels = {
   _editThemeCommand: 'Edit',
   _deleteThemeCommand: 'Delete',
   _exportThemeCommand: 'Export',
+  _importThemeCommand: 'Import',
 };
 
 class AppShell implements FcBackendModule, FcFrontendModule {
@@ -358,9 +359,10 @@ class AppShell implements FcBackendModule, FcFrontendModule {
           allowed: {'': strings.tr('Default', context: 'preset'), for (final item in presets.all) item.name: item.name},
           read: () => presets.current,
           write: presets.select,
-          // Кнопки при списке, а не блоками порознь: все четыре — про то, что
-          // выбрано выше. Приглушены, а не спрятаны: действие есть, просто
-          // сейчас неприменимо.
+          // Кнопки при списке, а не блоками порознь: и те, что про выбранное
+          // выше, и загрузка — она про набор, которого в списке ещё нет, но
+          // ищут её рядом с выгрузкой, а не отдельным полем ниже. Приглушены,
+          // а не спрятаны: действие есть, просто сейчас неприменимо.
           actions: [
             SettingsAction(
               label: strings.tr('New'),
@@ -402,14 +404,8 @@ class AppShell implements FcBackendModule, FcFrontendModule {
                       ? null
                       : () => exportPreset(app, strings, presets.find(chosen) ?? presets.capture(chosen)),
             ),
+            SettingsAction(label: strings.tr('Import'), run: () => importPreset(app, strings, presets)),
           ],
-        ),
-        SettingsField.button(
-          'presets.import',
-          title: strings.tr('Bring a set from a file'),
-          description: strings.tr('It joins the list and becomes the chosen one'),
-          label: strings.tr('Import'),
-          run: () => importPreset(app, strings, presets),
         ),
       ], save: settings.save);
     });
@@ -453,8 +449,17 @@ class AppShell implements FcBackendModule, FcFrontendModule {
           //
           // Приглушённая, а не спрятанная: «Delete» на встроенной теме
           // невыполним, но действие есть — просто не к этой теме.
+          //
+          // Загрузка — в том же ряду, последней: она про тему, которой в
+          // списке ещё нет, но стоит рядом с выгрузкой — так же, как у наборов.
           actions: [
-            for (final command in [_newThemeCommand, _editThemeCommand, _deleteThemeCommand, _exportThemeCommand])
+            for (final command in [
+              _newThemeCommand,
+              _editThemeCommand,
+              _deleteThemeCommand,
+              _exportThemeCommand,
+              _importThemeCommand,
+            ])
               if (app.commands.find(command) case final found?)
                 SettingsAction(
                   label: strings.tr(_themeActionLabels[command]!),
@@ -465,17 +470,6 @@ class AppShell implements FcBackendModule, FcFrontendModule {
                 ),
           ],
         ),
-        // Загрузка темы — своим полем, а не кнопкой при выборе: это не про
-        // выбранное оформление, а про то, которого в списке ещё нет. Так же
-        // стоит и загрузка набора выше.
-        if (app.commands.find(_importThemeCommand) != null)
-          SettingsField.button(
-            'theme.import',
-            title: strings.tr('Bring a theme from a file'),
-            description: strings.tr('It joins the list and becomes the chosen one'),
-            label: strings.tr('Import'),
-            run: () => app.commands.runAndWait(_importThemeCommand),
-          ),
       ], save: settings.save);
     });
 
@@ -747,8 +741,6 @@ const Map<String, String> _russian = {
   'Export': 'Выгрузить',
   'Export set': 'Выгрузка набора',
   'Set «{name}» exported': 'Набор «{name}» выгружен',
-  'Bring a set from a file': 'Привезти набор из файла',
-  'It joins the list and becomes the chosen one': 'Он встанет в список и станет выбранным',
   'Import': 'Загрузить',
   'Import set': 'Загрузка набора',
   'Set «{name}» imported': 'Набор «{name}» загружен',
