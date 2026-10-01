@@ -64,6 +64,17 @@ void main() {
       expect(empty.places, isEmpty, reason: 'убрал всё — значит хочет пустую полосу');
     });
 
+    test('места читаются и из словарей Map<dynamic, dynamic> — так они едут через границу', () {
+      final settings =
+          PlacesSettings()..fromMap({
+            'places': [
+              <dynamic, dynamic>{'address': '/work', 'name': 'Work'},
+              <dynamic, dynamic>{'address': '~'},
+            ],
+          });
+      expect(settings.places.map((place) => (place.address, place.name)), [('/work', 'Work'), ('~', null)]);
+    });
+
     test('круг сохранения: адрес, имя, показ, ширина', () {
       final settings =
           PlacesSettings()

@@ -55,7 +55,17 @@ class PlacesSettings implements Serializable {
   @override
   void fromMap(Map<String, dynamic> m) {
     final stored = m['places'];
-    _places = stored is List ? extractList<Place>(stored, (_) => Place()) : null;
+    // Любой словарь, а не только `Map<String, dynamic>`: через границу
+    // изолятов вложенные словари приезжают `Map<dynamic, dynamic>`, и
+    // `extractList` их молча пропускал — места читались пустыми, отбрасывались,
+    // и после перезапуска полоса была пуста.
+    _places =
+        stored is List
+            ? [
+              for (final item in stored)
+                if (item is Map) Place()..fromMap(item.map((key, value) => MapEntry('$key', value))),
+            ]
+            : null;
     _places?.removeWhere((place) => place.address.trim().isEmpty);
     final visible = m['visible'];
     _visible = visible is bool ? visible : null;
