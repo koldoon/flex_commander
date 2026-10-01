@@ -329,6 +329,64 @@ void main() {
       expect(settings.visible, isTrue);
     });
 
+    group('спрятанную зовут клавишей', () {
+      Future<PlacesSettings> hidden(WidgetTester tester) async {
+        await pumpApp(tester);
+        await run(tester, TogglePlacesCommand.commandId);
+        expect(find.byType(PlacesView), findsNothing);
+        return app().moduleSettings(Places.moduleId).section(PlacesSettings.new);
+      }
+
+      testWidgets('выбрали место — полоса снова спрятана, выбор «спрятана» цел', (tester) async {
+        final settings = await hidden(tester);
+
+        await run(tester, FocusPlacesCommand.commandId);
+        expect(find.byType(PlacesView), findsOneWidget);
+        expect(app().view.activeArea, ViewportPosition.sidebar);
+        expect(settings.visible, isFalse, reason: 'показана на время, а не включена');
+
+        await key(tester, LogicalKeyboardKey.arrowDown);
+        await key(tester, LogicalKeyboardKey.enter);
+        expect(app().left.currentPath, '/home/Desktop');
+        expect(app().view.activeArea, ViewportPosition.left);
+        expect(find.byType(PlacesView), findsNothing, reason: 'ввод ушёл — полоса ушла');
+        expect(settings.visible, isFalse);
+      });
+
+      testWidgets('Esc — тоже уход: полоса прячется', (tester) async {
+        await hidden(tester);
+        await run(tester, FocusPlacesCommand.commandId);
+        await key(tester, LogicalKeyboardKey.escape);
+        expect(find.byType(PlacesView), findsNothing);
+      });
+
+      testWidgets('переход в соседнюю ввода не уводит — полоса остаётся', (tester) async {
+        await hidden(tester);
+        await run(tester, FocusPlacesCommand.commandId);
+        await key(tester, LogicalKeyboardKey.arrowDown);
+        await key(tester, LogicalKeyboardKey.enter, held: cmd);
+        expect(app().right.currentPath, '/home/Desktop');
+        expect(find.byType(PlacesView), findsOneWidget);
+      });
+
+      testWidgets('показанная и так — после выбора остаётся', (tester) async {
+        await pumpApp(tester);
+        await run(tester, FocusPlacesCommand.commandId);
+        await key(tester, LogicalKeyboardKey.enter);
+        expect(app().view.activeArea, ViewportPosition.left);
+        expect(find.byType(PlacesView), findsOneWidget);
+      });
+
+      testWidgets('добавили место — полоса показана насовсем', (tester) async {
+        final settings = await hidden(tester);
+        await run(tester, FocusPlacesCommand.commandId);
+        await run(tester, AddPlaceCommand.commandId);
+        await key(tester, LogicalKeyboardKey.escape);
+        expect(find.byType(PlacesView), findsOneWidget);
+        expect(settings.visible, isTrue);
+      });
+    });
+
     testWidgets('окно над панелью встаёт над панелью и с полосой', (tester) async {
       await pumpApp(tester);
       final left = app().view.panelArea(ViewportPosition.left);

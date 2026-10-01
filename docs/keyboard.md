@@ -410,7 +410,7 @@ CommandRegistry.dispatch(combination, app)
 |---|---|---|
 | `Ctrl-Cmd-S` | `places.toggle` | показать или спрятать полосу (как в Finder) |
 | `Ctrl-Cmd-T` | `places.add` | текущий каталог активной панели — на полосу (как в Finder) |
-| `Ctrl-Cmd-Left` | `places.focus` | ввод полосе; спрятанную показывает |
+| `Ctrl-Cmd-Left` | `places.focus` | ввод полосе; спрятанную показывает на время — ввод ушёл, и она снова спрятана |
 | `Up`, `Down`, `Home`, `End`, `PgUp`, `PgDn` | `places.up` … `places.last` | ход по местам |
 | `Enter` | `places.open` | перейти в активной панели; ввод — ей |
 | `Cmd-Enter` | `places.openOther` | перейти в соседней; активная та же, ввод остаётся |

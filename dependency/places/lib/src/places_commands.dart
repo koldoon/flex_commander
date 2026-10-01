@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:fc_ui_api/fc_ui_api.dart';
+import 'package:flutter/foundation.dart';
 
 import 'places_settings.dart';
 import 'places_state.dart';
@@ -36,6 +39,7 @@ class PlacesInstaller {
   }
 
   void hide(Application app) {
+    _stopWatching();
     if (placesOf(app) case final state?) {
       app.view.removeViewportContent(ViewportPosition.sidebar, state);
     }
@@ -43,9 +47,51 @@ class PlacesInstaller {
 
   /// Показать или спрятать — и запомнить выбор.
   void setVisible(Application app, bool visible) {
+    // Показанная на время становится показанной насовсем: место добавили или
+    // полосу включили явно — прятать её уже не за чем.
+    _stopWatching();
     visible ? show(app) : hide(app);
     settings().visible = visible;
     save();
+  }
+
+  /// Показать спрятанную полосу **на время**: ввод ушёл из неё — она снова
+  /// спрятана (`docs/spec/favorites-sidebar.md`, §6).
+  ///
+  /// Так её зовут клавишей, когда она скрыта: выбрать место и уйти. Выбор
+  /// «спрятана» при этом не трогается — ни в памяти, ни в файле.
+  void showForAWhile(Application app) {
+    if (placesOf(app) != null) {
+      return;
+    }
+    show(app);
+    void watch() {
+      if (app.view.activeArea == ViewportPosition.sidebar || placesOf(app) == null) {
+        return;
+      }
+      // Не посреди уведомления: убирать содержимое области, пока она
+      // рассказывает о себе, — значит менять список у тех, кто его читает.
+      scheduleMicrotask(() {
+        if (_watching != null && app.view.activeArea != ViewportPosition.sidebar) {
+          hide(app);
+        }
+      });
+    }
+
+    _watching = (app.view, watch);
+    app.view.addListener(watch);
+  }
+
+  /// За чем следим, пока полоса показана на время; null — не на время.
+  (ApplicationView, VoidCallback)? _watching;
+
+  bool get showsForAWhile => _watching != null;
+
+  void _stopWatching() {
+    if (_watching case (final view, final watch)) {
+      view.removeListener(watch);
+    }
+    _watching = null;
   }
 }
 
@@ -141,9 +187,8 @@ class FocusPlacesCommand extends AppCommand {
   @override
   Future<void> execute(CommandContext context) async {
     final app = context.app;
-    if (placesOf(app) == null) {
-      installer.setVisible(app, true);
-    }
+    // Спрятанная показывается на время: выбрали место — и её снова нет.
+    installer.showForAWhile(app);
     app.view.setFocus(ViewportPosition.sidebar);
   }
 }
@@ -174,8 +219,9 @@ class AddPlaceCommand extends AppCommand {
   @override
   Future<void> execute(CommandContext context) async {
     final app = context.app;
-    // Добавили — значит хотят видеть: спрятанная полоса показывается.
-    if (placesOf(app) == null) {
+    // Добавили — значит хотят видеть: спрятанная или показанная на время
+    // полоса показывается насовсем.
+    if (placesOf(app) == null || installer.showsForAWhile) {
       installer.setVisible(app, true);
     }
     placesOf(app)?.add(app.activePanel.currentPath);
