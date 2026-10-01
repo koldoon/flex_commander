@@ -26,6 +26,14 @@ ViewportPosition? _sideOf(CommandContext context) {
 }
 
 /// Набор, показанный в активной панели; null — панели не видно.
+/// Панели закрыты полноэкранным — просмотрщиком, редактором, терминалом.
+///
+/// Смена набора под ним прошла бы «за кадром»: человек её не видит и узнаёт
+/// о ней, только закрыв экран, — панель почему-то другая. Поэтому команды,
+/// которые меняют показанный набор, под полноэкранным не исполнимы, и клавиша
+/// уходит тому, кто объявлен следом (`docs/spec/panel-sessions.md`, §14).
+bool _behindScreen(CommandContext context) => context.app.view.contentAt(ViewportPosition.fullscreen) != null;
+
 Panel? _panelOf(CommandContext context) {
   final side = _sideOf(context);
   return side == null ? null : context.app.panelAt(side);
@@ -151,7 +159,8 @@ class CycleSessionsCommand extends AppCommand {
   Set<String> get keywords => const {'switch', 'cycle', 'tab'};
 
   @override
-  bool isExecutable(CommandContext context) => _sideOf(context) != null && context.app.panels.length > 1;
+  bool isExecutable(CommandContext context) =>
+      !_behindScreen(context) && _sideOf(context) != null && context.app.panels.length > 1;
 
   @override
   Future<void> execute(CommandContext context) async {
@@ -194,7 +203,7 @@ class SessionByNumberCommand extends AppCommand {
 
   @override
   bool isExecutable(CommandContext context) {
-    if (_sideOf(context) == null) {
+    if (_behindScreen(context) || _sideOf(context) == null) {
       return false;
     }
     final number = _numberOf(context);

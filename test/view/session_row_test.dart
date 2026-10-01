@@ -356,6 +356,26 @@ void main() {
       expect(app.panelAt(ViewportPosition.left), same(app.panels[1]));
     });
 
+    testWidgets('под полноэкранным Alt-N и переход по кругу наборы не меняют', (tester) async {
+      // Тот же «за кадром», что и у ряда: панели закрыты просмотрщиком, и
+      // смену набора под ним человек не увидел бы — увидел бы только, закрыв
+      // просмотр, что панель почему-то другая.
+      await pumpApp(tester);
+      final shown = app.panelAt(ViewportPosition.left);
+      app.view.pushViewportContent(ViewportPosition.fullscreen, _Screen());
+      await tester.pumpAndSettle();
+
+      await press(tester, LogicalKeyboardKey.digit2, modifiers: [LogicalKeyboardKey.alt]);
+      app.commands.run(CycleSessionsCommand.nextId);
+      await tester.pumpAndSettle();
+      expect(app.panelAt(ViewportPosition.left), same(shown));
+
+      app.view.popViewportContent(ViewportPosition.fullscreen);
+      await tester.pumpAndSettle();
+      await press(tester, LogicalKeyboardKey.digit2, modifiers: [LogicalKeyboardKey.alt]);
+      expect(app.panelAt(ViewportPosition.left), same(app.panels[1]), reason: 'закрыли просмотр — клавиша работает');
+    });
+
     testWidgets('Cmd-Shift-W закрывает показанный здесь', (tester) async {
       await pumpApp(tester);
       await press(tester, LogicalKeyboardKey.keyT, modifiers: [commandKey, LogicalKeyboardKey.shift]);
@@ -390,9 +410,6 @@ void main() {
 class _Screen extends ChangeNotifier implements ViewportState {
   @override
   bool get takesKeyboard => false;
-
-  @override
-  ViewportState? get inner => null;
 
   @override
   void close() {}
