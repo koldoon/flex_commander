@@ -150,8 +150,10 @@ targets.isEmpty || isRunning) return`) тоже пропускает. Значи
 подготовки, и на них окно по-прежнему остаётся формой с красной строкой внизу:
 ввод можно поправить и нажать `Copy` ещё раз.
 
-Ошибка, случившаяся **после** старта работы, форму не воскрешает. Окно
-показывает разбор:
+Ошибка, случившаяся **после** старта работы, форму не воскрешает. Разбор
+встаёт **дочерним окном поверх** окна работы, а не вместо него — ход дела на
+месте падения виден под ним (`child-dialogs.md`, §4.3; до 1 октября 2026 разбор
+подменял содержимое окна):
 
 ```
 + Copy «archive.dmg» ------------------+
@@ -220,16 +222,19 @@ Widget? getDialog(BuildContext context) => AsyncCommandDialog(command: this, for
 Разделение при этом получается правильное — в `api` фаза прогона, в `ui_kit`
 то, как она выглядит.
 
-Порядок веток внутри:
+Порядок веток внутри — **с 1 октября 2026 их две**:
 
-1. `question != null` → `CommandDialogQuestion`;
-2. `isBusy && error == null` → `CommandDialogProgress`, где
+1. ход дела показывать есть что (`showsProgress`) → `CommandDialogProgress`, где
    `onCancel: isRunning ? cancel : null` и
    `onBackground: isRunning ? sendToBackground : null`;
-3. `isBusy && error != null` → `CommandDialogConfirm` с `failureMessage`,
-   текстом ошибки и единственной кнопкой `Close` — ровно то, что сегодня руками
-   написано у удаления;
-4. иначе → `form(context)`.
+2. иначе → `form(context)`.
+
+Вопрос (`question != null`) и разбор ошибки (`isBusy && error != null`)
+больше не ветки окна, а **дочерние окна над ним**: их поднимает то же окно,
+называя себя родителем (`child-dialogs.md`, §4.2–4.3). Прежде они подменяли
+ход дела, и отвечать на вопрос приходилось, не видя, о чём он. Разбор
+ошибки — `CommandDialogConfirm` с `failureMessage`, текстом ошибки и кнопкой
+`Close`, которая закрывает оба окна.
 
 `String get failureMessage => '$label failed'` переопределяется: у обеих команд
 удаления это `Delete failed`, потому что `label` у одной из них — `Delete !`.

@@ -191,6 +191,36 @@ void main() {
   view('панель значками', 'anchor_panel_icons.png', 'icons');
   view('панель столбцами', 'anchor_panel_columns.png', 'columns');
 
+  /// Вопрос посреди работы — окном **поверх** окна работы, а не вместо него
+  /// (`docs/spec/child-dialogs.md`): под вопросом виден ход дела.
+  testWidgets('вопрос посреди копирования', (tester) async {
+    if (!fontsReady) {
+      markTestSkipped('Шрифты не собрались: Ubuntu, FontAwesome или Consolas недоступны');
+      return;
+    }
+
+    final app = await openApp(tester);
+    // В приёмнике уже лежит такой же: копирование спросит, что с ним делать.
+    provider.add(FakeEntry.file('/Users/koldoon/Documents/LICENSE', size: 9000, modified: DateTime(2017, 5, 4)));
+    await app.right.reload();
+    app.left.setCursorToName('LICENSE');
+    await tester.pumpAndSettle();
+
+    app.commands.dispatch(KeyCombination.parse('F5'));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    // Ход дела встаёт, когда работа задержалась дольше мига, вопрос — следом.
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump();
+    await tester.pump();
+
+    await expectLater(find.byType(FlexCommanderApp), matchesGoldenFile('goldens/anchor_copy_question.png'));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
   anchor('окно копирования', 'anchor_copy.png', 'F5');
   anchor('окно переноса', 'anchor_move.png', 'F6');
   anchor('окно упаковки', 'anchor_archive.png', 'Shift-F5');
