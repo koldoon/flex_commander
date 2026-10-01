@@ -251,6 +251,56 @@ void main() {
     expect(panel.currentEntry?.path, was, reason: 'курсор остался на своей строке');
   });
 
+  test('раскрытие ветви курсор назад не тянет, пока курсор шёл дальше', () async {
+    // Живая находка 1 октября 2026, вид «Столбцы»: вид раскрывает каталог под
+    // курсором, человек тем временем жмёт стрелку — и ответ на раскрытие
+    // возвращал курсор на раскрытый каталог, а ответ на сворачивание уводил
+    // обратно. Ядро запоминало строку курсора **до** чтения ветви и ставило
+    // её «нарочно», хотя раскрытие — не про курсор вовсе
+    // (`docs/spec/client-server.md`, §5.6.6).
+    await panel.showRows(RowsKind.tree);
+    await pumpEventQueue();
+    final held = _LaggingLink(link);
+    final mirror = SessionMirror(
+      id: PanelId.left,
+      link: held,
+      state: panel.state,
+      listing: panel.listing,
+      columns: testPanelColumns(),
+    );
+    addTearDown(mirror.dispose);
+    mirror.setCursorToPath('/home/docs');
+
+    mirror.setExpanded('/home/docs', expanded: true);
+    mirror.setCursorToPath('/home/report.txt');
+    await pumpEventQueue();
+
+    final seen = <String?>[mirror.currentEntry?.path];
+    while (held.held.isNotEmpty) {
+      await held.releaseOne();
+      seen.add(mirror.currentEntry?.path);
+    }
+
+    expect(mirror.entries.map((entry) => entry.path), contains('/home/docs/deep.txt'), reason: 'ветвь раскрылась');
+    expect(seen, everyElement('/home/report.txt'), reason: 'ни на одном шаге курсор не вернулся на ветвь');
+  });
+
+  test('свернули ветвь с курсором внутри — курсор встаёт на неё', () async {
+    // Строки курсора больше нет: искать свою строку экрану не в чем, и место
+    // ему ставит ядро — ближайший видимый предок.
+    await panel.showRows(RowsKind.tree);
+    await pumpEventQueue();
+    panel.setExpanded('/home/docs', expanded: true);
+    await pumpEventQueue();
+    panel.setCursorToPath('/home/docs/deep.txt');
+    await pumpEventQueue();
+
+    panel.setExpanded('/home/docs', expanded: false);
+    await pumpEventQueue();
+
+    expect(panel.currentEntry?.path, '/home/docs');
+  });
+
   test('ушёл в начало — туда и вернёшься', () async {
     // Живая находка 23 сентября 2026: курсор увели в начало списка клавишей,
     // вышли и вернулись — а он встал туда, откуда прыгнули. Ядро не узнавало

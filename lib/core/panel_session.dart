@@ -2088,14 +2088,16 @@ class PanelSession {
   /// [placeCursor] — куда встать курсору в новых строках; пусто — на ту же
   /// строку, где он стоял. Зовётся **до** публикации: список уезжает на ту
   /// сторону целиком, и курсор в нём обязан быть уже правильным.
+  ///
+  /// «На ту же строку» курсора в список **не кладёт**: строка у той стороны
+  /// своя, и найти её в новых строках — дело экрана (`docs/spec/client-server.md`,
+  /// §5.6.6). Ставит ядро только когда строки курсора не стало — свернули
+  /// ветвь, внутри которой он стоял, — тогда на ближайшего видимого предка.
   Future<void> _rebuildRows({void Function()? placeCursor}) async {
-    // Строки пересобираются по просьбе той стороны — раскрыли ветвь, сменили
-    // набор, — значит курсор в новом списке ставит ядро, и говорит об этом.
     final list = _list;
     if (list == null) {
       return;
     }
-    final at = currentNode?.pathString;
     final marked = selection.paths;
 
     _operation?.cancel();
@@ -2112,15 +2114,23 @@ class PanelSession {
       return;
     }
 
+    // Строка курсора — **после** чтения, а не до: пока ветвь читалась, та
+    // сторона могла уйти дальше, и её `CursorAt` уже здесь. Запомненная до
+    // чтения, она возвращала курсор назад — живой разбор 1 октября 2026, вид
+    // «Столбцы»: раскрытый придержкой каталог тянул курсор обратно на себя.
+    final at = currentNode?.pathString;
     _setRows(List.unmodifiable(rows));
     _applyMeasured(_nodes);
     // Курсор — **до** публикации: после неё та сторона уже нарисовала кадр.
+    var placed = true;
     if (placeCursor != null) {
       placeCursor();
-    } else if (at != null) {
-      _cursorToPath(at);
+    } else if (at == null || _cursorToPath(at)) {
+      placed = false;
+    } else {
+      _cursorToAncestor(at);
     }
-    _listed(placed: true);
+    _listed(placed: placed);
     _restoreSelection(marked);
     _changed();
   }
@@ -2143,6 +2153,15 @@ class PanelSession {
       provider = host.provider;
     }
     return false;
+  }
+
+  /// Курсор на ближайшего предка [path], у которого есть строка.
+  void _cursorToAncestor(String path) {
+    for (var cut = path.lastIndexOf('/'); cut > 0; cut = path.lastIndexOf('/', cut - 1)) {
+      if (_cursorToPath(path.substring(0, cut))) {
+        return;
+      }
+    }
   }
 
   bool _cursorToPath(String path) {
