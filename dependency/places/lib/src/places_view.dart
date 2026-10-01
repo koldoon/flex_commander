@@ -52,6 +52,17 @@ class _PlacesViewState extends State<PlacesView> {
     return (y / _rowHeight(metrics)).round().clamp(0, state.places.length);
   }
 
+  /// Нажатие — курсор сразу, по нажатию, а не по отпусканию: щелчок виден
+  /// раньше, чем панель успеет уйти, а неудача оставляет курсор на месте,
+  /// которое приглушилось. Тем же движением ввод уходит полосе — так
+  /// зажигается и панель (`docs/spec/panel-views.md`, §9).
+  void _down(Application app, int index) {
+    state.moveCursor(index);
+    if (app.view.activeArea != ViewportPosition.sidebar) {
+      app.view.setFocus(ViewportPosition.sidebar);
+    }
+  }
+
   void _press(int index) {
     // `Cmd`-щелчок — в соседнюю панель, как «открыть рядом» в браузере
     // (`docs/spec/favorites-sidebar.md`, §5.1).
@@ -78,6 +89,7 @@ class _PlacesViewState extends State<PlacesView> {
           focused: focused,
           dropSlot: _dragTarget ?? dropSlot,
           dragging: _dragging,
+          onDown: (index) => _down(app, index),
           onPress: _press,
           onDragStart:
               (index) => setState(() {
@@ -115,7 +127,8 @@ class _PlacesViewState extends State<PlacesView> {
               Positioned.fill(
                 child: FcPanelFrame(
                   outerEdge: PanelOuterEdge.left,
-                  header: FcPathPlate(path: app.strings.tr('Favorites'), active: false),
+                  // Плашка горит, пока ввод у полосы, — как у панели.
+                  header: FcPathPlate(path: app.strings.tr('Favorites'), active: focused),
                   child: body,
                 ),
               ),
@@ -187,6 +200,7 @@ class _PlacesList extends StatelessWidget {
     required this.focused,
     required this.dropSlot,
     required this.dragging,
+    required this.onDown,
     required this.onPress,
     required this.onDragStart,
     required this.onDragUpdate,
@@ -198,6 +212,7 @@ class _PlacesList extends StatelessWidget {
   final bool focused;
   final int? dropSlot;
   final int? dragging;
+  final void Function(int index) onDown;
   final void Function(int index) onPress;
   final void Function(int index) onDragStart;
   final void Function(double dy) onDragUpdate;
@@ -257,7 +272,9 @@ class _PlacesList extends StatelessWidget {
                       },
                     ),
                   },
-                  child: row,
+                  // Нажатие — сразу, а не распознавателем: щелчок спорит с
+                  // перестановкой, и тот сообщил бы о нажатии с задержкой.
+                  child: Listener(onPointerDown: (_) => onDown(index), child: row),
                 );
               },
             ),

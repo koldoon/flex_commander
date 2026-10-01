@@ -174,6 +174,36 @@ void main() {
       expect(app().activePanel, same(app().left), reason: 'соседняя активной не становится');
     });
 
+    FcPathPlate plate(WidgetTester tester) => tester.widget<FcPathPlate>(
+      find.byWidgetPredicate((widget) => widget is FcPathPlate && widget.path == 'Favorites'),
+    );
+
+    testWidgets('нажатие сразу ставит курсор и зажигает плашку; отпустили — переход, ввод панели', (tester) async {
+      await pumpApp(tester);
+      expect(plate(tester).active, isFalse, reason: 'пока ввод у панели, плашка погашена');
+
+      final gesture = await tester.startGesture(tester.getCenter(row('Documents')));
+      await tester.pump();
+      expect(places().cursor, 2, reason: 'курсор — по нажатию, а не по отпусканию');
+      expect(app().view.activeArea, ViewportPosition.sidebar);
+      expect(plate(tester).active, isTrue);
+      expect(app().left.currentPath, '/home', reason: 'перехода до отпускания нет');
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(app().left.currentPath, '/home/Documents');
+      expect(app().view.activeArea, ViewportPosition.left, reason: 'дошли — ввод панели');
+      expect(plate(tester).active, isFalse);
+    });
+
+    testWidgets('ввод у полосы — плашка Favorites горит', (tester) async {
+      await pumpApp(tester);
+      await run(tester, FocusPlacesCommand.commandId);
+      expect(plate(tester).active, isTrue);
+      await key(tester, LogicalKeyboardKey.escape);
+      expect(plate(tester).active, isFalse);
+    });
+
     testWidgets('не дошли — тост и приглушение; дошли — приглушение снято', (tester) async {
       await pumpApp(tester);
 
