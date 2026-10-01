@@ -227,16 +227,14 @@ class AppShell extends StatelessWidget {
           // Окна команд рисуются поверх и **вне** обработчика клавиатуры:
           // иначе они не смогли бы принять фокус — он не пускает его внутрь.
           CommandDialogLayer(app: app),
-          // Вопрос о пароле — там же и по той же причине. Задаёт его не
-          // команда, а тот, кто наткнулся на защищённое.
-          CredentialsLayer(credentials: app.credentials),
-          // Согласие на запись от администратора — там же: спрашивает его тот,
-          // кому отказали в правах, а показать может только ядро.
-          ElevationLayer(elevation: app.elevation),
-
-          // Ошибка, которую никто не поймал, — поверх окон: пока о ней не
-          // сказали, продолжать всё равно нечего.
-          ErrorLayer(errors: app.errors, toasts: app.toasts),
+          // Вопрос о пароле, согласие на запись от администратора и ошибка,
+          // которую никто не поймал, — окна той же стопки, а не слои сбоку:
+          // одни правила места, фокуса и закрытия на все
+          // (`docs/spec/child-dialogs.md`, §4.5). Сами эти виджеты ничего не
+          // рисуют: они кладут окно в стопку, когда есть о чём спросить.
+          CredentialsLayer(credentials: app.credentials, view: app.view),
+          ElevationLayer(elevation: app.elevation, view: app.view),
+          ErrorLayer(errors: app.errors, toasts: app.toasts, view: app.view),
 
           // Сообщения — выше всех, включая окна.
           //

@@ -3,8 +3,10 @@ import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/state/error_controller.dart';
 import 'package:flex_commander/state/toast_controller.dart';
+import 'package:flex_commander/view/dialogs/command_dialog_layer.dart';
 import 'package:flex_commander/view/dialogs/dialog_frame.dart';
 import 'package:flex_commander/view/dialogs/error_layer.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -13,8 +15,12 @@ void main() {
   late FakeClipboard clipboard;
   late ErrorController errors;
   late ToastController toasts;
+  late Application app;
 
-  setUp(() {
+  setUp(() async {
+    // Стопка окон — настоящая: окно ошибки живёт в ней, а не слоем сбоку
+    // (`docs/spec/child-dialogs.md`, §4.5).
+    app = (await testApp(provider: InMemoryTreeProvider([FakeEntry.directory('/home')]))).app;
     clipboard = FakeClipboard();
     errors = ErrorController(clipboard: clipboard, environment: const {'Platform': 'test'});
     toasts = ToastController();
@@ -28,9 +34,17 @@ void main() {
             FcTheme(colors: DefaultColors(), metrics: DefaultMetrics(), icons: DefaultIcons(), fonts: DefaultFonts()),
           ],
         ),
-        home: Scaffold(body: ErrorLayer(errors: errors, toasts: toasts)),
+        home: Scaffold(
+          body: AppScope(
+            controller: app,
+            child: Stack(
+              children: [CommandDialogLayer(app: app), ErrorLayer(errors: errors, toasts: toasts, view: app.view)],
+            ),
+          ),
+        ),
       ),
     );
+    await tester.pump();
     await tester.pump();
   }
 
@@ -72,11 +86,15 @@ void main() {
     Finder cross() => find.descendant(of: find.byType(DialogFrame), matching: find.byType(CustomPaint)).first;
 
     await tester.tap(cross());
+    // Следующая ошибка — новое окно стопки: встаёт следующим кадром.
+    await tester.pump();
     await tester.pump();
 
     expect(find.textContaining('вторая'), findsWidgets);
 
     await tester.tap(cross());
+    // Следующая ошибка — новое окно стопки: встаёт следующим кадром.
+    await tester.pump();
     await tester.pump();
 
     expect(find.text('Unexpected error'), findsNothing);

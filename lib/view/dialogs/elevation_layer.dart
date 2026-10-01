@@ -1,8 +1,9 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/material.dart';
 
-import 'dialog_frame.dart';
+import 'request_dialog.dart';
 
 /// Окно, которым приложение спрашивает согласия на запись от администратора.
 ///
@@ -14,30 +15,29 @@ import 'dialog_frame.dart';
 /// `NOPASSWD` не должны превращать запись в системный каталог в незаметное
 /// действие.
 class ElevationLayer extends StatelessWidget {
-  const ElevationLayer({super.key, required this.elevation});
+  const ElevationLayer({super.key, required this.elevation, required this.view});
 
   final Elevation elevation;
 
+  /// Стопка окон: вопрос о правах — окно в ней, дочернее к верхнему окну —
+  /// обычно к окну работы, которой отказали (`docs/spec/child-dialogs.md`,
+  /// §4.5). Закрыли его — вопрос снимается отказом.
+  final ApplicationView view;
+
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
+    return RequestDialog<ElevationRequest>(
+      view: view,
       listenable: elevation,
-      builder: (context, _) {
-        final request = elevation.pending;
-        if (request == null) {
-          return const SizedBox.shrink();
-        }
-
-        return DialogFrame(
-          key: ValueKey('${request.realm}#${request.path}'),
+      current: () => elevation.pending,
+      identity: (request) => '${request.realm}#${request.path}',
+      spec: (context, request, parent) {
+        return DialogSpec(
+          parent: parent,
           title: context.strings.tr('Administrator rights'),
-          takesFocus: false,
           onSubmit: () => elevation.answer(true),
           onDismiss: () => elevation.answer(false),
-          child: CommandDialogConfirm(
-            // Место названо всегда, даже когда это своя машина: записать
-            // `/etc/hosts` от администратора здесь и на чужом сервере — разные
-            // по последствиям вещи, и различать их надо глазами.
+          content: CommandDialogConfirm(
             message: context.strings.tr(
               '{action} {path}\non {where} as administrator?',
               args: {'action': context.strings.tr(request.action), 'path': request.path, 'where': request.where},

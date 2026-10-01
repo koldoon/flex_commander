@@ -1,39 +1,50 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/material.dart';
 
-import 'dialog_frame.dart';
+import 'request_dialog.dart';
 
 /// Окно, которым приложение спрашивает пароль.
 ///
 /// Спрашивает не команда, а тот, кто наткнулся на защищённое: провайдер архива,
-/// а позже — подключение к серверу. Поэтому окно живёт не в слое команд, а
-/// рядом с ним, и рисуется по одному признаку — есть ли неотвеченный запрос.
+/// подключение к серверу. Окно кладётся в общую стопку, дочерним к верхнему
+/// окну — обычно это окно работы, которая и наткнулась
+/// (`docs/spec/child-dialogs.md`, §4.5). Закрыли его — вопрос снимается
+/// отказом, а не висит.
 ///
-/// Рама та же, что у окон команд ([DialogFrame]): заголовок, затемнение, Enter
-/// и Esc. Пользователю неоткуда знать, что этот вопрос задаёт не команда, и
+/// Пользователю неоткуда знать, что этот вопрос задаёт не команда, и
 /// выглядеть он должен так же.
 class CredentialsLayer extends StatelessWidget {
-  const CredentialsLayer({super.key, required this.credentials});
+  const CredentialsLayer({super.key, required this.credentials, required this.view});
 
   final CredentialPrompt credentials;
 
+  final ApplicationView view;
+
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
+    return RequestDialog<CredentialRequest>(
+      view: view,
       listenable: credentials,
-      builder: (context, _) {
-        final request = credentials.pending;
-        if (request == null) {
-          return const SizedBox.shrink();
-        }
-
-        return _CredentialsDialog(
-          // Ключ по адресу: следующий вопрос — про другой архив, и поля должны
-          // быть пустыми, а не с чужим набранным.
-          key: ValueKey('${request.realm}#${request.retry}'),
-          request: request,
-          onAnswer: credentials.answer,
+      current: () => credentials.pending,
+      // По адресу и попытке: следующий вопрос — про другой архив или после
+      // неверного пароля, и поля должны быть пустыми, а не с чужим набранным.
+      identity: (request) => '${request.realm}#${request.retry}',
+      spec: (context, request, parent) {
+        final form = GlobalKey<_CredentialsDialogState>();
+        return DialogSpec(
+          parent: parent,
+          // Заголовок приходит значением — от того, кто спросил: он живёт в
+          // ядре и по-русски говорить не обязан. Переводит тот, кто показывает
+          // (`docs/spec/localization.md`, §3).
+          title: context.strings.tr(request.title),
+          // Фокус ставит первое поле: спрашивают пароль — значит, его сейчас
+          // и будут набирать.
+          takesFocus: true,
+          onSubmit: () => form.currentState?._submit(),
+          onDismiss: () => credentials.answer(null),
+          content: _CredentialsDialog(key: form, request: request, onAnswer: credentials.answer),
         );
       },
     );
@@ -72,35 +83,24 @@ class _CredentialsDialogState extends State<_CredentialsDialog> {
     final theme = FcTheme.of(context);
     final request = widget.request;
 
-    return DialogFrame(
-      // Заголовок и подписи полей приходят значением — от того, кто спросил:
-      // он живёт в ядре и по-русски говорить не обязан. Переводит их тот, кто
-      // показывает (`docs/spec/localization.md`, §3).
-      title: context.strings.tr(request.title),
-      // Фокус ставит первое поле: спрашивают пароль — значит, его сейчас и
-      // будут набирать.
-      takesFocus: true,
+    return CommandDialogForm(
+      error: request.retry ? context.strings.tr('Wrong password') : null,
+      onCancel: _dismiss,
       onSubmit: _submit,
-      onDismiss: _dismiss,
-      child: CommandDialogForm(
-        error: request.retry ? context.strings.tr('Wrong password') : null,
-        onCancel: _dismiss,
-        onSubmit: _submit,
-        submitLabel: context.strings.tr('Unlock'),
-        children: [
-          CommandDialogField.wide(child: Text(request.message, style: theme.dialogTextStyle)),
-          for (final field in request.fields)
-            CommandDialogField(
-              label: context.strings.tr(field.label),
-              child: FcTextField(
-                controller: _inputs[field.name]!,
-                autofocus: field == request.fields.first,
-                obscureText: field.secret,
-                onSubmitted: (_) => _submit(),
-              ),
+      submitLabel: context.strings.tr('Unlock'),
+      children: [
+        CommandDialogField.wide(child: Text(request.message, style: theme.dialogTextStyle)),
+        for (final field in request.fields)
+          CommandDialogField(
+            label: context.strings.tr(field.label),
+            child: FcTextField(
+              controller: _inputs[field.name]!,
+              autofocus: field == request.fields.first,
+              obscureText: field.secret,
+              onSubmitted: (_) => _submit(),
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 }

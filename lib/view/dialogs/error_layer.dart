@@ -3,7 +3,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/material.dart';
 
-import 'dialog_frame.dart';
+import 'request_dialog.dart';
 
 /// Окно, которым приложение сообщает о том, чего не предусмотрело.
 ///
@@ -14,39 +14,46 @@ import 'dialog_frame.dart';
 /// Рама и таблица те же, что у справки: пользователю неоткуда знать, что это
 /// другое окно, и выглядеть оно должно так же.
 class ErrorLayer extends StatelessWidget {
-  const ErrorLayer({super.key, required this.errors, required this.toasts});
+  const ErrorLayer({super.key, required this.errors, required this.toasts, required this.view});
 
   final Errors errors;
-
-  /// Куда сказать, что отчёт скопирован: «случилось и закончилось» — это
-  /// всплывающее сообщение, как и везде.
   final Toasts toasts;
+
+  /// Стопка окон: необработанная ошибка — окно в ней, верхнего уровня и без
+  /// родителя (`docs/spec/child-dialogs.md`, §4.5): закрытие любого другого
+  /// окна не должно унести её непрочитанной.
+  final ApplicationView view;
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
+    return RequestDialog<ErrorReport>(
+      view: view,
       listenable: errors,
-      builder: (context, _) {
-        final report = errors.current;
-        if (report == null) {
-          return const SizedBox.shrink();
-        }
-
-        return _ErrorDialog(
-          // Ключ по времени: следующая ошибка — другая, и прокрутка стека не
-          // должна остаться от предыдущей.
-          key: ValueKey(report.time),
-          report: report,
-          pending: errors.pending,
-          onClose: errors.dismiss,
-          onReport: () async {
-            // Строка берётся до ожидания: после него `context` уже нельзя
-            // трогать, а сказать надо ровно то же самое.
-            final said = context.strings.tr('Error report copied');
-            if (await errors.copyReport()) {
-              toasts.show(said);
-            }
-          },
+      current: () => errors.current,
+      childOfTop: false,
+      // Заголовок говорит, сколько ждёт в очереди, — сменился счёт, меняется и
+      // окно.
+      identity: (report) => '${report.time.microsecondsSinceEpoch}#${errors.pending}',
+      spec: (context, report, _) {
+        final pending = errors.pending;
+        return DialogSpec(
+          title:
+              pending > 1
+                  ? context.strings.tr('Unexpected error (1 of {count})', args: {'count': pending})
+                  : context.strings.tr('Unexpected error'),
+          takesFocus: true,
+          // Enter и Esc делают одно: закрыть. Соглашаться тут не с чем.
+          onSubmit: errors.dismiss,
+          onDismiss: errors.dismiss,
+          content: _ErrorDialog(
+            report: report,
+            onReport: () async {
+              final said = context.strings.tr('Error report copied');
+              if (await errors.copyReport()) {
+                toasts.show(said);
+              }
+            },
+          ),
         );
       },
     );
@@ -54,39 +61,16 @@ class ErrorLayer extends StatelessWidget {
 }
 
 class _ErrorDialog extends StatelessWidget {
-  const _ErrorDialog({
-    super.key,
-    required this.report,
-    required this.pending,
-    required this.onClose,
-    required this.onReport,
-  });
+  const _ErrorDialog({required this.report, required this.onReport});
 
   final ErrorReport report;
-
-  /// Сколько ошибок ждёт, считая показанную.
-  final int pending;
-
-  final VoidCallback onClose;
   final VoidCallback onReport;
 
   @override
   Widget build(BuildContext context) {
-    return DialogFrame(
-      // Счёт в заголовке — чтобы было видно, что за этой стоят ещё: одна
-      // поломка часто тянет за собой соседние, и по первой судить рано.
-      title:
-          pending > 1
-              ? context.strings.tr('Unexpected error (1 of {count})', args: {'count': pending})
-              : context.strings.tr('Unexpected error'),
-      takesFocus: true,
-      // Enter и Esc делают одно: закрыть. Соглашаться тут не с чем.
-      onSubmit: onClose,
-      onDismiss: onClose,
-      child: FcKeyValueTable(
-        sections: _sections(context.strings),
-        actions: [FcButton(label: context.strings.tr('Report'), onPressed: onReport)],
-      ),
+    return FcKeyValueTable(
+      sections: _sections(context.strings),
+      actions: [FcButton(label: context.strings.tr('Report'), onPressed: onReport)],
     );
   }
 

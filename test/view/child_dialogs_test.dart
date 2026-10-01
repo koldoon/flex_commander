@@ -113,4 +113,41 @@ void main() {
     await tester.pumpAndSettle();
     expect(runtime.app.view.dialogs, isEmpty);
   });
+
+  testWidgets('вопрос о пароле — окно стопки, дочернее к верхнему; закрыли родителя — ответ «нет»', (tester) async {
+    await pumpApp(tester);
+    await tester.sendKeyEvent(LogicalKeyboardKey.f9);
+    await tester.pumpAndSettle();
+    final settings = runtime.app.view.openDialogs.single.id;
+
+    final credentials = runtime.app.credentials;
+    credentials.show('ask#1', const CredentialRequest(realm: '7z:/a.7z', title: 'Encrypted archive', message: 'a.7z'));
+    await tester.pumpAndSettle();
+
+    final dialogs = runtime.app.view.openDialogs;
+    expect(dialogs, hasLength(2), reason: 'пароль — окно той же стопки, а не слой сбоку');
+    expect(dialogs.last.spec.parent, settings);
+    expect(find.text('Encrypted archive'), findsOneWidget);
+
+    runtime.app.view.closeDialog(settings);
+    await tester.pumpAndSettle();
+    expect(runtime.app.view.dialogs, isEmpty);
+    expect(credentials.pending, isNull, reason: 'вопрос снят отказом, а не висит');
+  });
+
+  testWidgets('необработанная ошибка родителя не берёт и переживает закрытие других окон', (tester) async {
+    await pumpApp(tester);
+    await tester.sendKeyEvent(LogicalKeyboardKey.f9);
+    await tester.pumpAndSettle();
+    final settings = runtime.app.view.openDialogs.single.id;
+
+    runtime.app.errors.report(StateError('нет такого'), StackTrace.fromString('#0 here'));
+    await tester.pumpAndSettle();
+    final error = runtime.app.view.openDialogs.last;
+    expect(error.spec.parent, isNull);
+
+    runtime.app.view.closeDialog(settings);
+    await tester.pumpAndSettle();
+    expect(runtime.app.view.openDialogs.map((dialog) => dialog.id), [error.id], reason: 'ошибку не унесло');
+  });
 }
