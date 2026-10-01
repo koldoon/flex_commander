@@ -113,37 +113,45 @@ class _PanelViewState extends State<PanelView> {
             // И на само приложение: заголовок выбирают в настройках, и смена
             // обязана дойти до обеих панелей сразу.
             listenable: Listenable.merge([panel, app.view, app]),
-            builder:
-                (context, _) => FcPathPlate(
-                  path: _headerTextOf(panel),
-                  // Чем набрать адрес, решает объявивший заголовок модуль;
-                  // никто не объявил или имя чужое — путь строкой, как было
-                  // всегда (`docs/spec/panel-header.md`, §6).
-                  content: switch (app.panelHeaders.byId(app.panelHeader)) {
-                    final header? =>
-                      (context, width, style) => header.build(
-                        context,
-                        PanelHeaderView(
-                          panel: panel,
-                          text: _headerTextOf(panel),
-                          width: width,
-                          style: style,
-                          active: takesKeysHere(context, panel),
-                        ),
+            builder: (context, _) {
+              // Считается один раз и **снаружи**. `takesKeysHere` подписывается
+              // на `InheritedWidget`, а замыкание содержимого плашка исполняет
+              // уже в раскладке: подписка оттуда заставляет пересобираться без
+              // конца — тесты сведений об объекте вставали с шести секунд на
+              // десять минут, и причина была не видна глазом вовсе.
+              final active = takesKeysHere(context, panel);
+
+              return FcPathPlate(
+                path: _headerTextOf(panel),
+                // Чем набрать адрес, решает объявивший заголовок модуль;
+                // никто не объявил или имя чужое — путь строкой, как было
+                // всегда (`docs/spec/panel-header.md`, §6).
+                content: switch (app.panelHeaders.byId(app.panelHeader)) {
+                  final header? =>
+                    (context, width, style) => header.build(
+                      context,
+                      PanelHeaderView(
+                        panel: panel,
+                        text: _headerTextOf(panel),
+                        width: width,
+                        style: style,
+                        active: active,
                       ),
-                    null => null,
-                  },
-                  // «Назад» и «вперёд» — только у панели с файлами: у
-                  // просмотрщика в этой же плашке истории нет
-                  // (`docs/spec/session-history.md`, §9).
-                  leading: HistoryArrows(panel: panel),
-                  leadingWidth: HistoryArrows.widthOf(FcTheme.of(context)),
-                  // Не `panel.active`: та говорит, какая **сессия** —
-                  // источник операции, и остаётся собой, когда ввод ушёл в
-                  // наложение напротив, а показана она бывает сразу в обеих
-                  // панелях. Плашка говорит другое: где сейчас клавиши.
-                  active: takesKeysHere(context, panel),
-                ),
+                    ),
+                  null => null,
+                },
+                // «Назад» и «вперёд» — только у панели с файлами: у
+                // просмотрщика в этой же плашке истории нет
+                // (`docs/spec/session-history.md`, §9).
+                leading: HistoryArrows(panel: panel),
+                leadingWidth: HistoryArrows.widthOf(FcTheme.of(context)),
+                // Не `panel.active`: та говорит, какая **сессия** —
+                // источник операции, и остаётся собой, когда ввод ушёл в
+                // наложение напротив, а показана она бывает сразу в обеих
+                // панелях. Плашка говорит другое: где сейчас клавиши.
+                active: active,
+              );
+            },
           ),
           footer: PanelStatusBar(panel: panel, settings: widget.settings),
           // Не таблица файлов, а то, чем рисуется вид содержимого панели:
