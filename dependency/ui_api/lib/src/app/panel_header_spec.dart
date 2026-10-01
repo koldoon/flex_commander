@@ -37,7 +37,13 @@ class PanelHeaderSpec {
 /// Значением, а не набором доводов: заголовков будет несколько, и добавить
 /// сведение, не переписав их все, можно только так.
 class PanelHeaderView {
-  const PanelHeaderView({required this.panel, required this.text, required this.width, required this.style});
+  const PanelHeaderView({
+    required this.panel,
+    required this.text,
+    required this.width,
+    required this.style,
+    this.active = true,
+  });
 
   /// Чей адрес показываем.
   final Session panel;
@@ -58,6 +64,14 @@ class PanelHeaderView {
 
   /// Чем набирать: цвет уже учитывает, активна ли панель.
   final TextStyle style;
+
+  /// Принимает ли эта панель клавиши.
+  ///
+  /// Цвет [style] это уже учёл, но заголовку признак нужен **отдельно**: у него
+  /// бывает и вторичный текст — промежуточные звенья пути, — а приглушать его
+  /// надо тем, чем пишут по **этой** плашке. Роль вторичной подписи у активной
+  /// и пассивной разная, и вывести одну из другой по цвету нельзя.
+  final bool active;
 }
 
 /// Заголовки, объявленные модулями.

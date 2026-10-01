@@ -78,7 +78,12 @@ class CrumbsHeader extends StatelessWidget {
 
     final theme = FcTheme.of(context);
     final scaler = MediaQuery.textScalerOf(context);
-    final dim = view.style.copyWith(color: theme.colors.secondaryText);
+    // Приглушать надо то, чем пишут по **плашке**, а не вторичную подпись
+    // списка файлов: у оформления, где активная плашка залита акцентом, та
+    // оказывается на ней чужой — вплоть до чёрного по синему.
+    final dim = view.style.copyWith(
+      color: view.active ? theme.colors.pathSecondaryText : theme.colors.pathInactiveText,
+    );
     final shown = _fit(crumbs, dim, scaler);
 
     return Row(

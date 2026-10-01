@@ -41,6 +41,7 @@ class MacOsTones {
     required this.controlShadow,
     required this.controlEdge,
     required this.cardEdge,
+    required this.panelEdge,
     required this.pressed,
     required this.systemRed,
     required this.systemOrange,
@@ -170,6 +171,14 @@ class MacOsTones {
   /// различима на обеих подложках, и это сторожит тест.
   final Color cardEdge;
 
+  /// Обводка самой панели.
+  ///
+  /// На тёмной её нет: панель отделена от подложки заливкой, как и всё
+  /// остальное в этом оформлении, и лишняя черта спорит с общим складом. На
+  /// светлой пока оставлена — там перепад между подложкой и содержимым меньше,
+  /// и убирать край, не посмотрев на живое приложение, значит гадать.
+  final Color panelEdge;
+
   /// Нажатая кнопка. Плоского цвета для этого состояния в AppKit нет.
   /// На тёмной — осветление: затемнение на тёмном не читается.
   final Color pressed;
@@ -266,6 +275,7 @@ const MacOsTones macOsLightTones = MacOsTones(
   controlShadow: Color(0x00000000),
   controlEdge: Color(0x00000000),
   cardEdge: Color(0x00000000),
+  panelEdge: Color(0x19000000),
   pressed: Color(0x1A000000),
   systemRed: Color(0xFFFF383C),
   systemOrange: Color(0xFFFF8D28),
@@ -326,6 +336,7 @@ const MacOsTones macOsDarkTones = MacOsTones(
   controlShadow: Color(0x00000000),
   controlEdge: Color(0x00000000),
   cardEdge: Color(0x00000000),
+  panelEdge: Color(0x00000000),
   pressed: Color(0x1AFFFFFF),
   systemRed: Color(0xFFFF4245),
   systemOrange: Color(0xFFFF9230),

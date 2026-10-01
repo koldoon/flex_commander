@@ -123,7 +123,13 @@ class _PanelViewState extends State<PanelView> {
                     final header? =>
                       (context, width, style) => header.build(
                         context,
-                        PanelHeaderView(panel: panel, text: _headerTextOf(panel), width: width, style: style),
+                        PanelHeaderView(
+                          panel: panel,
+                          text: _headerTextOf(panel),
+                          width: width,
+                          style: style,
+                          active: takesKeysHere(context, panel),
+                        ),
                       ),
                     null => null,
                   },

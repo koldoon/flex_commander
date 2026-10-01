@@ -51,7 +51,7 @@ class MacOsColors extends FcColors {
   Color get panelBackground => tones.contentBackground;
 
   @override
-  Color get panelBorder => tones.separator;
+  Color get panelBorder => tones.panelEdge;
 
   /// Разделитель — `separatorColor`, а не `gridColor`.
   ///
