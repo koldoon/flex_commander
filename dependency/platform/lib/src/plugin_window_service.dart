@@ -94,6 +94,11 @@ class PluginWindowService with WindowListener implements WindowService {
   @override
   Future<void> startDrag() => windowManager.startDragging();
 
+  /// Раму ставит плагин — он же и знает про `NSAppearance`; своего кода в
+  /// раннере для этого не нужно.
+  @override
+  Future<void> setBrightness(Brightness brightness) => windowManager.setBrightness(brightness);
+
   @override
   Future<void> toggleMaximized() async {
     if (await windowManager.isMaximized()) {

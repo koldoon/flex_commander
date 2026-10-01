@@ -129,6 +129,7 @@ void main() {
     // тема это не выбор», а не то, сколько их приносит модуль.
     runtime.theme.forget(MacOsThemeIds.light);
     runtime.theme.forget(MacOsThemeIds.dark);
+    runtime.theme.forget(MacOsThemeIds.auto);
     expect(runtime.theme.available.length, 1);
 
     // Команда есть, но приглушена.
@@ -141,7 +142,7 @@ void main() {
     final runtime = await testApp(provider: provider, modules: [const DefaultTheme()]);
 
     final ids = runtime.theme.available.map((theme) => theme.id).toList();
-    expect(ids, [DefaultTheme.themeId, MacOsThemeIds.light, MacOsThemeIds.dark]);
+    expect(ids, [DefaultTheme.themeId, MacOsThemeIds.light, MacOsThemeIds.dark, MacOsThemeIds.auto]);
 
     // Порядок держит умолчание: выбора ещё не было, а тема уже есть.
     expect(runtime.theme.current.id, DefaultTheme.themeId);
@@ -154,6 +155,28 @@ void main() {
     for (final id in [MacOsThemeIds.light, MacOsThemeIds.dark]) {
       expect(id, contains('.'));
     }
+  });
+
+  test('правило стоит в том же списке, что и оформления', () async {
+    // Правило принадлежит паре оформлений своей системы, а не оформлению
+    // вообще: отдельного поля в настройках у него поэтому нет — выбор один и
+    // там же, где был.
+    final runtime = await testApp(provider: provider, modules: [const DefaultTheme()]);
+
+    final rule = runtime.theme.available.firstWhere((theme) => theme.id == MacOsThemeIds.auto);
+    expect(rule.title, 'Follow macOS theme');
+
+    // И выбирается оно тем же способом, что и любое оформление.
+    runtime.theme.use(MacOsThemeIds.auto);
+    expect(runtime.theme.current.id, MacOsThemeIds.auto);
+  });
+
+  test('оформление по правилу берёт тона по названной яркости', () {
+    expect(macOsAutoTheme(brightness: Brightness.light).colors.windowBackground, macOsLightTones.windowBackground);
+    expect(macOsAutoTheme(brightness: Brightness.dark).colors.windowBackground, macOsDarkTones.windowBackground);
+
+    // И яркость уезжает в спеку: по ней ставится рама окна.
+    expect(macOsAutoTheme(brightness: Brightness.light).brightness, Brightness.light);
   });
 
   test('у светлого оформления яркость светлая, у тёмного — тёмная', () {

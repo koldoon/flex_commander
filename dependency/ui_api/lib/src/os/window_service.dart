@@ -1,4 +1,5 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:flutter/foundation.dart';
 
 /// Окно приложения: восстановление геометрии при старте и уведомления о том,
 /// что пользователь его подвинул или изменил размер.
@@ -25,6 +26,14 @@ abstract interface class WindowService {
   /// двойное нажатие на системной полосе.
   Future<void> toggleMaximized();
 
+  /// Светлая рама у окна или тёмная.
+  ///
+  /// Заголовок и кнопки окна рисует система по `NSAppearance`, а не наше
+  /// оформление: светлое приложение в тёмной системе иначе оказалось бы в
+  /// тёмной раме. Ставится по яркости выбранного оформления — и, значит,
+  /// меняется вместе с ним.
+  Future<void> setBrightness(Brightness brightness);
+
   /// Подписка на перемещение, изменение размера и разворот окна.
   void addListener(void Function() listener);
 
@@ -48,6 +57,9 @@ class NoopWindowService implements WindowService {
 
   @override
   Future<void> toggleMaximized() async {}
+
+  @override
+  Future<void> setBrightness(Brightness brightness) async {}
 
   @override
   void addListener(void Function() listener) {}

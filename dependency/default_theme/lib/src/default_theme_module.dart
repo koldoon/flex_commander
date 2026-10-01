@@ -1,4 +1,5 @@
 import 'package:fc_ui_api/fc_ui_api.dart';
+import 'package:flutter/foundation.dart';
 
 import 'default_colors.dart';
 import 'default_fonts.dart';
@@ -49,6 +50,9 @@ class DefaultTheme implements FcFrontendModule {
     // выбранную тему — и все эталонные снимки. Переставить нельзя.
     registry.theme(macOsLightTheme());
     registry.theme(macOsDarkTheme());
+    // Правило — четвёртым в том же списке: оно принадлежит этой паре
+    // оформлений, а не оформлению вообще (`spec/macos-themes.md`, §9).
+    registry.theme(macOsAutoTheme(brightness: Brightness.dark));
 
     final settings = registry.settings;
     registry.command((context) => SwitchThemeCommand(context, settings));
@@ -57,7 +61,7 @@ class DefaultTheme implements FcFrontendModule {
     // (`docs/spec/key-bindings.md`, §5).
     registry.binding(KeyBinding.unbound(SwitchThemeCommand.commandId, context: KeyContext.everywhere));
     registry.startup((context) => RestoreThemeCommand(context, settings));
-    registry.startup((context) => FollowAccentCommand(context));
+    registry.startup((context) => FollowSystemAppearanceCommand(context));
   }
 }
 
@@ -69,7 +73,8 @@ const Map<String, String> _russian = {
   'Switch theme': 'Сменить оформление',
   'Choose the application appearance': 'Выбрать внешний вид приложения',
   'Restore theme': 'Вернуть оформление',
-  'Follow system accent': 'Следить за акцентом системы',
+  'Follow system appearance': 'Следить за внешним видом системы',
+  'Follow macOS theme': 'Вслед за оформлением macOS',
   'Default theme': 'Оформление',
   'Default': 'Обычное',
   // Названия нарочно не «Light» и «Dark»: короткие слова первыми понадобятся

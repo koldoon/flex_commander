@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
@@ -34,6 +35,13 @@ class FakeWindowService implements WindowService {
 
   @override
   Future<void> toggleMaximized() async => maximized = !maximized;
+
+  /// Яркость рамы: тесту она нужна не для вида, а чтобы проверить, что
+  /// оформление и рама не разъезжаются.
+  Brightness? brightness;
+
+  @override
+  Future<void> setBrightness(Brightness value) async => brightness = value;
 
   /// Пользователь подвинул окно или изменил его размер.
   void moveTo(WindowGeometry value) {

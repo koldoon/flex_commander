@@ -1,6 +1,8 @@
+import 'dart:async';
+
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
-import 'package:flutter/painting.dart';
+import 'package:flutter/widgets.dart';
 
 import 'macos_themes.dart';
 import 'theme_settings.dart';
@@ -85,60 +87,85 @@ class RestoreThemeCommand extends AppCommand {
   }
 }
 
-/// Держит оформления macOS в согласии с акцентом системы.
+/// Держит оформления macOS в согласии с системой: акцент, яркость и рама окна.
 ///
 /// Перевыкладывает их **модуль тем**, а не модуль акцента, и это не мелочь:
-/// иначе платформенный модуль знал бы про две конкретные темы — зависимость
-/// наизнанку. Акцент он только приносит, а что им красить, решает тот, чьи темы.
-class FollowAccentCommand extends AppCommand {
-  FollowAccentCommand(this.env);
+/// иначе платформенный модуль знал бы про конкретные темы — зависимость
+/// наизнанку. Акцент он только приносит, а яркость приносит сам Flutter, и
+/// канала для неё не нужно вовсе.
+class FollowSystemAppearanceCommand extends AppCommand with WidgetsBindingObserver {
+  FollowSystemAppearanceCommand(this.env);
 
   final FcContext env;
 
-  static const String commandId = 'app.theme.follow_accent';
+  static const String commandId = 'app.theme.follow_system';
 
   SystemAccent? _accent;
-  Color? _light;
-  Color? _dark;
+  Brightness? _brightness;
 
   @override
   String get id => commandId;
 
   @override
-  String get label => tr('Follow system accent');
+  String get label => tr('Follow system appearance');
 
   @override
   bool isExecutable(CommandContext context) => true;
 
   @override
   Future<void> execute(CommandContext context) async {
-    // Службы может не быть вовсе: канала нет на другой платформе и в тестах, а
-    // модуль акцента можно выключить. `resolveAll` для этого и годится —
-    // `resolve` бросил бы.
-    final accent = env.resolveAll<SystemAccent>().firstOrNull;
-    if (accent == null) {
-      return;
-    }
-    _accent = accent;
-    accent.addListener(_repaint);
+    // Яркость спрашиваем у Flutter: это не платформенная вещь за каналом, а
+    // то, что движок знает сам. Наблюдателем, а не заменой обработчика в
+    // `PlatformDispatcher`: тот один на приложение, и второй желающий молча
+    // отобрал бы его у первого.
+    WidgetsBinding.instance.addObserver(this);
+    _brightness = _systemBrightness;
 
-    // И сразу: стартовые команды идут в порядке объявления модулей, а модуль
-    // акцента объявлен позже темы — то есть к этому мгновению он ещё не
-    // спрашивал. Но порядок модулей — не то, на что стоит опираться, и если
-    // ответ уже приехал, он не должен пропасть.
+    // Службы акцента может не быть вовсе: канала нет на другой платформе и в
+    // тестах, а модуль можно выключить. `resolveAll` для этого и годится.
+    final accent = env.resolveAll<SystemAccent>().firstOrNull;
+    if (accent != null) {
+      _accent = accent;
+      accent.addListener(_repaint);
+    }
+
+    // Рама идёт за выбранным оформлением, каким бы оно ни было: это свойство
+    // яркости, а не нашей пары.
+    env.app.theme.addListener(_matchWindow);
+    _matchWindow();
+
     _repaint();
   }
 
-  void _repaint() {
-    final accent = _accent;
-    if (accent == null || (accent.light == _light && accent.dark == _dark)) {
+  @override
+  void didChangePlatformBrightness() {
+    final now = _systemBrightness;
+    if (now == _brightness) {
       return;
     }
-    _light = accent.light;
-    _dark = accent.dark;
+    _brightness = now;
+    _repaint();
+  }
+
+  Brightness get _systemBrightness => WidgetsBinding.instance.platformDispatcher.platformBrightness;
+
+  void _repaint() {
+    final light = _accent?.light;
+    final dark = _accent?.dark;
+    final brightness = _brightness ?? Brightness.dark;
+
     // `register` заменяет тему по имени **на том же месте списка**: порядок не
-    // съедет, а выбор человека и не при чём — он хранится именем.
-    env.app.theme.register(macOsLightTheme(accent: _light));
-    env.app.theme.register(macOsDarkTheme(accent: _dark));
+    // съедет, а выбор человека хранится именем и не при чём.
+    env.app.theme.register(macOsLightTheme(accent: light));
+    env.app.theme.register(macOsDarkTheme(accent: dark));
+    env.app.theme.register(
+      macOsAutoTheme(brightness: brightness, accent: brightness == Brightness.light ? light : dark),
+    );
+  }
+
+  /// Рама окна — по яркости выбранного оформления.
+  void _matchWindow() {
+    final service = env.resolveAll<WindowService>().firstOrNull;
+    unawaited(service?.setBrightness(env.app.theme.current.brightness));
   }
 }

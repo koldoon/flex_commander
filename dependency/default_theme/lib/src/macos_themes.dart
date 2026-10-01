@@ -19,6 +19,18 @@ import 'macos_palette.dart';
 abstract final class MacOsThemeIds {
   static const String light = 'fc.light';
   static const String dark = 'fc.dark';
+
+  /// «Вслед за оформлением macOS» — не цвет, а правило.
+  ///
+  /// Стоит в том же списке, что и темы, и это не уловка: правило принадлежит
+  /// **группе оформлений своей системы**, а не оформлению вообще. Светлое и
+  /// тёмное macOS приходят парой и умеют меняться по системе; появится порт на
+  /// Windows — его модуль принесёт свою пару и своё «вслед за оформлением
+  /// Windows», не трогая ни общих настроек, ни этой.
+  ///
+  /// Поэтому отдельного поля правила в настройках нет: выбор один, и он там же,
+  /// где был.
+  static const String auto = 'fc.auto';
 }
 
 /// Светлое оформление по цветам macOS.
@@ -46,6 +58,24 @@ FcThemeSpec macOsDarkTheme({Color? accent}) => FcThemeSpec(
   title: 'macOS Dark',
   brightness: Brightness.dark,
   colors: MacOsColors(tones: macOsDarkTones, accent: accent),
+  metrics: const DefaultMetrics(),
+  icons: const DefaultIcons(),
+  fonts: const DefaultFonts(),
+);
+
+/// Оформление, идущее за внешним видом системы.
+///
+/// Снаружи это обычная тема: служба оформлений списочная, и правило,
+/// предъявленное темой, не требует от неё ни нового поля, ни нового понятия.
+/// Внутри — та же пара тонов, выбранная по яркости, которую сообщил Flutter.
+/// Сменился внешний вид системы — модуль перевыкладывает эту тему с другой
+/// половиной пары, и приложение перекрашивается тем же порядком, каким оно
+/// перекрашивается от смены акцента.
+FcThemeSpec macOsAutoTheme({required Brightness brightness, Color? accent}) => FcThemeSpec(
+  id: MacOsThemeIds.auto,
+  title: 'Follow macOS theme',
+  brightness: brightness,
+  colors: MacOsColors(tones: brightness == Brightness.light ? macOsLightTones : macOsDarkTones, accent: accent),
   metrics: const DefaultMetrics(),
   icons: const DefaultIcons(),
   fonts: const DefaultFonts(),
