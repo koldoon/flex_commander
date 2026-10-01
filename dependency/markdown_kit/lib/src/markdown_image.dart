@@ -167,6 +167,21 @@ class _FcMarkdownImageState extends State<FcMarkdownImage> {
               : Image.memory(
                 bytes,
                 fit: BoxFit.scaleDown,
+                // Байты есть, а кадра ещё нет: расшифровка идёт своим ходом, и
+                // до неё у картинки нулевая высота — документ ниже прыгнул бы
+                // вверх и обратно. Пока кадра нет, место держим по прошлому
+                // показу, как и пока не дочитаны байты.
+                //
+                // И мерить место — когда кадр пришёл, а не когда собрали
+                // виджет: при расшифровке не тем же кадром замер при сборке
+                // видел ноль, и настоящая высота не запоминалась никогда.
+                frameBuilder: (context, child, frame, synchronous) {
+                  if (frame == null && !synchronous) {
+                    return SizedBox(height: _store.heightOf(_key) ?? 0);
+                  }
+                  _measure();
+                  return child;
+                },
                 errorBuilder: (context, _, _) => _placeholder(context, null),
               ),
     );

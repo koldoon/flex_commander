@@ -131,11 +131,58 @@ void main() {
 
     testWidgets('вернувшись в окно, занимает своё место тем же кадром', (tester) async {
       await pump(tester, source, resolve: (path) async => wide);
+      // Расшифровка картинки идёт настоящим временем, а не поддельным: без
+      // явного ожидания она то успевала к первому показу, то нет, и тест
+      // зеленел и краснел сам по себе (CI 1 октября 2026). Ждём её честно —
+      // и проверяем, что место правда запомнилось, прежде чем уводить блок.
+      for (var i = 0; i < 20 && tester.getSize(find.byType(Image, skipOffstage: false)).height == 0; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+        await tester.pump();
+      }
+      expect(
+        tester.getSize(find.byType(Image, skipOffstage: false)).height,
+        greaterThan(0),
+        reason: 'первый показ должен занять место',
+      );
 
       final position = tester.state<ScrollableState>(find.byType(Scrollable).first).position;
       position.jumpTo(900);
       await tester.pumpAndSettle();
 
+      position.jumpTo(0);
+      // Один кадр, без ожидания: без хранилища здесь была бы пустота нулевой
+      // высоты, и всё, что ниже, прыгнуло бы вверх.
+      await tester.pump();
+
+      expect(find.byType(Image, skipOffstage: false), findsOneWidget);
+      expect(tester.getSize(find.byType(Image, skipOffstage: false)).height, greaterThan(0));
+    });
+
+    testWidgets('вытесненная из кэша, держит место, пока расшифровывается заново', (tester) async {
+      await pump(tester, source, resolve: (path) async => wide);
+      // Расшифровка картинки идёт настоящим временем, а не поддельным: без
+      // явного ожидания она то успевала к первому показу, то нет, и тест
+      // зеленел и краснел сам по себе (CI 1 октября 2026). Ждём её честно —
+      // и проверяем, что место правда запомнилось, прежде чем уводить блок.
+      for (var i = 0; i < 20 && tester.getSize(find.byType(Image, skipOffstage: false)).height == 0; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+        await tester.pump();
+      }
+      expect(
+        tester.getSize(find.byType(Image, skipOffstage: false)).height,
+        greaterThan(0),
+        reason: 'первый показ должен занять место',
+      );
+
+      final position = tester.state<ScrollableState>(find.byType(Scrollable).first).position;
+      position.jumpTo(900);
+      await tester.pumpAndSettle();
+
+      // Кэш изображений вытеснил расшифрованное, пока блок был за краем, — на
+      // длинном документе с крупными картинками так и бывает. Байты при этом
+      // остались, а кадра нет: до правки здесь была нулевая высота.
+      imageCache.clear();
+      imageCache.clearLiveImages();
       position.jumpTo(0);
       // Один кадр, без ожидания: без хранилища здесь была бы пустота нулевой
       // высоты, и всё, что ниже, прыгнуло бы вверх.
