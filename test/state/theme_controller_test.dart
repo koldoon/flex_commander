@@ -74,6 +74,27 @@ void main() {
     expect(notifications, isZero);
   });
 
+  test('выбранная раньше своего появления тема встаёт, когда её зарегистрируют', () {
+    // Выбор восстанавливается при запуске, а свои темы регистрирует редактор
+    // тем позже — своей стартовой командой. Без этого своя тема при каждом
+    // запуске уступала Default (найдено на живом 2 октября 2026).
+    final themes = ThemeController([_default]);
+    themes.use('light');
+    expect(themes.current.id, _default.id, reason: 'пока её нет — на экране прежняя');
+
+    themes.register(_light);
+    expect(themes.current.id, 'light');
+  });
+
+  test('выбор знакомой отменяет ожидание незнакомой', () {
+    final themes = ThemeController([_default]);
+    themes.use('light');
+    themes.use(_default.id);
+
+    themes.register(_light);
+    expect(themes.current.id, _default.id, reason: 'человек уже выбрал другую');
+  });
+
   test('повторная установка заменяет тему, а не заводит вторую', () {
     final themes = ThemeController([_light]);
 

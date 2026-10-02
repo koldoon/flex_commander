@@ -16,6 +16,14 @@ class ThemeController extends ChangeNotifier implements ThemeService {
   final List<FcThemeSpec> _themes = [];
   String? _currentId;
 
+  /// Тема, которую выбрали раньше, чем она появилась; null — такой нет.
+  ///
+  /// Выбор восстанавливается при запуске, а свои темы человека регистрирует
+  /// редактор тем — своей стартовой командой, и порядок модулей тут ничего не
+  /// обещает. Без этого запомненная своя тема при каждом запуске уступала
+  /// Default: её имя приходило раньше неё самой.
+  String? _wanted;
+
   @override
   List<FcThemeSpec> get available => List.unmodifiable(_themes);
 
@@ -42,6 +50,10 @@ class ThemeController extends ChangeNotifier implements ThemeService {
     } else {
       _themes.add(spec);
     }
+    if (spec.id == _wanted) {
+      _currentId = spec.id;
+      _wanted = null;
+    }
     notifyListeners();
   }
 
@@ -64,12 +76,18 @@ class ThemeController extends ChangeNotifier implements ThemeService {
   @override
   void use(String id) {
     if (_currentId == id) {
+      _wanted = null;
       return;
     }
     if (!_themes.any((theme) => theme.id == id)) {
-      // Незнакомое имя: в настройках могло остаться имя отключённого модуля.
+      // Незнакомое имя — запоминается, а не выбирается: это может быть своя
+      // тема, которую ещё не зарегистрировали ([_wanted]). А может быть имя
+      // отключённого модуля — тогда она не появится вовсе, и на экране так и
+      // останется то, что было.
+      _wanted = id;
       return;
     }
+    _wanted = null;
     _currentId = id;
     notifyListeners();
   }

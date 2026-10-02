@@ -90,8 +90,14 @@ class ThemeEdit {
   /// Испорченное значение заменяется умолчанием, а не роняет разбор (сквозное
   /// правило 5): роль, которой в контракте нет, и цвет, который не разобрался,
   /// просто пропускаются. Записи без имени темы нет вовсе.
-  static ThemeEdit? fromJson(Object? stored) {
-    if (stored is! Map<String, dynamic>) {
+  ///
+  /// Словари — **любые**, а не только `Map<String, dynamic>`: раздел настроек
+  /// приезжает в интерфейс через границу изолятов, и вложенные словари там
+  /// `Map<dynamic, dynamic>`. Точная проверка типа молча выбрасывала каждую
+  /// свою тему при перезапуске, и на экране оказывалась Default.
+  static ThemeEdit? fromJson(Object? json) {
+    final stored = _stringKeyed(json);
+    if (stored == null) {
       return null;
     }
     final id = stored['id'];
@@ -102,7 +108,7 @@ class ThemeEdit {
 
     final edit = ThemeEdit(id: id, base: base, title: stored['title'] is String ? stored['title'] as String : '');
 
-    if (stored['colors'] case final Map<String, dynamic> colors) {
+    if (_stringKeyed(stored['colors']) case final colors?) {
       for (final entry in colors.entries) {
         if (entry.value case final String text) {
           if (parseColor(text) case final color?) {
@@ -111,14 +117,14 @@ class ThemeEdit {
         }
       }
     }
-    if (stored['metrics'] case final Map<String, dynamic> metrics) {
+    if (_stringKeyed(stored['metrics']) case final metrics?) {
       for (final entry in metrics.entries) {
         if (entry.value case final num value) {
           edit.metrics[entry.key] = value.toDouble();
         }
       }
     }
-    if (stored['fonts'] case final Map<String, dynamic> fonts) {
+    if (_stringKeyed(stored['fonts']) case final fonts?) {
       edit.uiFont = fonts['ui'] is String ? fonts['ui'] as String : null;
       edit.fixedFont = fonts['fixed'] is String ? fonts['fixed'] as String : null;
       edit.listFont = fonts['list'] is String ? fonts['list'] as String : null;
@@ -132,6 +138,10 @@ class ThemeEdit {
     }
     return edit;
   }
+
+  /// Словарь с ключами-строками из любого словаря; не словарь — null.
+  static Map<String, dynamic>? _stringKeyed(Object? value) =>
+      value is Map ? value.map((key, item) => MapEntry('$key', item)) : null;
 }
 
 /// Что редактор тем помнит между запусками.

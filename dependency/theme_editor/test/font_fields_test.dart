@@ -138,6 +138,21 @@ void main() {
       expect(themes.current.fonts.list, 'Menlo');
     });
 
+    test('своя тема читается и из словарей Map<dynamic, dynamic> — так они едут через границу', () {
+      final back = ThemeEdit.fromJson(<dynamic, dynamic>{
+        'id': 'mine',
+        'base': 'default',
+        'title': 'Mine',
+        'colors': <dynamic, dynamic>{'windowBackground': '#123456'},
+        'metrics': <dynamic, dynamic>{'rowHeight': 22},
+        'fonts': <dynamic, dynamic>{'list': 'Ubuntu'},
+      });
+      expect(back?.title, 'Mine');
+      expect(back?.colors, isNotEmpty);
+      expect(back?.metrics['rowHeight'], 22);
+      expect(back?.listFont, 'Ubuntu');
+    });
+
     test('шрифт списка едет в файл темы и обратно', () {
       final edit = ThemeEdit(id: 'mine', base: 'default', title: 'Mine')..listFont = 'Ubuntu';
       final back = ThemeEdit.fromJson(edit.toJson());
