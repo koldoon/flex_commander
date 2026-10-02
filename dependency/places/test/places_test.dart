@@ -424,7 +424,9 @@ void main() {
 
     testWidgets('без движения, если в системе оно убрано', (tester) async {
       await pumpApp(tester);
-      tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+      tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(
+        disableAnimations: true,
+      );
       addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
       await tester.pump();
 

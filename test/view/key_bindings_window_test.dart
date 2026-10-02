@@ -147,6 +147,31 @@ void main() {
     expect(find.text('Switch theme'), findsWidgets, reason: 'нашлась не та команда');
   });
 
+  testWidgets('ищется по клавише — где она назначена', (tester) async {
+    // Найдено на живом: «Bsp» в поиске находил только привязки, у которых это
+    // слово случайно стояло в имени (`places.remove.cmdBsp`), а «Up» — уход в
+    // родительский каталог по той же клавише — не находился вовсе: клавишу
+    // поиск не смотрел.
+    await pumpApp(tester);
+    await openWindow(tester);
+    await search(tester, 'bsp');
+
+    expect(inWindow(find.text('Up')), findsWidgets, reason: 'Bsp — это и «Up» в панели');
+    expect(inWindow(find.text('Copy')), findsNothing, reason: 'а F5 тут ни при чём');
+  });
+
+  testWidgets('по клавише по умолчанию — тоже, если её переназначили', (tester) async {
+    await pumpApp(tester);
+    await openRecorder(tester, 'file.copy', 'F5');
+    await tester.tap(find.widgetWithText(FcButton, 'Record'));
+    await tester.pumpAndSettle();
+    await press(tester, LogicalKeyboardKey.keyY, modifiers: const [commandKey, LogicalKeyboardKey.shiftLeft]);
+    await press(tester, LogicalKeyboardKey.escape);
+
+    await search(tester, 'f5');
+    expect(inWindow(find.text('Copy')), findsWidgets, reason: 'спрашивают, куда делась F5');
+  });
+
   testWidgets('Record назначает клавишу и показывает её тут же', (tester) async {
     await pumpApp(tester);
     await openRecorder(tester, 'file.copy', 'F5');

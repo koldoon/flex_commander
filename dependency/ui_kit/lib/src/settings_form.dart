@@ -184,7 +184,15 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
       field.id.toLowerCase().contains(query) ||
       // Синонимы — то, чем вещь называют, но чего в подписи нет: «dark» у
       // смены темы. В строке их не видно, а найти по ним можно.
-      field.keywords.any((word) => word.toLowerCase().contains(query));
+      field.keywords.any((word) => word.toLowerCase().contains(query)) ||
+      // У привязки клавиш ищут и **по клавише**: «на что назначен Bsp» —
+      // вопрос не о названии. Нынешняя и по умолчанию: после переназначения
+      // спрашивают и то, куда делась прежняя.
+      switch (field) {
+        final SettingsKeys keys =>
+          keys.read().toLowerCase().contains(query) || keys.defaultKeys.toLowerCase().contains(query),
+        _ => false,
+      };
 
   /// Где в строке стоит найденное — чтобы его выделить.
   List<int> _hits(String text) {
