@@ -5,6 +5,8 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
 
+import '../keymaps.dart';
+
 /// Настройка клавиш: разделы по контексту, правка нажатием
 /// (`docs/spec/key-bindings.md`).
 ///
@@ -12,9 +14,17 @@ import 'package:flutter/widgets.dart';
 /// него же, и к моменту её создания его ещё нет. Тот же приём, что у справки и
 /// палитры.
 class KeysCommand extends AppCommand {
-  KeysCommand({required CommandRegistry Function() registry}) : _registry = registry;
+  KeysCommand({required CommandRegistry Function() registry, List<Keymap> Function()? builtIn})
+    : _registry = registry,
+      _builtIn = builtIn ?? _none;
+
+  static List<Keymap> _none() => const [];
 
   final CommandRegistry Function() _registry;
+
+  /// Встроенные наборы клавиш: «вернуть всё» у них — к объявленному, а не к
+  /// умолчаниям приложения (`docs/spec/keymaps.md`, §3).
+  final List<Keymap> Function() _builtIn;
 
   static const String commandId = 'app.keys';
 
@@ -72,18 +82,30 @@ class KeysCommand extends AppCommand {
     );
   }
 
-  /// Вернуть все умолчания — и сказать, что вернули.
+  /// Вернуть выбранный набор к его началу — и сказать, сколько вернули.
+  ///
+  /// Начало у встроенного набора — объявленное модулем, у Default и своего —
+  /// умолчания приложения (`docs/spec/keymaps.md`, §3).
   ///
   /// Кнопка стоит в подвале, а меняется от неё список: человек смотрит на
   /// кнопку и правки не видит. Нажатие без ответа неотличимо от промаха.
   void _resetAll(Application app) {
-    final count = app.keyOverrides.length;
+    final keymaps = Keymaps(app: app, builtIn: _builtIn);
+    final origin = keymaps.originOf(keymaps.current);
+    final count = _differing(app.keyOverrides, origin);
     if (count == 0) {
       app.toasts.show(app.strings.tr('No keys to reset'));
       return;
     }
-    app.setKeyOverrides(const []);
+    keymaps.resetCurrent();
     app.toasts.show(app.strings.plural(count, one: 'Reset {n} key', other: 'Reset {n} keys'));
+  }
+
+  /// Сколько привязок стоит не так, как в начале набора.
+  static int _differing(List<KeyOverride> now, List<KeyOverride> origin) {
+    final was = {for (final item in origin) item.binding: item.key};
+    final is_ = {for (final item in now) item.binding: item.key};
+    return {...was.keys, ...is_.keys}.where((binding) => was[binding] != is_[binding]).length;
   }
 
   /// Разделы: по одному на контекст, пустых нет.

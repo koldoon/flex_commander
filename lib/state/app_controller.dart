@@ -916,22 +916,34 @@ class AppController extends ChangeNotifier implements Application {
   }
 
   @override
-  List<Preset> get presets => List.unmodifiable(_initialSettings.presets);
+  String get keymap => _initialSettings.keymap;
 
   @override
-  String get preset => _initialSettings.preset;
+  List<Keymap> get keymaps => List.unmodifiable(_initialSettings.keymaps);
 
-  /// Наборы и выбранный — одной правкой: удалили выбранный, и выбранного
-  /// больше нет; двумя правками это значило бы миг, когда выбран
-  /// несуществующий (`docs/spec/settings-presets.md`, §5).
   @override
-  void setPresets(List<Preset> presets, {required String current}) {
-    _initialSettings.presets
+  Map<String, List<KeyOverride>> get keymapEdits => Map.unmodifiable(_initialSettings.keymapEdits);
+
+  /// Наборы клавиш — одной правкой: выбранный, свои, правки невыбранных и
+  /// действующие клавиши. Порознь это значило бы миг, когда выбран один набор,
+  /// а действуют клавиши другого (`docs/spec/keymaps.md`).
+  @override
+  void setKeymaps({
+    required String keymap,
+    required List<Keymap> keymaps,
+    required Map<String, List<KeyOverride>> edits,
+    required List<KeyOverride> keys,
+  }) {
+    _initialSettings.keymap = keymap;
+    _initialSettings.keymaps
       ..clear()
-      ..addAll(presets);
-    _initialSettings.preset = current;
-    settingsChanged();
-    notifyListeners();
+      ..addAll(keymaps);
+    _initialSettings.keymapEdits
+      ..clear()
+      ..addAll({
+        for (final entry in edits.entries) entry.key: [...entry.value],
+      });
+    setKeyOverrides(keys);
   }
 
   @override
@@ -990,8 +1002,9 @@ class AppController extends ChangeNotifier implements Application {
     panelHeader: _initialSettings.panelHeader,
     reconnectAtStartup: _initialSettings.reconnectAtStartup,
     keys: _initialSettings.keys,
-    presets: _initialSettings.presets,
-    preset: _initialSettings.preset,
+    keymap: _initialSettings.keymap,
+    keymaps: _initialSettings.keymaps,
+    keymapEdits: _initialSettings.keymapEdits,
     dialogs: _initialSettings.dialogs,
     modules: serialize(_initialSettings.modules) as Map<String, dynamic>,
     // Кто где стоит, знает только эта сторона: ядро сессии заводит, но не

@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// Сами наборы: что в них написано (`docs/spec/key-presets.md`).
 ///
 /// Что записи попадают в настоящие привязки — проверяется в собранном
-/// приложении (`test/app/key_presets_test.dart`): здесь модулей нет.
+/// приложении (`test/app/keymaps_test.dart`): здесь модулей нет.
 void main() {
   test('модуль объявляет три набора', () {
     final declared = <String>[];
@@ -36,9 +36,9 @@ class _Collector implements FrontendRegistry {
   final Map<String, List<String>>? into;
 
   @override
-  void preset(Preset preset) {
-    names.add(preset.name);
-    into?[preset.name] = [for (final override in preset.keys) override.binding];
+  void keymap(Keymap keymap) {
+    names.add(keymap.name);
+    into?[keymap.name] = [for (final override in keymap.keys) override.binding];
   }
 
   @override

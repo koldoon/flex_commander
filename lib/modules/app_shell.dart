@@ -14,9 +14,9 @@ import '../state/commands/help_command.dart';
 import '../state/commands/keys_command.dart';
 import '../state/commands/palette_command.dart';
 import '../state/commands/session_commands.dart';
-import '../state/commands/preset_files.dart';
+import '../state/commands/keymap_files.dart';
 import '../state/commands/settings_command.dart';
-import '../state/presets.dart';
+import '../state/keymaps.dart';
 import '../state/shell_settings.dart';
 import '../ui/credentials_prompt.dart';
 import '../ui/elevation_prompt.dart';
@@ -32,19 +32,13 @@ import '../view/background_tasks_view.dart';
 /// Ядровая половина — движок и файловые работы: обход дерева и байты живут
 /// там, где источники. Экранная — справка, палитра, окно настроек и вопросы о
 /// секретах (`docs/spec/client-server.md`, §5.4).
-/// Как высоко стоит раздел наборов: выше всего, что объявляют модули.
+/// Как высоко стоит раздел оформления: выше всего, что объявляют модули.
 ///
 /// С запасом, а не единицей: между ним и разделами модулей ещё найдётся чему
 /// встать, и раздвигать соседей тогда не придётся.
-const int presetsPriority = 100;
+const int appearancePriority = 90;
 
-/// Как высоко стоит раздел оформления: сразу за наборами.
-///
-/// Между ними ничего не стоит, а число оставлено с запасом — по той же
-/// причине, что и у наборов.
-const int themesPriority = 90;
-
-/// Клавиши — следом за оформлением, третьими.
+/// Клавиши — следом за оформлением, вторыми.
 const int keyboardPriority = 80;
 
 /// Смена темы — командой модуля темы, а не службой оформления.
@@ -66,7 +60,7 @@ const String _importThemeCommand = 'theme.import';
 /// Что написано на кнопках при выборе темы.
 ///
 /// Подписи короче названий команд: «New theme» рядом с полем «Theme» повторяло
-/// бы слово, которое и так стоит над ним, — как у наборов выбора.
+/// бы слово, которое и так стоит над ним, — как у наборов клавиш.
 const Map<String, String> _themeActionLabels = {
   _newThemeCommand: 'New',
   _editThemeCommand: 'Edit',
@@ -242,7 +236,12 @@ class AppShell implements FcBackendModule, FcFrontendModule {
     // держать привязку, которая не срабатывает, незачем
     // (`docs/spec/key-bindings.md`, §12). Реестр команда получает способом его
     // спросить: он собирается вместе с ней.
-    registry.command((context) => KeysCommand(registry: () => context.resolve<CommandRegistry>()));
+    registry.command(
+      (context) => KeysCommand(
+        registry: () => context.resolve<CommandRegistry>(),
+        builtIn: () => context.resolve<KeymapCatalog>().keymaps,
+      ),
+    );
     // Привязка без клавиши: назначить её можно, а умолчания у неё нет
     // (`docs/spec/key-bindings.md`, §5). Заодно это единственный способ увидеть
     // команду в её же окне.
@@ -322,102 +321,16 @@ class AppShell implements FcBackendModule, FcFrontendModule {
       KeyBinding.anywhere('Cmd-Shift-P', CommandPaletteCommand.commandId, context: KeyContext.everywhere),
     );
 
-    // Наборы выбора — своим разделом, а не полем среди прочих: это не одна из
-    // настроек, а способ обращаться со всеми сразу
-    // (`docs/spec/settings-presets.md`).
-    //
-    // **Первым разделом**: набор решает всё, что стоит ниже, и после прочих
-    // читался бы припиской к ним. Приоритетом, а не порядком объявления:
-    // разделы идут по модулям, а первой устанавливается не оболочка, а
-    // файловая система.
-    registry.settingsSchema(title: 'Presets', inPreset: false, priority: presetsPriority, () {
-      final app = registry.services.resolve<Application>();
-      final strings = registry.services.resolve<Strings>();
-      final presets = Presets(
-        app: app,
-        catalog: () => registry.services.resolve<SettingsCatalog>(),
-        embedded: () => registry.services.resolve<PresetCatalog>().presets,
-      );
-      final chosen = presets.current;
-      // Встроенный набор не свой: переписать и удалить его нечем — он объявлен
-      // приложением (`docs/spec/key-presets.md`, §6).
-      final mine = chosen.isNotEmpty && !presets.isEmbedded(chosen);
-
-      return SettingsSchema([
-        SettingsField.option(
-          'preset',
-          // Пустая строка, а не имя: «ничего не выбрано» — это отсутствие
-          // набора, и заводить под него настоящий набор незачем. Список рисует
-          // значение, которого в нём нет, пустой строкой, а ходьба стрелками по
-          // такому значению спотыкается — поэтому вариант в списке есть всегда.
-          defaultValue: '',
-          title: strings.tr('Preset'),
-          description: strings.tr('Settings and keys of every module in one set'),
-          // «Default» — настоящий вариант, а не пустота: это состояние «ничего
-          // не выбрано», и оно тоже выбор. С уточнением: «Default» уже значит
-          // «Обычное» у темы, а тут оно про умолчания.
-          allowed: {'': strings.tr('Default', context: 'preset'), for (final item in presets.all) item.name: item.name},
-          read: () => presets.current,
-          write: presets.select,
-          // Кнопки при списке, а не блоками порознь: и те, что про выбранное
-          // выше, и загрузка — она про набор, которого в списке ещё нет, но
-          // ищут её рядом с выгрузкой, а не отдельным полем ниже. Приглушены,
-          // а не спрятаны: действие есть, просто сейчас неприменимо.
-          actions: [
-            SettingsAction(
-              label: strings.tr('New'),
-              run:
-                  () => askName(
-                    app,
-                    title: strings.tr('New set'),
-                    submitLabel: strings.tr('Save the set'),
-                    initial: presets.freeName(strings.tr('My settings')),
-                    save:
-                        (name) =>
-                            presets.saveAs(name)
-                                ? null
-                                : strings.tr(
-                                  name.isEmpty
-                                      ? 'A set without a name cannot be chosen'
-                                      : 'There is a set with this name already',
-                                ),
-                  ),
-            ),
-            SettingsAction(label: strings.tr('Update'), run: mine ? presets.updateCurrent : null),
-            SettingsAction(
-              label: strings.tr('Delete'),
-              run:
-                  !mine
-                      ? null
-                      : () => askConfirm(
-                        app,
-                        title: strings.tr('Delete set'),
-                        message: strings.tr('Delete «{name}»? Settings stay as they are.', args: {'name': chosen}),
-                        confirmLabel: strings.tr('Delete'),
-                        onConfirm: () => presets.remove(chosen),
-                      ),
-            ),
-            SettingsAction(
-              label: strings.tr('Export'),
-              run:
-                  chosen.isEmpty
-                      ? null
-                      : () => exportPreset(app, strings, presets.find(chosen) ?? presets.capture(chosen)),
-            ),
-            SettingsAction(label: strings.tr('Import'), run: () => importPreset(app, strings, presets)),
-          ],
-        ),
-      ], save: settings.save);
-    });
-
     // Оформление — своим разделом, а не полем среди прочих: тем сколько
     // угодно, их складывают, правят, возят файлом, — и рядом с выбором стоят
     // пять кнопок. Среди настроек приложения это читалось бы как одна из них
     // (`docs/spec/theme-editor.md`, §2).
     //
-    // Следом за наборами: набор решает и оформление тоже, а всё прочее
-    // выбирают уже внутри выбранного вида.
-    registry.settingsSchema(title: 'Themes', priority: themesPriority, () {
+    // **Первым разделом**, «Appearance», как в macOS: всё прочее выбирают уже
+    // внутри выбранного вида. Приоритетом, а не порядком объявления: разделы
+    // идут по модулям, а первой устанавливается не оболочка, а файловая
+    // система.
+    registry.settingsSchema(title: 'Appearance', priority: appearancePriority, () {
       final app = registry.services.resolve<Application>();
       final strings = registry.services.resolve<Strings>();
       return SettingsSchema([
@@ -445,7 +358,7 @@ class AppShell implements FcBackendModule, FcFrontendModule {
           // Кнопки есть только там, где есть команды: выключили редактор тем —
           // и обещать нечего (`docs/spec/theme-editor.md`, §2). Рядом с выбором
           // темы, а не своим разделом: искать их человек будет здесь — так же,
-          // как «New» и «Delete» стоят при выборе набора.
+          // как «New» и «Delete» стоят при выборе набора клавиш.
           //
           // Приглушённая, а не спрятанная: «Delete» на встроенной теме
           // невыполним, но действие есть — просто не к этой теме.
@@ -473,21 +386,73 @@ class AppShell implements FcBackendModule, FcFrontendModule {
       ], save: settings.save);
     });
 
-    // Клавиши — своим разделом, третьим: за оформлением идёт то, чем
-    // приложение слушается рук. Полем среди настроек кнопка в одну строку
-    // терялась (`docs/spec/key-bindings.md`, §8).
+    // Клавиши — своим разделом, вторым: за оформлением идёт то, чем
+    // приложение слушается рук. Устроен как раздел оформления: список наборов
+    // клавиш и тот же ряд кнопок, а окно клавиш открывает «Edit»
+    // (`docs/spec/keymaps.md`, §4).
     registry.settingsSchema(title: 'Keyboard', priority: keyboardPriority, () {
       final app = registry.services.resolve<Application>();
       final strings = registry.services.resolve<Strings>();
+      final keymaps = Keymaps(app: app, builtIn: () => registry.services.resolve<KeymapCatalog>().keymaps);
+      final chosen = keymaps.current;
       return SettingsSchema([
-        // Кнопкой, а не полем: выбирать тут нечего, а делать есть что — открыть
-        // своё окно.
-        SettingsField.button(
-          'keys',
-          title: strings.tr('Key bindings'),
-          description: strings.tr('Set your own key for any command'),
-          label: strings.tr('Keymap'),
-          run: () => app.commands.runAndWait(KeysCommand.commandId),
+        SettingsField.option(
+          'keymap',
+          // Пустая строка, а не имя: Default — это «ничего не переназначено», и
+          // заводить под него настоящий набор незачем.
+          defaultValue: Keymaps.defaultName,
+          title: strings.tr('Keymap'),
+          description: strings.tr('Keys of every command; edits stay with the keymap'),
+          // С уточнением: «Default» уже значит «Обычное» у темы, а тут оно про
+          // умолчания приложения.
+          allowed: {
+            for (final name in keymaps.names)
+              name: name == Keymaps.defaultName ? strings.tr('Default', context: 'keymap') : name,
+          },
+          read: () => keymaps.current,
+          write: keymaps.select,
+          // Тот же ряд, что у тем. Приглушены, а не спрятаны: действие есть,
+          // просто к этому набору неприменимо.
+          actions: [
+            SettingsAction(
+              label: strings.tr('New'),
+              run:
+                  () => askName(
+                    app,
+                    title: strings.tr('New keymap'),
+                    submitLabel: strings.tr('Save the keymap'),
+                    initial: keymaps.freeName(strings.tr('My keys')),
+                    save:
+                        (name) =>
+                            keymaps.saveAs(name)
+                                ? null
+                                : strings.tr(
+                                  name.trim().isEmpty
+                                      ? 'A keymap without a name cannot be chosen'
+                                      : 'There is a keymap with this name already',
+                                ),
+                  ),
+            ),
+            SettingsAction(label: strings.tr('Edit'), run: () => app.commands.runAndWait(KeysCommand.commandId)),
+            SettingsAction(
+              label: strings.tr('Delete'),
+              run:
+                  !keymaps.isOwn(chosen)
+                      ? null
+                      : () => askConfirm(
+                        app,
+                        title: strings.tr('Delete keymap'),
+                        message: strings.tr('Delete «{name}»? Keys return to Default.', args: {'name': chosen}),
+                        confirmLabel: strings.tr('Delete'),
+                        onConfirm: () => keymaps.remove(chosen),
+                      ),
+            ),
+            SettingsAction(
+              label: strings.tr('Export'),
+              run: chosen == Keymaps.defaultName ? null : () => exportKeymap(app, strings, keymaps.capture(chosen)),
+            ),
+            SettingsAction(label: strings.tr('Import'), run: () => importKeymap(app, strings, keymaps)),
+          ],
         ),
       ], save: settings.save);
     });
@@ -723,28 +688,12 @@ const Map<String, String> _russian = {
   'Settings': 'Настройки',
   'Commands': 'Команды',
 
-  // Наборы выбора.
-  'Presets': 'Наборы',
-  'Preset': 'Набор',
-  'Settings and keys of every module in one set': 'Настройки всех модулей и клавиши — одним набором',
-  'preset|Default': 'Умолчания',
+  // Кнопки при выборе темы и набора клавиш, выгрузка и загрузка.
   'New': 'Новый',
-  'New set': 'Новый набор',
-  'Save the set': 'Сложить набор',
-  'My settings': 'Мои настройки',
-  'A set without a name cannot be chosen': 'Безымянный набор не выбрать',
-  'There is a set with this name already': 'Набор с таким именем уже есть',
-  'Update': 'Обновить',
-  'Delete set': 'Удаление набора',
-  'Delete «{name}»? Settings stay as they are.': 'Удалить «{name}»? Настройки останутся как есть.',
+  'Edit': 'Править',
   'Name': 'Имя',
   'Export': 'Выгрузить',
-  'Export set': 'Выгрузка набора',
-  'Set «{name}» exported': 'Набор «{name}» выгружен',
   'Import': 'Загрузить',
-  'Import set': 'Загрузка набора',
-  'Set «{name}» imported': 'Набор «{name}» загружен',
-  'This is not a set: the file does not read': 'Это не набор: файл не читается',
   'Folder': 'Каталог',
   'Save to': 'Сохранить в',
   'Read from': 'Читать из',
@@ -754,7 +703,21 @@ const Map<String, String> _russian = {
   // Настройка клавиш.
   'Keyboard': 'Клавиатура',
   'Key bindings': 'Привязки клавиш',
-  'Keymap': 'Раскладка клавиш',
+  'Keymap': 'Набор клавиш',
+  'Keys of every command; edits stay with the keymap': 'Клавиши всех команд; правка остаётся при наборе',
+  'keymap|Default': 'Умолчания',
+  'New keymap': 'Новый набор клавиш',
+  'Save the keymap': 'Сложить набор',
+  'My keys': 'Мои клавиши',
+  'A keymap without a name cannot be chosen': 'Безымянный набор не выбрать',
+  'There is a keymap with this name already': 'Набор с таким именем уже есть',
+  'Delete keymap': 'Удаление набора клавиш',
+  'Delete «{name}»? Keys return to Default.': 'Удалить «{name}»? Клавиши вернутся к умолчаниям.',
+  'Export keymap': 'Выгрузка набора клавиш',
+  'Keymap «{name}» exported': 'Набор «{name}» выгружен',
+  'Import keymap': 'Загрузка набора клавиш',
+  'Keymap «{name}» imported': 'Набор «{name}» загружен',
+  'This is not a keymap: the file does not read': 'Это не набор клавиш: файл не читается',
   'Key binding': 'Клавиша команды',
   'Set your own key for any command': 'Назначить любой команде свою клавишу',
   'Search commands': 'Поиск команды',
@@ -874,7 +837,7 @@ const Map<String, String> _russian = {
 
   // Настройки приложения.
   'Theme': 'Оформление',
-  'Themes': 'Оформление',
+  'Appearance': 'Оформление',
   'Panel address': 'Адрес панели',
   'Session row in the title bar': 'Ряд сессий в полосе заголовка',
   'Otherwise sessions are switched by the window, Ctrl-Tab and Alt-1…Alt-9':

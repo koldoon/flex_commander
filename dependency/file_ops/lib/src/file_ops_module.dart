@@ -167,6 +167,12 @@ const Map<String, String> _russian = {
   'Make directory': 'Создать каталог',
   'Directory name': 'Имя каталога',
 
+  // Наборы переименования: прежде их слова приходили словарём оболочки,
+  // вместе с наборами выбора.
+  'Preset': 'Набор',
+  'A set without a name cannot be chosen': 'Безымянный набор не выбрать',
+  'Delete set': 'Удаление набора',
+
   // Удаление.
   'Delete': 'Удалить',
   'Move the selected items to the trash': 'Отправить выбранное в корзину',

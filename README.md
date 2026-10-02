@@ -217,10 +217,10 @@ system.
 | What | Where |
 |---|---|
 | Settings, with a table of contents, search and "back to default" | `F9`, `Cmd-,` |
-| Keys: any command, set by pressing rather than by typing a name | settings, section "Keys" |
-| Key presets: "as in mc", "as in Far", "as in Finder" | one choice |
+| Keys: any command, set by pressing rather than by typing a name | settings, section "Keyboard", "Edit" |
+| Keymaps: "as in mc", "as in Far", "as in Finder" or your own, each remembers its edits | settings, section "Keyboard" |
 | Theme editor: palette, metrics and fonts, several themes | settings |
-| Presets of settings and keys, as a file between machines | settings |
+| Keymaps as a file between machines | settings, section "Keyboard" |
 | Row colouring by rules | a condition gives a colour |
 | Row icons: a glyph, an image from disk or the system icon | by rules, per type |
 | Column formats: your own date, size and permissions | per column |

@@ -29,7 +29,7 @@ class FrontendRegistrations extends ModuleRegistrations<FcFrontendModule> implem
   /// на момент объявления ещё нет — есть только фабрика.
   final List<String> commandOwners = [];
   final List<KeyBinding> bindings = [];
-  final List<Preset> presets = [];
+  final List<Keymap> keymaps = [];
   final List<FcCommandFactory> startupCommands = [];
   final List<FcThemeSpec> themes = [];
 
@@ -98,15 +98,9 @@ class FrontendRegistrations extends ModuleRegistrations<FcFrontendModule> implem
   }
 
   @override
-  void settingsSchema(SettingsSchema Function() factory, {String title = '', bool inPreset = true, int priority = 0}) {
+  void settingsSchema(SettingsSchema Function() factory, {String title = '', int priority = 0}) {
     settingsPages.add(
-      SettingsPage(
-        title: title.isEmpty ? ownerTitle : title,
-        id: ownerId,
-        inPreset: inPreset,
-        priority: priority,
-        build: factory,
-      ),
+      SettingsPage(title: title.isEmpty ? ownerTitle : title, id: ownerId, priority: priority, build: factory),
     );
   }
 
@@ -114,7 +108,7 @@ class FrontendRegistrations extends ModuleRegistrations<FcFrontendModule> implem
   void binding(KeyBinding binding) => bindings.add(binding);
 
   @override
-  void preset(Preset preset) => presets.add(preset);
+  void keymap(Keymap keymap) => keymaps.add(keymap);
 
   @override
   void startup(FcCommandFactory factory) => startupCommands.add(factory);

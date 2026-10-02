@@ -278,20 +278,22 @@ abstract interface class Application implements Listenable {
   /// пересобирает привязки и записывает настройки само.
   void setKeyOverrides(List<KeyOverride> overrides);
 
-  /// Наборы выбора, сложенные человеком (`docs/spec/settings-presets.md`).
-  ///
-  /// Здесь по той же причине, что и клавиши: складывает и применяет их окно
-  /// настроек, а хранится набор в общем файле.
-  List<Preset> get presets;
+  /// Имя выбранного набора клавиш; пусто — Default (`docs/spec/keymaps.md`).
+  String get keymap;
 
-  /// Имя выбранного набора; пусто — ни один не выбран.
-  String get preset;
+  /// Свои наборы клавиш, сложенные человеком.
+  List<Keymap> get keymaps;
 
-  /// Заменить список наборов и выбранный — оба разом.
-  ///
-  /// Разом, потому что они связаны: удалили выбранный — выбранного больше нет,
-  /// и двумя правками это значило бы миг, когда выбран несуществующий.
-  void setPresets(List<Preset> presets, {required String current});
+  /// Последнее состояние невыбранных наборов: имя → клавиши.
+  Map<String, List<KeyOverride>> get keymapEdits;
+
+  /// Наборы клавиш и действующие клавиши — одной правкой.
+  void setKeymaps({
+    required String keymap,
+    required List<Keymap> keymaps,
+    required Map<String, List<KeyOverride>> edits,
+    required List<KeyOverride> keys,
+  });
 
   /// Что приложение знает о своей сборке: версия, номер, место, процессор.
   ///

@@ -1,6 +1,6 @@
 import '../settings/app_settings.dart';
 import '../settings/key_override.dart';
-import '../settings/preset.dart';
+import '../settings/keymap.dart';
 import '../settings/dialog_state.dart';
 import '../settings/window_geometry.dart';
 import 'entry_ref.dart';
@@ -55,8 +55,9 @@ class UiSettings {
     this.reconnectAtStartup = false,
     this.dialogs = const {},
     this.keys = const [],
-    this.presets = const [],
-    this.preset = '',
+    this.keymap = '',
+    this.keymaps = const [],
+    this.keymapEdits = const {},
     this.modules = const {},
     this.panels = defaultPanels,
     this.shown = defaultShown,
@@ -78,13 +79,14 @@ class UiSettings {
   /// затем, чтобы записать их в файл вместе с прочим выбором.
   final List<KeyOverride> keys;
 
-  /// Наборы выбора и выбранный из них (`docs/spec/settings-presets.md`).
+  /// Наборы клавиш: выбранный, свои и правки невыбранных
+  /// (`docs/spec/keymaps.md`).
   ///
-  /// Едут здесь по той же причине, что и клавиши: складывает и применяет их
-  /// экранная сторона — у неё схема настроек, — а записать их в файл может
-  /// только ядро.
-  final List<Preset> presets;
-  final String preset;
+  /// Едут здесь по той же причине, что и клавиши: складывает и выбирает их
+  /// экранная сторона, а записать их в файл может только ядро.
+  final String keymap;
+  final List<Keymap> keymaps;
+  final Map<String, List<KeyOverride>> keymapEdits;
 
   /// 0 — активна левая панель, 1 — правая.
   final int activePanel;
@@ -138,8 +140,9 @@ class UiSettings {
     int? sessionHistoryLimit,
     String? panelHeader,
     List<KeyOverride>? keys,
-    List<Preset>? presets,
-    String? preset,
+    String? keymap,
+    List<Keymap>? keymaps,
+    Map<String, List<KeyOverride>>? keymapEdits,
     bool? reconnectAtStartup,
     Map<String, DialogState>? dialogs,
     Map<String, dynamic>? modules,
@@ -153,8 +156,9 @@ class UiSettings {
     sessionHistoryLimit: sessionHistoryLimit ?? this.sessionHistoryLimit,
     panelHeader: panelHeader ?? this.panelHeader,
     keys: keys ?? this.keys,
-    presets: presets ?? this.presets,
-    preset: preset ?? this.preset,
+    keymap: keymap ?? this.keymap,
+    keymaps: keymaps ?? this.keymaps,
+    keymapEdits: keymapEdits ?? this.keymapEdits,
     reconnectAtStartup: reconnectAtStartup ?? this.reconnectAtStartup,
     dialogs: dialogs ?? this.dialogs,
     modules: modules ?? this.modules,
@@ -177,10 +181,11 @@ class UiSettings {
       other.sessionHistoryLimit == sessionHistoryLimit &&
       other.panelHeader == panelHeader &&
       other.reconnectAtStartup == reconnectAtStartup &&
-      // Выбранный набор — сравнивается: им решается, нужна ли запись, а
-      // сменившийся набор записать надо. Сами наборы и клавиши сравнению не
-      // подлежат — сличать их пришлось бы деревом на каждую правку.
-      other.preset == preset &&
+      // Выбранный набор клавиш — сравнивается: им решается, нужна ли запись,
+      // а сменившийся набор записать надо. Сами наборы и клавиши сравнению не
+      // подлежат — сличать их пришлось бы деревом на каждую правку; записаны
+      // они будут вместе с разделами модулей, которые едут всегда.
+      other.keymap == keymap &&
       _sameDialogs(other.dialogs) &&
       other.panels.length == panels.length &&
       List.generate(panels.length, (i) => other.panels[i] == panels[i]).every((same) => same) &&
@@ -209,7 +214,7 @@ class UiSettings {
     sizeScanConcurrency,
     sessionHistoryLimit,
     reconnectAtStartup,
-    preset,
+    keymap,
     Object.hashAll(panels),
     Object.hashAll(shown),
   );

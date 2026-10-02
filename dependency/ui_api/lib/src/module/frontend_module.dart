@@ -61,12 +61,9 @@ abstract interface class FrontendRegistry {
   /// Модули устанавливаются в порядке списка, привязки — в порядке вызовов.
   void binding(KeyBinding binding);
 
-  /// Набор выбора, объявленный приложением: «как в mc», «как в far»
-  /// (`docs/spec/key-presets.md`).
-  ///
-  /// Встаёт в тот же список, что и наборы, сложенные человеком, — только
-  /// обновить и удалить его нельзя.
-  void preset(Preset preset);
+  /// Объявить встроенный набор клавиш (`docs/spec/keymaps.md`): он встанет
+  /// в список раздела «Keyboard» рядом с наборами человека.
+  void keymap(Keymap keymap);
 
   /// Команда, которую интерфейс выполняет один раз при запуске — после сборки
   /// приложения и до первого кадра.
@@ -163,12 +160,12 @@ abstract interface class FrontendRegistry {
   /// прочитаны, и строить её тогда нечем. Зовётся, когда окно открывают.
   ///
   /// [title] — своё название раздела; пусто — название модуля, как и было.
-  /// Нужно там, где модуль отвечает не только за себя: раздел «Presets»
+  /// Нужно там, где модуль отвечает не только за себя: раздел «Keyboard»
   /// объявляет оболочка, а зваться он должен по делу.
   ///
   /// [priority] — насколько высоко раздел стоит среди прочих: больше — выше,
   /// 0 — на месте своего модуля ([SettingsPage.priority]).
-  void settingsSchema(SettingsSchema Function() factory, {String title, bool inPreset, int priority});
+  void settingsSchema(SettingsSchema Function() factory, {String title, int priority});
 
   /// Служба для интерфейса и других модулей: разрешается по типу через
   /// [FcServices].

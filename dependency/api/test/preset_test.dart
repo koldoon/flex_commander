@@ -3,7 +3,8 @@ import 'dart:convert';
 import 'package:fc_api/fc_api.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Набор выбора: хранение и разбор (`docs/spec/settings-presets.md`).
+/// Прежний набор выбора: разбор. Читается только при переезде на наборы
+/// клавиш (`docs/spec/keymaps.md`, §5).
 void main() {
   Preset working() => Preset(
     name: 'Работа',
@@ -57,27 +58,5 @@ void main() {
   test('безымянный набор не годится к делу', () {
     expect(Preset().isSane, isFalse);
     expect(Preset(name: 'Дом').isSane, isTrue);
-  });
-
-  test('наборы живут в настройках рядом с прочим выбором', () {
-    final settings =
-        AppSettings.defaults('/home')
-          ..presets.add(working())
-          ..preset = 'Работа';
-
-    final saved = <String, dynamic>{};
-    settings.toMap(saved);
-    final back = AppSettings.defaults('/home')..fromMap(jsonDecode(jsonEncode(serialize(settings))));
-
-    expect(saved['preset'], 'Работа', reason: 'у поля схемы обязан быть ключ в настройках');
-    expect(back.preset, 'Работа');
-    expect(back.presets.single.valueOf('fc.shell', 'themeId'), 'dark');
-  });
-
-  test('безымянный набор в настройки не попадает', () {
-    final settings = AppSettings.defaults('/home')..presets.add(Preset());
-    final back = AppSettings.defaults('/home')..fromMap(jsonDecode(jsonEncode(serialize(settings))));
-
-    expect(back.presets, isEmpty);
   });
 }

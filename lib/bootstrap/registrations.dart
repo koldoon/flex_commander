@@ -135,8 +135,8 @@ abstract class ModuleRegistrations<M extends FcModule> {
     return modules.firstWhere((module) => module.id == id).title;
   }
 
-  /// Чьё сейчас объявление — идентификатором: им раздел назван в наборе
-  /// выбора, и переводу он не подлежит (`docs/spec/settings-presets.md`, §2).
+  /// Чьё сейчас объявление — идентификатором: заголовок переводится, а
+  /// идентификатор нет.
   String get ownerId => _current ?? '';
 
   void bindService<T extends Object>(T Function(FcServices services) factory) {

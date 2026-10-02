@@ -1,9 +1,11 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
+import 'package:flex_commander/state/keymaps.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -79,18 +81,20 @@ void main() {
 
   String? keysOf(String commandId) => runtime.commands.bindingsOf(commandId).firstOrNull?.keys.toString();
 
-  testWidgets('кнопка в настройках открывает окно клавиш', (tester) async {
+  testWidgets('«Edit» в настройках открывает окно клавиш', (tester) async {
     // Своей клавиши у окна нет: открывают его отсюда и из палитры
     // (`docs/spec/key-bindings.md`, §1).
     await pumpApp(tester);
 
     await press(tester, LogicalKeyboardKey.f9);
-    expect(find.text('Keymap'), findsOneWidget, reason: 'кнопки в настройках нет');
+    expect(find.text('Keymap'), findsOneWidget, reason: 'выбора набора клавиш в настройках нет');
 
-    // До кнопки надо доехать: раздел оболочки длиннее одного экрана.
-    await tester.ensureVisible(find.widgetWithText(FcButton, 'Keymap'));
+    // «Edit» при выборе набора клавиш (`docs/spec/keymaps.md`, §4). Таких
+    // кнопок две — у оформления тоже; клавиш — вторая, раздел идёт следом.
+    final edit = find.widgetWithText(FcButton, 'Edit').at(1);
+    await tester.ensureVisible(edit);
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FcButton, 'Keymap'));
+    await tester.tap(edit);
     await tester.pumpAndSettle();
 
     expect(runtime.app.view.dialogs, hasLength(2), reason: 'окно клавиш должно встать поверх настроек');
@@ -309,6 +313,35 @@ void main() {
     // Кнопка в подвале, а меняется список: без ответа нажатие неотличимо от
     // промаха.
     expect(runtime.app.toasts.current?.message, 'Reset 1 key', reason: 'тоста об успехе нет');
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('«Reset all keys» у встроенного набора — к объявленному, а не к умолчаниям', (tester) async {
+    await pumpApp(tester);
+    final keymaps = Keymaps(app: runtime.app, builtIn: () => runtime.resolve<KeymapCatalog>().keymaps);
+    keymaps.select('mc');
+    final declared = [...runtime.app.keyOverrides];
+    runtime.app.setKeyOverrides([...declared, KeyOverride(binding: 'file.copy', key: 'Ctrl-Shift-Y')]);
+    await openWindow(tester);
+
+    await tester.tap(inWindow(find.widgetWithText(FcButton, 'Reset all keys')));
+    await tester.pump();
+
+    expect(runtime.app.keyOverrides.map((item) => item.key), declared.map((item) => item.key));
+    expect(runtime.app.keymap, 'mc', reason: 'возврат не уводит с набора');
+    expect(runtime.app.toasts.current?.message, 'Reset 1 key', reason: 'считать надо отличия от начала набора');
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('нетронутый встроенный набор возвращать нечего', (tester) async {
+    await pumpApp(tester);
+    Keymaps(app: runtime.app, builtIn: () => runtime.resolve<KeymapCatalog>().keymaps).select('mc');
+    await openWindow(tester);
+
+    await tester.tap(inWindow(find.widgetWithText(FcButton, 'Reset all keys')));
+    await tester.pump();
+
+    expect(runtime.app.toasts.current?.message, 'No keys to reset');
     await tester.pumpAndSettle();
   });
 

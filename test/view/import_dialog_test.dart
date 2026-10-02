@@ -9,7 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Окно загрузки: файл выбирают в дереве и бросают в него мышью
-/// (`docs/spec/settings-presets.md`, §7, `docs/spec/theme-editor.md`, §10).
+/// (`docs/spec/settings-presets.md`, §7, `docs/spec/keymaps.md`, §4, `docs/spec/theme-editor.md`, §10).
 void main() {
   late AppRuntime runtime;
 
@@ -70,7 +70,7 @@ void main() {
   }
 
   testWidgets('в дереве видны файлы, из которых окно читает, — и только они', (tester) async {
-    await openImport(tester, 'Preset');
+    await openImport(tester, 'Keymap');
 
     // Набор лежит в json: искать его среди картинок и архивов незачем.
     expect(inTree('work.json'), findsOneWidget);
@@ -82,7 +82,7 @@ void main() {
   });
 
   testWidgets('выбранный в дереве файл сам встаёт в поле имени', (tester) async {
-    await openImport(tester, 'Preset');
+    await openImport(tester, 'Keymap');
 
     expect(nameField(tester), isNot('work.json'), reason: 'подставлено умолчание — проверять нечего');
 
@@ -98,7 +98,7 @@ void main() {
   });
 
   testWidgets('в файл не заходят: щелчок по нему только выбирает', (tester) async {
-    await openImport(tester, 'Preset');
+    await openImport(tester, 'Keymap');
 
     await tester.tap(inTree('work.json'));
     await tester.pumpAndSettle();
@@ -140,7 +140,7 @@ void main() {
   });
 
   testWidgets('курсор дерева упирается в края плашки', (tester) async {
-    await openImport(tester, 'Preset');
+    await openImport(tester, 'Keymap');
 
     final plate = tester.getRect(find.descendant(of: find.byType(FcDirectoryTree), matching: find.byType(FcPlate)));
     // Строка курсора — та, что выбрана: у неё и мерим края.

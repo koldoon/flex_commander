@@ -8,8 +8,8 @@ import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flex_commander/state/commands/help_command.dart';
-import 'package:flex_commander/state/commands/preset_files.dart';
-import 'package:flex_commander/state/presets.dart';
+import 'package:flex_commander/state/commands/keymap_files.dart';
+import 'package:flex_commander/state/keymaps.dart';
 import 'package:flex_commander/view/dialogs/dialog_frame.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
@@ -391,13 +391,13 @@ void main() {
   });
 
   group('растянутое окно с деревом', () {
-    /// Окно загрузки набора: дерево каталогов, строка места и имя файла.
+    /// Окно загрузки набора клавиш: дерево каталогов, строка места и имя файла.
     Future<void> openImport(WidgetTester tester) async {
       unawaited(
-        importPreset(
+        importKeymap(
           runtime.app,
           runtime.app.strings,
-          Presets(app: runtime.app, catalog: () => runtime.resolve<SettingsCatalog>()),
+          Keymaps(app: runtime.app, builtIn: () => runtime.resolve<KeymapCatalog>().keymaps),
         ),
       );
       await tester.pumpAndSettle();

@@ -5,6 +5,7 @@ import '../panel/column_spec.dart';
 import '../panel/sort_spec.dart';
 import 'dialog_state.dart';
 import 'key_override.dart';
+import 'keymap.dart';
 import 'preset.dart';
 import 'window_geometry.dart';
 
@@ -222,6 +223,9 @@ class AppSettings implements Serializable {
     List<KeyOverride>? keys,
     List<Preset>? presets,
     this.preset = '',
+    this.keymap = '',
+    List<Keymap>? keymaps,
+    Map<String, List<KeyOverride>>? keymapEdits,
     ModuleSettings? modules,
     List<PanelGroupSettings>? panels,
     List<int>? shown,
@@ -235,6 +239,10 @@ class AppSettings implements Serializable {
        dialogs = {...?dialogs},
        keys = [...?keys],
        presets = [...?presets],
+       keymaps = [...?keymaps],
+       keymapEdits = {
+         for (final entry in (keymapEdits ?? const <String, List<KeyOverride>>{}).entries) entry.key: [...entry.value],
+       },
        // Разделы модулей переносятся в новый снимок настроек как есть: это
        // живые объекты самих модулей, а не копия их значений.
        modules = modules ?? ModuleSettings();
@@ -342,7 +350,10 @@ class AppSettings implements Serializable {
   /// пустым значением, которое от промаха разбору не отличить.
   final List<KeyOverride> keys;
 
-  /// Наборы выбора, сложенные человеком (`docs/spec/settings-presets.md`).
+  /// Прежние наборы выбора (`docs/spec/settings-presets.md`).
+  ///
+  /// Только для переезда: при чтении из них собираются наборы клавиш
+  /// (`docs/spec/keymaps.md`, §5), и больше они не пишутся.
   final List<Preset> presets;
 
   /// Имя выбранного набора; пусто — ни один не выбран.
@@ -350,6 +361,19 @@ class AppSettings implements Serializable {
   /// Именем, а не местом в списке: место меняется от удаления соседа, а имя —
   /// то самое, что человек видит в окне и по которому выбирает.
   String preset;
+
+  /// Имя выбранного набора клавиш; пусто — Default (`docs/spec/keymaps.md`).
+  String keymap;
+
+  /// Свои наборы клавиш, сложенные человеком.
+  final List<Keymap> keymaps;
+
+  /// Последнее состояние **невыбранных** наборов: имя → клавиши.
+  ///
+  /// Правка встроенного набора помнится при нём, как правка темы при теме:
+  /// ушли с mc и вернулись — поправленное на месте. У выбранного его клавиши —
+  /// [keys].
+  final Map<String, List<KeyOverride>> keymapEdits;
 
   /// Настройки модулей: у каждого свой раздел под своим именем.
   ///
@@ -380,12 +404,18 @@ class AppSettings implements Serializable {
     if (keys.isNotEmpty) {
       m['keys'] = [for (final override in keys) serialize(override)];
     }
-    if (presets.isNotEmpty) {
-      m['presets'] = [for (final item in presets) serialize(item)];
-    }
     // Всегда, даже пустым: у поля схемы настроек обязан быть ключ в разделе,
-    // иначе схема и данные разойдутся молча.
-    m['preset'] = preset;
+    // иначе схема и данные разойдутся молча. По нему же чтение узнаёт, что
+    // переезд с пресетов уже был.
+    m['keymap'] = keymap;
+    if (keymaps.isNotEmpty) {
+      m['keymaps'] = [for (final item in keymaps) serialize(item)];
+    }
+    if (keymapEdits.isNotEmpty) {
+      m['keymapEdits'] = {
+        for (final entry in keymapEdits.entries) entry.key: [for (final override in entry.value) serialize(override)],
+      };
+    }
     m['panels'] = [for (final panel in panels) serialize(panel)];
     m['shown'] = shown;
     m['modules'] = serialize(modules);
@@ -433,6 +463,40 @@ class AppSettings implements Serializable {
       }
     }
     preset = extract(preset, m['preset']);
+
+    keymap = extract(keymap, m['keymap']);
+    final storedKeymaps = m['keymaps'];
+    if (storedKeymaps is List) {
+      keymaps.clear();
+      for (final item in storedKeymaps) {
+        final stored = extractObject(item, (_) => Keymap());
+        if (stored != null && stored.isSane) {
+          keymaps.add(stored);
+        }
+      }
+    }
+    final storedEdits = m['keymapEdits'];
+    if (storedEdits is Map) {
+      keymapEdits.clear();
+      for (final entry in storedEdits.entries) {
+        keymapEdits['${entry.key}'] = readKeyOverrides(entry.value);
+      }
+    }
+    // Переезд с пресетов (`docs/spec/keymaps.md`, §5): в файле есть пресеты,
+    // а наборов клавиш ещё не было. Свой пресет с клавишами становится своим
+    // набором с тем же именем, выбранный — выбранным; встроенный (mc, far,
+    // Finder) называется так же, как одноимённый набор клавиш.
+    if (!m.containsKey('keymap') && (presets.isNotEmpty || preset.isNotEmpty)) {
+      keymaps
+        ..clear()
+        ..addAll([
+          for (final item in presets)
+            if (item.keys.isNotEmpty) Keymap(name: item.name, keys: item.keys),
+        ]);
+      keymap = preset;
+    }
+    presets.clear();
+    preset = '';
 
     final storedKeys = m['keys'];
     if (storedKeys is List) {

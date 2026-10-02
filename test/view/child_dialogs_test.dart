@@ -44,30 +44,34 @@ void main() {
     return tester.getRect(window);
   }
 
-  Future<void> openNewPreset(WidgetTester tester) async {
+  /// «New» при выборе набора клавиш: окно имени — дочернее окну настроек.
+  Future<void> openNewKeymap(WidgetTester tester) async {
     await tester.sendKeyEvent(LogicalKeyboardKey.f9);
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FcButton, 'New').first);
+    final button = find.widgetWithText(FcButton, 'New').at(1);
+    await tester.ensureVisible(button);
+    await tester.pumpAndSettle();
+    await tester.tap(button);
     await tester.pumpAndSettle();
   }
 
   testWidgets('подтверждение из настроек встаёт по центру настроек', (tester) async {
     await pumpApp(tester);
-    await openNewPreset(tester);
+    await openNewKeymap(tester);
 
     final dialogs = runtime.app.view.openDialogs;
     expect(dialogs, hasLength(2));
     expect(dialogs.last.spec.parent, dialogs.first.id, reason: 'родитель — окно, кнопкой которого подняли');
 
-    final parent = windowOf(tester, 'Presets');
-    final child = windowOf(tester, 'New set');
+    final parent = windowOf(tester, 'Appearance');
+    final child = windowOf(tester, 'New keymap');
     expect((child.center.dx - parent.center.dx).abs(), lessThan(1.5));
     expect((child.center.dy - parent.center.dy).abs(), lessThan(1.5));
   });
 
   testWidgets('Esc закрывает дочернее, а следующий — уже родителя', (tester) async {
     await pumpApp(tester);
-    await openNewPreset(tester);
+    await openNewKeymap(tester);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
@@ -81,7 +85,7 @@ void main() {
 
   testWidgets('закрыли родителя — ушло и дочернее', (tester) async {
     await pumpApp(tester);
-    await openNewPreset(tester);
+    await openNewKeymap(tester);
 
     runtime.app.view.closeDialog(runtime.app.view.openDialogs.first.id);
     await tester.pumpAndSettle();

@@ -14,7 +14,7 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 /// дела.
 ///
 /// О чём набор молчит — остаётся умолчание приложения: набор кладётся накладкой
-/// (`docs/spec/settings-presets.md`, §4).
+/// (`docs/spec/keymaps.md`, §2).
 class KeyPresets implements FcFrontendModule {
   const KeyPresets();
 
@@ -30,13 +30,13 @@ class KeyPresets implements FcFrontendModule {
   void installFrontend(FrontendRegistry registry) {
     registry.strings('ru', _russian);
 
-    registry.preset(_preset('mc', _mc));
-    registry.preset(_preset('far', _far));
-    registry.preset(_preset('Finder', _finder));
+    registry.keymap(_keymap('mc', _mc));
+    registry.keymap(_keymap('far', _far));
+    registry.keymap(_keymap('Finder', _finder));
   }
 
-  static Preset _preset(String name, Map<String, String> keys) =>
-      Preset(name: name, keys: [for (final entry in keys.entries) KeyOverride(binding: entry.key, key: entry.value)]);
+  static Keymap _keymap(String name, Map<String, String> keys) =>
+      Keymap(name: name, keys: [for (final entry in keys.entries) KeyOverride(binding: entry.key, key: entry.value)]);
 
   /// Midnight Commander.
   ///

@@ -104,8 +104,9 @@ class UiContainer extends DI {
       sessionHistoryLimit: ui.sessionHistoryLimit,
       panelHeader: ui.panelHeader,
       keys: ui.keys,
-      presets: ui.presets,
-      preset: ui.preset,
+      keymap: ui.keymap,
+      keymaps: ui.keymaps,
+      keymapEdits: ui.keymapEdits,
       reconnectAtStartup: ui.reconnectAtStartup,
       window: ui.window,
       dialogs: ui.dialogs,
@@ -205,7 +206,7 @@ class UiContainer extends DI {
 
     // Разделы окна настроек: собраны при объявлении, строятся при открытии.
     bind<SettingsCatalog>(to: (c) => _Catalog(frontend.settingsPages));
-    bind<PresetCatalog>(to: (c) => _Presets(frontend.presets));
+    bind<KeymapCatalog>(to: (c) => _Keymaps(frontend.keymaps));
   }
 
   void _bindApp() {
@@ -356,12 +357,12 @@ class _Catalog implements SettingsCatalog {
   final List<SettingsPage> pages;
 }
 
-/// Наборы, объявленные приложением, — в порядке объявления модулей.
-class _Presets implements PresetCatalog {
-  const _Presets(this.presets);
+/// Наборы клавиш, объявленные приложением, — в порядке объявления модулей.
+class _Keymaps implements KeymapCatalog {
+  const _Keymaps(this.keymaps);
 
   @override
-  final List<Preset> presets;
+  final List<Keymap> keymaps;
 }
 
 /// Окружение команд модуля: службы плюс само приложение.

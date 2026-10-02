@@ -5,10 +5,10 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 
-import '../presets.dart';
+import '../keymaps.dart';
 
-/// Выгрузка набора в файл и загрузка обратно
-/// (`docs/spec/settings-presets.md`, §7–8).
+/// Выгрузка набора клавиш в файл и загрузка обратно
+/// (`docs/spec/keymaps.md`, §4).
 ///
 /// Каталог человек выбирает **деревом**, начиная с домашнего: набирать путь
 /// руками в файловом менеджере — насмешка, а своего системного диалога у
@@ -16,21 +16,21 @@ import '../presets.dart';
 /// `ssh://`, и нутро архива.
 
 /// Имя файла, которое предлагается для набора.
-String presetFileName(String name) => safeFileName(name, fallback: 'preset');
+String keymapFileName(String name) => safeFileName(name, fallback: 'keymap');
 
 /// Выгрузить набор: спросить каталог и имя, потом записать.
-Future<void> exportPreset(Application app, Strings strings, Preset preset) {
-  final text = '${const JsonEncoder.withIndent('  ').convert(serialize(preset))}\n';
+Future<void> exportKeymap(Application app, Strings strings, Keymap keymap) {
+  final text = '${const JsonEncoder.withIndent('  ').convert(serialize(keymap))}\n';
 
   return askFile(
     app,
     strings,
-    id: 'preset.export',
-    title: strings.tr('Export set'),
+    id: 'keymap.export',
+    title: strings.tr('Export keymap'),
     submitLabel: strings.tr('Export'),
     destinationLabel: 'Save to',
-    formatError: 'This is not a set: the file does not read',
-    name: presetFileName(preset.name),
+    formatError: 'This is not a keymap: the file does not read',
+    name: keymapFileName(keymap.name),
     run: (folder, name) async {
       await app.runOperation().run(
         OperationSpec(
@@ -39,46 +39,47 @@ Future<void> exportPreset(Application app, Strings strings, Preset preset) {
           options: {FileOperations.name: name, FileOperations.text: text},
         ),
       );
-      app.toasts.show(strings.tr('Set «{name}» exported', args: {'name': preset.name}));
+      app.toasts.show(strings.tr('Keymap «{name}» exported', args: {'name': keymap.name}));
     },
   );
 }
 
-/// Загрузить набор из файла: прочитать, разобрать, поставить в список.
-Future<void> importPreset(Application app, Strings strings, Presets presets) {
+/// Загрузить набор из файла: прочитать, разобрать, поставить своим и выбрать.
+///
+/// Читается и прежний файл пресета: у него те же `name` и `keys`.
+Future<void> importKeymap(Application app, Strings strings, Keymaps keymaps) {
   // Имя под курсором — только если оно похоже на набор: курсор стоит где
   // угодно, хоть на «..», и подставленное «..» выглядело бы как поломка.
   final cursor = app.activePanel.currentEntry;
   final suggested =
       cursor != null && cursor.kind == EntryKind.file && cursor.name.toLowerCase().endsWith('.json')
           ? cursor.name
-          : presetFileName('preset');
+          : keymapFileName('keymap');
 
   return askFile(
     app,
     strings,
-    id: 'preset.import',
-    title: strings.tr('Import set'),
+    id: 'keymap.import',
+    title: strings.tr('Import keymap'),
     submitLabel: strings.tr('Import'),
     destinationLabel: 'Read from',
-    formatError: 'This is not a set: the file does not read',
-    // Набор лежит в json — их в дереве и показываем: искать его среди картинок
-    // и архивов человеку незачем.
+    formatError: 'This is not a keymap: the file does not read',
+    // Набор лежит в json — их в дереве и показываем.
     picks: (entry) => entry.name.toLowerCase().endsWith('.json'),
     name: suggested,
     run: (folder, name) async {
-      final preset = await _read(app, '$folder/$name');
-      final given = presets.add(preset);
-      app.toasts.show(strings.tr('Set «{name}» imported', args: {'name': given}));
+      final keymap = await _read(app, '$folder/$name');
+      final given = keymaps.add(keymap);
+      app.toasts.show(strings.tr('Keymap «{name}» imported', args: {'name': given}));
     },
   );
 }
 
 /// Прочитать набор по адресу.
-Future<Preset> _read(Application app, String path) async {
-  final preset = Preset()..fromMap(await readJsonFile(app, path));
-  if (!preset.isSane) {
+Future<Keymap> _read(Application app, String path) async {
+  final keymap = Keymap()..fromMap(await readJsonFile(app, path));
+  if (!keymap.isSane) {
     throw const FormatException();
   }
-  return preset;
+  return keymap;
 }

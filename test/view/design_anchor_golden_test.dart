@@ -266,9 +266,9 @@ void main() {
   anchor('окно группового переименования', 'anchor_multi_rename.png', 'Ctrl-M');
   anchor('окно настроек', 'anchor_settings.png', 'F9');
 
-  /// Раздел наборов — отбором в окне настроек: он стоит последним, и без
-  /// отбора до него пришлось бы листать.
-  testWidgets('настройки: раздел наборов', (tester) async {
+  /// Раздел клавиш — отбором в окне настроек: так в кадре он один
+  /// (`docs/spec/keymaps.md`, §4).
+  testWidgets('настройки: раздел клавиш', (tester) async {
     if (!fontsReady) {
       markTestSkipped('Шрифты не собрались: Ubuntu, FontAwesome или Consolas недоступны');
       return;
@@ -282,17 +282,18 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(
       find.descendant(of: find.byType(FcSettingsForm), matching: find.byType(TextField)).first,
-      'preset',
+      'keymap',
     );
     await tester.pumpAndSettle();
 
-    await expectLater(find.byType(FlexCommanderApp), matchesGoldenFile('goldens/anchor_presets.png'));
+    await expectLater(find.byType(FlexCommanderApp), matchesGoldenFile('goldens/anchor_keyboard.png'));
 
     await tester.pump(const Duration(milliseconds: 20));
   });
 
   /// Окно выбора файла — деревом каталогов от дома: путь в файловом менеджере
-  /// не набирают руками (`docs/spec/settings-presets.md`, §7).
+  /// не набирают руками (`docs/spec/settings-presets.md`, §7); поднимает его
+  /// загрузка набора клавиш.
   testWidgets('настройки: выбор файла деревом', (tester) async {
     if (!fontsReady) {
       markTestSkipped('Шрифты не собрались: Ubuntu, FontAwesome или Consolas недоступны');
@@ -304,14 +305,14 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(
       find.descendant(of: find.byType(FcSettingsForm), matching: find.byType(TextField)).first,
-      'preset',
+      'keymap',
     );
     await tester.pumpAndSettle();
 
     await tester.tap(find.widgetWithText(FcButton, 'Import'));
     await tester.pumpAndSettle();
 
-    await expectLater(find.byType(FlexCommanderApp), matchesGoldenFile('goldens/anchor_preset_file.png'));
+    await expectLater(find.byType(FlexCommanderApp), matchesGoldenFile('goldens/anchor_keymap_file.png'));
 
     await tester.pump(const Duration(milliseconds: 20));
   });

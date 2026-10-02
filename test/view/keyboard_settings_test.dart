@@ -2,12 +2,15 @@ import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
+import 'package:flex_commander/state/keymaps.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Раздел «Presets» в окне настроек (`docs/spec/settings-presets.md`, §6).
+/// Раздел «Keyboard» в окне настроек: устроен как раздел оформления
+/// (`docs/spec/keymaps.md`, §4).
 void main() {
   late AppRuntime runtime;
 
@@ -19,9 +22,9 @@ void main() {
     await runtime.app.start();
   });
 
-  /// Открыть настройки и отобрать раздел наборов: так до него не надо
+  /// Открыть настройки и отобрать раздел клавиш: так до него не надо
   /// долистывать.
-  Future<void> openPresets(WidgetTester tester) async {
+  Future<void> openKeyboard(WidgetTester tester) async {
     tester.view.physicalSize = const Size(900, 1400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -33,7 +36,7 @@ void main() {
 
     await tester.enterText(
       find.descendant(of: find.byType(FcSettingsForm), matching: find.byType(TextField)).first,
-      'preset',
+      'keymap',
     );
     await tester.pumpAndSettle();
   }
@@ -47,46 +50,46 @@ void main() {
   Future<void> nameIt(WidgetTester tester, String name) async {
     await tester.enterText(find.descendant(of: find.byType(CommandDialogForm), matching: find.byType(TextField)), name);
     await tester.pumpAndSettle();
-    await tapButton(tester, 'Save the set');
+    await tapButton(tester, 'Save the keymap');
   }
 
   testWidgets('раздел зовётся по делу, а не именем модуля', (tester) async {
-    await openPresets(tester);
+    await openKeyboard(tester);
 
-    expect(find.text('Presets'), findsWidgets);
+    expect(find.text('Keyboard'), findsWidgets);
+    expect(find.text('Presets'), findsNothing, reason: 'раздел наборов убран');
   });
 
   testWidgets('набор складывается и сразу виден в списке', (tester) async {
-    await openPresets(tester);
+    await openKeyboard(tester);
     expect(find.text('Default'), findsWidgets, reason: 'пустой выбор должен быть настоящим вариантом');
 
     await tapButton(tester, 'New');
     await nameIt(tester, 'Дом');
 
-    expect(runtime.app.presets.single.name, 'Дом');
-    expect(runtime.app.preset, 'Дом');
+    expect(runtime.app.keymaps.single.name, 'Дом');
+    expect(runtime.app.keymap, 'Дом');
     // Схемы строятся один раз, и без пересборки нового набора в списке бы не
-    // было (`docs/spec/settings-presets.md`, §6).
+    // было (`docs/spec/keymaps.md`, §4).
     expect(find.text('Дом'), findsWidgets, reason: 'набор не появился, не закрывая окна');
   });
 
   testWidgets('занятое имя — ошибка в том же окне', (tester) async {
-    await openPresets(tester);
+    await openKeyboard(tester);
     await tapButton(tester, 'New');
     await nameIt(tester, 'Дом');
 
     await tapButton(tester, 'New');
     await nameIt(tester, 'Дом');
 
-    expect(find.text('There is a set with this name already'), findsOneWidget);
-    expect(runtime.app.presets, hasLength(1), reason: 'второй «Дом» затёр бы первый');
+    expect(find.text('There is a keymap with this name already'), findsOneWidget);
+    expect(runtime.app.keymaps, hasLength(1), reason: 'второй «Дом» затёр бы первый');
   });
 
-  testWidgets('без выбранного набора обновлять и удалять нечего', (tester) async {
-    await openPresets(tester);
+  testWidgets('у Default удалять и выгружать нечего', (tester) async {
+    await openKeyboard(tester);
 
     // Приглушены, а не спрятаны: действие есть, просто сейчас неприменимо.
-    expect(tester.widget<FcButton>(find.widgetWithText(FcButton, 'Update')).onPressed, isNull);
     expect(tester.widget<FcButton>(find.widgetWithText(FcButton, 'Delete')).onPressed, isNull);
     expect(tester.widget<FcButton>(find.widgetWithText(FcButton, 'Export')).onPressed, isNull);
   });
@@ -95,11 +98,11 @@ void main() {
       tester.widget<FcButton>(find.widgetWithText(FcButton, label)).onPressed != null;
 
   testWidgets('выбранный набор оживляет кнопки при списке', (tester) async {
-    await openPresets(tester);
+    await openKeyboard(tester);
     await tapButton(tester, 'New');
     await nameIt(tester, 'Дом');
 
-    expect(alive(tester, 'Update'), isTrue);
+    expect(alive(tester, 'Edit'), isTrue);
     expect(alive(tester, 'Delete'), isTrue);
     expect(alive(tester, 'Export'), isTrue);
   });
@@ -107,45 +110,44 @@ void main() {
   testWidgets('выбор набора в списке оживляет кнопки тут же', (tester) async {
     // Кнопки знают о выбранном из схемы, а схема строится один раз: без
     // пересборки они остались бы приглушёнными до следующего открытия окна.
-    await openPresets(tester);
+    await openKeyboard(tester);
     await tapButton(tester, 'New');
     await nameIt(tester, 'Дом');
     await tapButton(tester, 'New');
     await nameIt(tester, 'Работа');
 
     // Снять выбор и выбрать снова — списком, как это делает человек.
-    runtime.app.setPresets(runtime.app.presets, current: '');
+    Keymaps(app: runtime.app, builtIn: () => runtime.resolve<KeymapCatalog>().keymaps).select('');
     await tester.pumpAndSettle();
     await tester.tap(find.byType(FcSelect<String>));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Дом').last);
     await tester.pumpAndSettle();
 
-    expect(runtime.app.preset, 'Дом');
-    expect(alive(tester, 'Update'), isTrue, reason: 'выбрали набор, а обновить его нечем');
-    expect(alive(tester, 'Delete'), isTrue);
+    expect(runtime.app.keymap, 'Дом');
+    expect(alive(tester, 'Delete'), isTrue, reason: 'выбрали свой набор, а удалить его нечем');
     expect(alive(tester, 'Export'), isTrue);
   });
 
   testWidgets('удаление спрашивает и убирает набор', (tester) async {
-    await openPresets(tester);
+    await openKeyboard(tester);
     await tapButton(tester, 'New');
     await nameIt(tester, 'Дом');
 
     await tapButton(tester, 'Delete');
-    expect(find.text('Delete «Дом»? Settings stay as they are.'), findsOneWidget);
+    expect(find.text('Delete «Дом»? Keys return to Default.'), findsOneWidget);
     // Кнопку вопроса, а не ту, что подняла окно: подписи у них одинаковые.
     await tester.tap(
       find.descendant(of: find.byType(CommandDialogConfirm), matching: find.widgetWithText(FcButton, 'Delete')),
     );
     await tester.pumpAndSettle();
 
-    expect(runtime.app.presets, isEmpty);
-    expect(runtime.app.preset, isEmpty);
+    expect(runtime.app.keymaps, isEmpty);
+    expect(runtime.app.keymap, isEmpty);
   });
 
   testWidgets('выгрузка показывает дерево от дома, а не поле пути', (tester) async {
-    await openPresets(tester);
+    await openKeyboard(tester);
     await tapButton(tester, 'New');
     await nameIt(tester, 'Дом');
 
@@ -157,7 +159,7 @@ void main() {
   });
 
   testWidgets('дерево открыто от корня и ходит щелчком', (tester) async {
-    await openPresets(tester);
+    await openKeyboard(tester);
     await tapButton(tester, 'New');
     await nameIt(tester, 'Дом');
     await tapButton(tester, 'Export');
@@ -178,7 +180,7 @@ void main() {
   testWidgets('отказ окна файла говорится тостом, а окно остаётся', (tester) async {
     // Сообщение внутри формы двигало бы поля ровно тогда, когда в них
     // собираются что-то поправить (`docs/widgets.md`).
-    await openPresets(tester);
+    await openKeyboard(tester);
     await tapButton(tester, 'Import');
 
     await tester.enterText(
@@ -202,27 +204,34 @@ void main() {
   });
 
   testWidgets('встроенный набор выбирается, но не правится', (tester) async {
-    await openPresets(tester);
+    await openKeyboard(tester);
 
     await tester.tap(find.byType(FcSelect<String>));
     await tester.pumpAndSettle();
     await tester.tap(find.text('mc').last);
     await tester.pumpAndSettle();
 
-    expect(runtime.app.preset, 'mc');
+    expect(runtime.app.keymap, 'mc');
     expect(alive(tester, 'Export'), isTrue, reason: 'выгрузить встроенный можно — так его делают своим');
-    expect(alive(tester, 'Update'), isFalse, reason: 'встроенный не свой');
-    expect(alive(tester, 'Delete'), isFalse);
+    expect(alive(tester, 'Delete'), isFalse, reason: 'встроенный не свой');
   });
 
   testWidgets('отказ ничего не убирает', (tester) async {
-    await openPresets(tester);
+    await openKeyboard(tester);
     await tapButton(tester, 'New');
     await nameIt(tester, 'Дом');
 
     await tapButton(tester, 'Delete');
     await tapButton(tester, 'Cancel');
 
-    expect(runtime.app.presets, hasLength(1));
+    expect(runtime.app.keymaps, hasLength(1));
+  });
+
+  testWidgets('Edit открывает окно клавиш', (tester) async {
+    await openKeyboard(tester);
+
+    await tapButton(tester, 'Edit');
+
+    expect(find.text('Reset all keys'), findsOneWidget, reason: 'окна клавиш не видно');
   });
 }

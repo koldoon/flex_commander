@@ -53,7 +53,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Кнопка стоит рядом с выбором темы — там её и ищут.
-    await tester.tap(find.widgetWithText(FcButton, 'Edit'));
+    await tester.tap(find.widgetWithText(FcButton, 'Edit').first);
     await tester.pumpAndSettle();
 
     expect(find.text('Theme'), findsWidgets);
