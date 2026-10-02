@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:fc_attributes/fc_attributes.dart';
 import 'package:fc_places/fc_places.dart';
 import 'package:fc_search/fc_search.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
@@ -136,8 +137,14 @@ void main() {
     app.left.setCursorToName('LICENSE');
     await tester.pumpAndSettle();
 
-    app.commands.dispatch(KeyCombination.parse('Ctrl-A'));
+    // По имени, а не клавишей: на прогоне платформа не macOS, и `Cmd-A`
+    // («пометить всё») читается как `Ctrl-A` — та же комбинация, что у окна
+    // атрибутов. Выигрывала пометка, и эталон снимал панель со всеми строками
+    // помеченными, а окна на нём не было вовсе (найдено сверкой макета
+    // 2 октября 2026).
+    app.commands.run(AttributesCommand.commandId);
     await tester.pumpAndSettle();
+    expect(app.view.dialogs, isNotEmpty, reason: 'на снимке должно быть окно атрибутов');
 
     await expectLater(find.byType(FlexCommanderApp), matchesGoldenFile('goldens/anchor_attributes.png'));
 
