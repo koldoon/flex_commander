@@ -1,5 +1,6 @@
 import Cocoa
 import FlutterMacOS
+import PDFKit
 import QuickLookThumbnailing
 import UniformTypeIdentifiers
 import window_manager
@@ -13,6 +14,9 @@ class MainFlutterWindow: NSWindow, NSDraggingDestination {
 
   /// Разбор картинок, которых не умеет Flutter. И этот живёт столько же.
   private var systemImages: SystemImages?
+
+  /// Документы PDF, которые показывает просмотрщик. Живёт столько же.
+  private var systemPdf: SystemPdf?
 
   /// Что приложение знает о самом себе: версия, место на диске, процессор.
   private var appBuild: AppBuild?
@@ -47,6 +51,10 @@ class MainFlutterWindow: NSWindow, NSDraggingDestination {
     // Картинки, которых не умеет Flutter: `HEIC` и всё, что система читает, а
     // Skia — нет (`docs/spec/image-viewer.md`, §12).
     systemImages = SystemImages(messenger: flutterViewController.engine.binaryMessenger)
+
+    // Страницы PDF: документ разбирает и держит система, Dart просит
+    // нарисовать видимое (`docs/spec/pdf-viewer.md`, §3).
+    systemPdf = SystemPdf(messenger: flutterViewController.engine.binaryMessenger)
 
     // Своя версия и своё место на диске. Из Flutter их не узнать: версия лежит
     // в `Info.plist` бандла, а путь к бандлу знает только он сам
@@ -782,6 +790,237 @@ final class SystemImages {
       return extensionName.uppercased()
     }
     return type.localizedDescription?.uppercased() ?? ""
+  }
+}
+
+/// Документы PDF под ручками (`docs/spec/pdf-viewer.md`, §3).
+///
+/// Страниц сотни, рисовать надо только видимые и того размера, каким их
+/// показывают сейчас, — поэтому разобранный документ держится здесь, а Dart
+/// держит на него номер. Закрывает его тот, кто открыл: показ, уходя.
+///
+/// `PDFDocument` не обещает работы из нескольких нитей — у каждого документа
+/// своя очередь: запросы одного идут по порядку, разных — параллельно.
+final class SystemPdf {
+  static let channelName = "flex_commander/pdf"
+
+  /// Наибольшая отрисовка одной страницы: 16 мегапикселей. Сильнее приблизили
+  /// — Dart растягивает наибольшую (§4).
+  static let maxPixels = 16 * 1000 * 1000
+
+  private let channel: FlutterMethodChannel
+
+  private struct Open {
+    let document: PDFDocument
+    let queue: DispatchQueue
+  }
+
+  /// Открытые документы. Трогается только с главной нити.
+  private var documents: [Int: Open] = [:]
+  private var nextHandle = 1
+
+  init(messenger: FlutterBinaryMessenger) {
+    channel = FlutterMethodChannel(name: SystemPdf.channelName, binaryMessenger: messenger)
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard let self = self else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      self.handle(call, result)
+    }
+  }
+
+  private func handle(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) {
+    let arguments = call.arguments as? [String: Any] ?? [:]
+
+    if call.method == "open" {
+      guard let data = (arguments["bytes"] as? FlutterStandardTypedData)?.data else {
+        result(nil)
+        return
+      }
+      DispatchQueue.global(qos: .userInitiated).async {
+        let document = PDFDocument(data: data)
+        let pages = document.map(SystemPdf.pageSizes) ?? []
+        DispatchQueue.main.async {
+          guard let document = document else {
+            result(nil)
+            return
+          }
+          let handle = self.nextHandle
+          self.nextHandle += 1
+          self.documents[handle] = Open(
+            document: document,
+            queue: DispatchQueue(label: "flex_commander.pdf.\(handle)", qos: .userInitiated)
+          )
+          result(["handle": handle, "pages": pages, "locked": document.isLocked])
+        }
+      }
+      return
+    }
+
+    guard let handle = arguments["handle"] as? Int else {
+      result(nil)
+      return
+    }
+
+    if call.method == "close" {
+      documents.removeValue(forKey: handle)
+      result(nil)
+      return
+    }
+
+    // Документ уже закрыт: показ ушёл, а запрос догнал его. Не ошибка —
+    // отвечать просто нечем.
+    guard let open = documents[handle] else {
+      result(nil)
+      return
+    }
+
+    let work: () -> Any?
+    switch call.method {
+    case "render":
+      let index = arguments["page"] as? Int ?? 0
+      let width = arguments["width"] as? Int ?? 0
+      work = { SystemPdf.render(open.document, page: index, width: width) }
+    case "find":
+      let text = arguments["text"] as? String ?? ""
+      let caseSensitive = arguments["caseSensitive"] as? Bool ?? false
+      work = { SystemPdf.find(open.document, text: text, caseSensitive: caseSensitive) }
+    case "text":
+      work = { SystemPdf.text(open.document) }
+    default:
+      result(FlutterMethodNotImplemented)
+      return
+    }
+
+    open.queue.async {
+      let answer = work()
+      DispatchQueue.main.async { result(answer) }
+    }
+  }
+
+  /// Показанная сторона страницы: `cropBox`, повёрнутый так, как его увидит
+  /// человек.
+  private static func displaySize(_ page: PDFPage) -> CGSize {
+    let box = page.bounds(for: .cropBox)
+    return page.rotation % 180 == 0 ? box.size : CGSize(width: box.height, height: box.width)
+  }
+
+  private static func pageSizes(_ document: PDFDocument) -> [[Double]] {
+    (0..<document.pageCount).map { index in
+      guard let page = document.page(at: index) else {
+        return [0, 0]
+      }
+      let size = displaySize(page)
+      return [Double(size.width), Double(size.height)]
+    }
+  }
+
+  /// Нарисовать страницу в `png`.
+  ///
+  /// `png`, а не `jpeg`, как у `HEIC`: на странице текст, и на нём `png` и
+  /// меньше, и без ореолов вокруг букв (замер — §2.1 спецификации).
+  ///
+  /// Поворот страницы `draw(with:to:)` учитывает сам — проверено прототипом,
+  /// и поворачивать второй раз нельзя: страница уезжает за край.
+  private static func render(_ document: PDFDocument, page index: Int, width requested: Int) -> FlutterStandardTypedData? {
+    guard let page = document.page(at: index), requested > 0 else {
+      return nil
+    }
+    let size = displaySize(page)
+    guard size.width > 0, size.height > 0 else {
+      return nil
+    }
+
+    var width = CGFloat(requested)
+    var height = (size.height * width / size.width).rounded()
+    if width * height > CGFloat(maxPixels) {
+      let shrink = (CGFloat(maxPixels) / (width * height)).squareRoot()
+      width = (width * shrink).rounded(.down)
+      height = (height * shrink).rounded(.down)
+    }
+    let w = max(Int(width), 1)
+    let h = max(Int(height), 1)
+
+    guard let context = CGContext(
+      data: nil,
+      width: w,
+      height: h,
+      bitsPerComponent: 8,
+      bytesPerRow: 0,
+      space: CGColorSpace(name: CGColorSpace.sRGB)!,
+      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    ) else {
+      return nil
+    }
+    // Бумага белая: прозрачный фон страницы иначе лёг бы на тёмную раму.
+    context.setFillColor(.white)
+    context.fill(CGRect(x: 0, y: 0, width: w, height: h))
+    context.interpolationQuality = .high
+    context.scaleBy(x: CGFloat(w) / size.width, y: CGFloat(h) / size.height)
+    page.draw(with: .cropBox, to: context)
+
+    guard let image = context.makeImage(),
+          let png = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])
+    else {
+      return nil
+    }
+    return FlutterStandardTypedData(bytes: png)
+  }
+
+  /// Найти строку: `[[страница, x, y, ширина, высота, x, y, …]]`, в долях
+  /// показанной страницы, отсчёт сверху слева.
+  ///
+  /// По строкам: найденное, перенесённое на следующую строку, — два
+  /// прямоугольника, а не один охватывающий через полстраницы.
+  private static func find(_ document: PDFDocument, text: String, caseSensitive: Bool) -> [[Double]] {
+    guard !text.isEmpty else {
+      return []
+    }
+    let options: NSString.CompareOptions = caseSensitive ? [] : [.caseInsensitive]
+    var found: [[Double]] = []
+    for selection in document.findString(text, withOptions: options) {
+      guard let page = selection.pages.first else {
+        continue
+      }
+      let size = displaySize(page)
+      guard size.width > 0, size.height > 0 else {
+        continue
+      }
+      // Из пространства страницы — в показанную: поворот и начало `cropBox`.
+      let transform = page.transform(for: .cropBox)
+      var entry: [Double] = [Double(document.index(for: page))]
+      for line in selection.selectionsByLine() {
+        let shown = line.bounds(for: page).applying(transform)
+        guard !shown.isEmpty else {
+          continue
+        }
+        entry += [
+          Double(shown.minX / size.width),
+          Double(1 - shown.maxY / size.height),
+          Double(shown.width / size.width),
+          Double(shown.height / size.height),
+        ]
+      }
+      if entry.count > 1 {
+        found.append(entry)
+      }
+    }
+    return found
+  }
+
+  /// Весь текст: страницы под своими номерами. Пусто — текста нет вовсе.
+  private static func text(_ document: PDFDocument) -> String {
+    var parts: [String] = []
+    var any = false
+    for index in 0..<document.pageCount {
+      let text = document.page(at: index)?.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+      if !text.isEmpty {
+        any = true
+      }
+      parts.append("— \(index + 1) —\n\n\(text)")
+    }
+    return any ? parts.joined(separator: "\n\n") : ""
   }
 }
 

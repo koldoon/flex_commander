@@ -17,7 +17,7 @@ mixin _ScreenFinder on AppCommand {
 
   /// Ищут в том, чему принадлежит ввод, а не всегда в полноэкранном: тот же
   /// показ текста бывает наложением на панель (быстрый просмотр).
-  FcTextFinder? finderOf(Application app) {
+  FcFinder? finderOf(Application app) {
     final shown = app.view.contentAt(app.view.activeArea);
     // Разворот до внутреннего: показ бывает и внутри хозяина (быстрый
     // просмотр), а искать надо в том, что видно.
@@ -29,7 +29,7 @@ mixin _ScreenFinder on AppCommand {
   ///
   /// Постоянной панели поиска у нас нет, и счёт сказать больше негде; а знать
   /// его нужно, иначе непонятно, ходишь ты по кругу или стоишь на месте.
-  void reportMatch(Application app, FcTextFinder finder) => app.toasts.show(
+  void reportMatch(Application app, FcFinder finder) => app.toasts.show(
     app.strings.tr('Match {index} of {count}', args: {'index': finder.currentIndex, 'count': finder.matchCount}),
   );
 }
@@ -81,7 +81,7 @@ class FcFindTextCommand extends AppCommand with _ScreenFinder {
   /// а состояние ввода живёт в самом окне.
   @override
   Future<void> execute(CommandContext context) async {
-    final FcTextFinder? finder = finderOf(context.app);
+    final FcFinder? finder = finderOf(context.app);
     if (finder == null) {
       return;
     }
@@ -102,7 +102,7 @@ class FcFindTextCommand extends AppCommand with _ScreenFinder {
       finder: finder,
       pattern: finder.pattern,
       caseSensitive: finder.caseSensitive,
-      regex: finder.regex,
+      regex: finder.supportsRegex && finder.regex,
       onFound: () => reportMatch(context.app, finder),
       strings: context.app.strings,
     );
@@ -122,7 +122,7 @@ class FcFindTextCommand extends AppCommand with _ScreenFinder {
 
   /// Условия поиска приходят тем же вызовом, что и строка: у команды-прототипа
   /// своего «как искать» нет.
-  Future<int> _run(CommandContext context, FcTextFinder finder, String pattern) => finder.search(
+  Future<int> _run(CommandContext context, FcFinder finder, String pattern) => finder.search(
     pattern,
     caseSensitive: context.invocation.param<bool>(caseSensitiveParam) ?? false,
     regex: context.invocation.param<bool>(regexParam) ?? false,
@@ -150,7 +150,7 @@ class FcFindDialogState extends ChangeNotifier {
   /// Отказы окна складываются здесь — значит, и на языке человека.
   final Strings strings;
 
-  final FcTextFinder finder;
+  final FcFinder finder;
   final VoidCallback onFound;
 
   String pattern;
@@ -235,7 +235,7 @@ class FcFindNextCommand extends AppCommand with _ScreenFinder {
 
   @override
   Future<void> execute(CommandContext context) async {
-    final FcTextFinder? finder = finderOf(context.app);
+    final FcFinder? finder = finderOf(context.app);
     if (finder == null || !finder.next()) {
       return;
     }
@@ -266,7 +266,7 @@ class FcFindPreviousCommand extends AppCommand with _ScreenFinder {
 
   @override
   Future<void> execute(CommandContext context) async {
-    final FcTextFinder? finder = finderOf(context.app);
+    final FcFinder? finder = finderOf(context.app);
     if (finder == null || !finder.previous()) {
       return;
     }
@@ -333,13 +333,16 @@ class _FindFormState extends State<_FindForm> {
                   onChanged: (value) => state.update(caseSensitive: value),
                 ),
               ),
-              CommandDialogField.wide(
-                child: FcCheckbox(
-                  label: context.strings.tr('Regular expression'),
-                  value: state.regex,
-                  onChanged: (value) => state.update(regex: value),
+              // Ищет не всякий поисковик выражением: системе, которая ищет по
+              // страницам PDF, его не передать — и флажка тогда нет вовсе.
+              if (state.finder.supportsRegex)
+                CommandDialogField.wide(
+                  child: FcCheckbox(
+                    label: context.strings.tr('Regular expression'),
+                    value: state.regex,
+                    onChanged: (value) => state.update(regex: value),
+                  ),
                 ),
-              ),
             ],
           ),
     );

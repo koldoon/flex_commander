@@ -313,6 +313,8 @@ dependency/
                                    один из объявленных в реестре
   image_viewer/                    fc_image_viewer — картинки: png, jpeg,
                                    gif, webp, bmp, heic (системой)
+  pdf_viewer/                      fc_pdf_viewer — PDF: страницы рисует
+                                   система, показ и поиск свои
   file_info/                       fc_file_info — сведения об объекте:
                                    окно, показ и провайдеры разделов
   attributes/                      fc_attributes — правка атрибутов: права,

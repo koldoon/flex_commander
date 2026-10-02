@@ -3,6 +3,43 @@ import 'dart:async';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:re_editor/re_editor.dart';
 
+/// Поиск по тому, что показано: окно поиска и команды хода по найденному
+/// спрашивают его, а **как** ищут — не знают.
+///
+/// Текст ищет [FcTextFinder]; страницы PDF ищет система, и подсвечивает
+/// найденное сам показ страниц (`docs/spec/pdf-viewer.md`, §9). Окно у них
+/// одно.
+abstract interface class FcFinder {
+  /// Последняя строка поиска: окно предлагает её снова.
+  String get pattern;
+
+  bool get caseSensitive;
+
+  bool get regex;
+
+  /// Умеет ли искать выражением. Не умеет — флажка в окне нет: флажок,
+  /// который ничего не меняет, хуже никакого.
+  bool get supportsRegex;
+
+  /// Сколько совпадений нашлось.
+  int get matchCount;
+
+  /// Который из них показан сейчас, считая с единицы. Ноль — не показан ни один.
+  int get currentIndex;
+
+  /// Ищет и показывает первое совпадение. Возвращает, сколько их всего.
+  Future<int> search(String text, {bool caseSensitive = false, bool regex = false});
+
+  /// Следующее совпадение по кругу. `false` — искать нечего.
+  bool next();
+
+  /// Предыдущее совпадение по кругу.
+  bool previous();
+
+  /// Снимает подсветку найденного.
+  void clear();
+}
+
 /// Поиск по показанному тексту.
 ///
 /// Обёртка над поиском `re_editor`: сам он умеет и считать совпадения, и
@@ -12,7 +49,7 @@ import 'package:re_editor/re_editor.dart';
 ///
 /// Живёт у экрана, а не у вида: искать просит команда, а она о виджетах ничего
 /// не знает.
-class FcTextFinder {
+class FcTextFinder implements FcFinder {
   FcTextFinder(this.controller) : findController = CodeFindController(controller);
 
   /// Текст, по которому ищем, и курсор в нём.
@@ -28,16 +65,24 @@ class FcTextFinder {
 
   /// Последняя строка поиска: окно предлагает её снова, чтобы повторить поиск
   /// было нажатием, а не набором.
+  @override
   String get pattern => findController.value?.option.pattern ?? '';
 
+  @override
   bool get caseSensitive => findController.value?.option.caseSensitive ?? false;
 
+  @override
   bool get regex => findController.value?.option.regex ?? false;
 
+  @override
+  bool get supportsRegex => true;
+
   /// Сколько совпадений нашлось.
+  @override
   int get matchCount => findController.value?.result?.matches.length ?? 0;
 
   /// Который из них показан сейчас, считая с единицы. Ноль — не показан ни один.
+  @override
   int get currentIndex {
     final CodeFindResult? result = findController.value?.result;
     return result == null || result.matches.isEmpty ? 0 : result.index + 1;
@@ -47,6 +92,7 @@ class FcTextFinder {
   ///
   /// Поиск у библиотеки идёт в изоляте, поэтому ждём, пока он закончится: по
   /// его итогу команда либо показывает счёт, либо говорит, что не нашлось.
+  @override
   Future<int> search(String text, {bool caseSensitive = false, bool regex = false}) async {
     if (text.isEmpty) {
       clear();
@@ -77,6 +123,7 @@ class FcTextFinder {
   }
 
   /// Следующее совпадение по кругу. `false` — искать нечего.
+  @override
   bool next() {
     if (matchCount == 0) {
       return false;
@@ -87,6 +134,7 @@ class FcTextFinder {
   }
 
   /// Предыдущее совпадение по кругу.
+  @override
   bool previous() {
     if (matchCount == 0) {
       return false;
@@ -97,6 +145,7 @@ class FcTextFinder {
   }
 
   /// Снимает подсветку найденного.
+  @override
   void clear() => findController.close();
 
   void dispose() => findController.dispose();
@@ -170,5 +219,5 @@ abstract interface class FcSearchable implements ViewportState {
   /// экземпляры у них разные, и путать их нельзя.
   String get id;
 
-  FcTextFinder get finder;
+  FcFinder get finder;
 }

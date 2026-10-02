@@ -20,6 +20,7 @@ import 'package:fc_key_presets/fc_key_presets.dart';
 import 'package:fc_local_fs/fc_local_fs.dart';
 import 'package:fc_navigation/fc_navigation.dart';
 import 'package:fc_panels/fc_panels.dart';
+import 'package:fc_pdf_viewer/fc_pdf_viewer.dart';
 import 'package:fc_places/fc_places.dart';
 import 'package:fc_search/fc_search.dart';
 import 'package:fc_ssh/fc_ssh.dart';
@@ -38,6 +39,7 @@ import '../modules/accent/system_accent.dart';
 import '../modules/fonts/system_fonts.dart';
 import '../modules/icons/system_icons.dart';
 import '../modules/images/system_images.dart';
+import '../modules/pdf/system_pdf.dart';
 
 /// Из чего собрано приложение.
 ///
@@ -107,6 +109,9 @@ List<FcModule> featureModules() => [
   // система, а Skia — нет. Просмотрщик спрашивает его последним, когда свой
   // разбор не справился (`docs/spec/image-viewer.md`, §12).
   const SystemImageDecoding(),
+  // PDF силами системы: документ держит раннер, просмотрщик просит нарисовать
+  // видимые страницы (`docs/spec/pdf-viewer.md`, §3).
+  const SystemPdfRendering(),
   const FileIconRules(),
   const ZipArchiver(),
   const SevenZipArchiver(),
@@ -124,6 +129,7 @@ List<FcModule> featureModules() => [
   const Viewer(),
   const TextViewer(),
   const ImageViewer(),
+  const PdfViewer(),
   const MarkdownViewer(),
   // Диаграммы — не просмотрщик, а рисовальщик врезки внутри документа: он
   // объявляет себя в реестр из Г19 и о markdown больше ничего не знает.
