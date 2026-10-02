@@ -268,4 +268,35 @@ void main() {
       });
     }
   });
+
+  group('список файлов набран Ubuntu, без поправок строки', () {
+    // `docs/spec/macos-themes.md`, §2а: поправки замерены на Consolas.
+    final themes = [
+      macOsLightTheme(),
+      macOsDarkTheme(),
+      macOsAutoTheme(brightness: Brightness.light),
+      macOsAutoTheme(brightness: Brightness.dark),
+    ];
+
+    test('шрифт списка — Ubuntu, моноширинный остаётся', () {
+      for (final theme in themes) {
+        expect(theme.fonts.list, 'Ubuntu', reason: theme.id);
+        expect(theme.fonts.fixed, const DefaultFonts().fixed, reason: theme.id);
+        expect(theme.fonts.ui, const DefaultFonts().ui, reason: theme.id);
+      }
+    });
+
+    test('поправки строки обнулены, прочие размеры референсные', () {
+      for (final theme in themes) {
+        expect(theme.metrics.rowTextVerticalNudge, 0, reason: theme.id);
+        expect(theme.metrics.rowContentVerticalNudge, 0, reason: theme.id);
+        expect(theme.metrics.rowHeight, const DefaultMetrics().rowHeight, reason: theme.id);
+      }
+    });
+
+    test('референсная тема не тронута', () {
+      expect(const DefaultFonts().list, const DefaultFonts().fixed);
+      expect(const DefaultMetrics().rowTextVerticalNudge, isNot(0));
+    });
+  });
 }

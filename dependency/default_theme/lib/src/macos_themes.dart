@@ -33,19 +33,43 @@ abstract final class MacOsThemeIds {
   static const String auto = 'fc.auto';
 }
 
+/// Размеры оформлений macOS: референсные, кроме поправок строки списка.
+///
+/// Обе поправки замерены на Consolas, а список здесь набран Ubuntu
+/// ([MacOsFonts]): под ним они только опускают текст ниже середины строки
+/// (`docs/spec/macos-themes.md`, §2а).
+class MacOsMetrics extends DefaultMetrics {
+  const MacOsMetrics();
+
+  @override
+  double get rowContentVerticalNudge => 0;
+
+  @override
+  double get rowTextVerticalNudge => 0;
+}
+
+/// Шрифты оформлений macOS: референсные, но список файлов набран Ubuntu, как и
+/// интерфейс. Моноширинный — для кода, терминала и просмотра — остаётся.
+class MacOsFonts extends DefaultFonts {
+  const MacOsFonts();
+
+  @override
+  String get list => 'Ubuntu';
+}
+
 /// Светлое оформление по цветам macOS.
 ///
-/// Размеры, иконки и шрифты — общие с референсным: гайдлайны Apple здесь про
-/// цвет, а раскладка у приложения своя. Глифы красятся ролью цвета, поэтому
-/// переезжают сами.
+/// Иконки — общие с референсным, размеры и шрифты — почти: гайдлайны Apple
+/// здесь про цвет, а раскладка у приложения своя. Глифы красятся ролью цвета,
+/// поэтому переезжают сами.
 FcThemeSpec macOsLightTheme({Color? accent}) => FcThemeSpec(
   id: MacOsThemeIds.light,
   title: 'macOS Light',
   brightness: Brightness.light,
   colors: MacOsColors(tones: macOsLightTones, accent: accent),
-  metrics: const DefaultMetrics(),
+  metrics: const MacOsMetrics(),
   icons: const DefaultIcons(),
-  fonts: const DefaultFonts(),
+  fonts: const MacOsFonts(),
 );
 
 /// Тёмное оформление по цветам macOS.
@@ -58,9 +82,9 @@ FcThemeSpec macOsDarkTheme({Color? accent}) => FcThemeSpec(
   title: 'macOS Dark',
   brightness: Brightness.dark,
   colors: MacOsColors(tones: macOsDarkTones, accent: accent),
-  metrics: const DefaultMetrics(),
+  metrics: const MacOsMetrics(),
   icons: const DefaultIcons(),
-  fonts: const DefaultFonts(),
+  fonts: const MacOsFonts(),
 );
 
 /// Оформление, идущее за внешним видом системы.
@@ -76,7 +100,7 @@ FcThemeSpec macOsAutoTheme({required Brightness brightness, Color? accent}) => F
   title: 'Follow macOS theme',
   brightness: brightness,
   colors: MacOsColors(tones: brightness == Brightness.light ? macOsLightTones : macOsDarkTones, accent: accent),
-  metrics: const DefaultMetrics(),
+  metrics: const MacOsMetrics(),
   icons: const DefaultIcons(),
-  fonts: const DefaultFonts(),
+  fonts: const MacOsFonts(),
 );
