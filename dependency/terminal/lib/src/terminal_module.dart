@@ -559,7 +559,7 @@ const Map<String, String> _russian = {
   'Erase in command line': 'Стереть в командной строке',
   'Clear command line': 'Очистить командную строку',
   'Complete path': 'Дополнить путь',
-  'Previous match': 'Предыдущее совпадение',
+  'Previous path': 'Предыдущий путь',
   'Completes a path by the beginning of a name': 'Дополняет путь по началу имени',
   'Typing goes to command line': 'Печать — в командную строку',
   'Typing in a panel goes to the command line instead of jumping to a name':

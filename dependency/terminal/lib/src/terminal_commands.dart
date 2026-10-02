@@ -538,7 +538,7 @@ class CompletePathCommand extends AppCommand {
   String get id => forward ? commandId : backCommandId;
 
   @override
-  String get label => forward ? tr('Complete path') : tr('Previous match');
+  String get label => forward ? tr('Complete path') : tr('Previous path');
 
   @override
   String get description => tr('Completes a path by the beginning of a name');
