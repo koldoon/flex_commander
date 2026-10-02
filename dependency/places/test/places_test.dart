@@ -398,6 +398,42 @@ void main() {
       });
     });
 
+    testWidgets('полоса выезжает слева и уезжает туда же', (tester) async {
+      await pumpApp(tester);
+      double shown() => tester.getSize(find.byType(PlacesView)).width;
+      double left() => tester.getTopLeft(find.byType(PlacesView)).dx;
+      final full = shown();
+      final home = left();
+
+      app().commands.run(TogglePlacesCommand.commandId);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 90));
+      expect(find.byType(PlacesView), findsOneWidget, reason: 'уезжая, полоса ещё видна');
+      expect(left(), lessThan(home), reason: 'и уходит за левый край');
+      await tester.pumpAndSettle();
+      expect(find.byType(PlacesView), findsNothing);
+
+      app().commands.run(TogglePlacesCommand.commandId);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 90));
+      expect(left(), lessThan(home), reason: 'выезжая, она ещё не на месте');
+      expect(shown(), full, reason: 'полоса не сжимается — она выезжает');
+      await tester.pumpAndSettle();
+      expect(left(), home);
+    });
+
+    testWidgets('без движения, если в системе оно убрано', (tester) async {
+      await pumpApp(tester);
+      tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+      await tester.pump();
+
+      app().commands.run(TogglePlacesCommand.commandId);
+      await tester.pump();
+      expect(find.byType(PlacesView), findsNothing, reason: 'ушла сразу');
+      await tester.pumpAndSettle();
+    });
+
     testWidgets('окно над панелью встаёт над панелью и с полосой', (tester) async {
       await pumpApp(tester);
       final left = app().view.panelArea(ViewportPosition.left);

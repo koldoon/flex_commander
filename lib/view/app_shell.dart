@@ -65,16 +65,22 @@ class AppShell extends StatelessWidget {
   Widget _panelsRow(BuildContext context, Application app) {
     final work = _MeasuredPanels(view: app.view, child: _workArea(context, app));
     final sidebar = _sidebar(context, app);
-    if (sidebar == null) {
-      return work;
-    }
+    // Строение ряда одно при любой полосе: появилась она или ушла — панели
+    // остаются на своём месте в дереве и не собираются заново со всем своим
+    // состоянием. Меняется только ширина места под полосой.
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        sidebar,
-        SizedBox(width: FcTheme.of(context).metrics.areaGap),
-        // Край окна слева теперь у полосы: рамка левой панели замыкается.
-        Expanded(child: WindowEdges(left: false, child: work)),
+        _SidebarSlot(
+          gap: FcTheme.of(context).metrics.areaGap,
+          // Полноэкранное убирает полосу сразу: съезжать ей рядом с
+          // развёрнутым просмотрщиком незачем.
+          instant: app.view.contentAt(ViewportPosition.fullscreen) != null,
+          child: sidebar,
+        ),
+        // Край окна слева — у полосы, пока она есть: рамка левой панели
+        // замыкается.
+        Expanded(child: WindowEdges(left: sidebar == null, child: work)),
       ],
     );
   }
@@ -353,5 +359,104 @@ class _MeasuredPanelsState extends State<_MeasuredPanels> {
     _windowWidth = MediaQuery.sizeOf(context).width;
     _sidePadding = FcTheme.of(context).metrics.windowSidePadding;
     return widget.child;
+  }
+}
+
+/// Место под боковую полосу — выезжает слева и уезжает туда же
+/// (`docs/spec/favorites-sidebar.md`, §2).
+///
+/// Ширина места растёт от нуля до полосы с зазором, а сама полоса прижата к
+/// правому краю места и обрезана слева: так она выезжает из-за края окна, а
+/// панели плавно сдвигаются. Ушедшую полосу место держит до конца движения —
+/// иначе уезжать было бы нечему.
+///
+/// Без движения: при запуске (полоса уже стоит), под полноэкранным и когда в
+/// системе убрано движение («Reduce motion»).
+class _SidebarSlot extends StatefulWidget {
+  const _SidebarSlot({required this.child, required this.gap, required this.instant});
+
+  /// Полоса; null — её нет.
+  final Widget? child;
+
+  /// Зазор до панелей — выезжает вместе с полосой.
+  final double gap;
+
+  /// Убрать или поставить сразу, без движения.
+  final bool instant;
+
+  /// Сколько длится выезд.
+  static const Duration duration = Duration(milliseconds: 180);
+
+  @override
+  State<_SidebarSlot> createState() => _SidebarSlotState();
+}
+
+class _SidebarSlotState extends State<_SidebarSlot> with SingleTickerProviderStateMixin {
+  late final AnimationController _slide = AnimationController(
+    vsync: this,
+    duration: _SidebarSlot.duration,
+    value: widget.child == null ? 0 : 1,
+  );
+
+  late final Animation<double> _width = CurvedAnimation(
+    parent: _slide,
+    curve: Curves.easeOutCubic,
+    reverseCurve: Curves.easeInCubic,
+  );
+
+  /// Что показано в месте: нынешняя полоса или ушедшая, пока она уезжает.
+  Widget? _shown;
+
+  @override
+  void initState() {
+    super.initState();
+    _shown = widget.child;
+    _slide.addStatusListener((status) {
+      if (status == AnimationStatus.dismissed && widget.child == null && mounted) {
+        setState(() => _shown = null);
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(_SidebarSlot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final instant = widget.instant || MediaQuery.disableAnimationsOf(context);
+    if (widget.child != null) {
+      _shown = widget.child;
+      instant ? _slide.value = 1 : _slide.forward();
+    } else if (oldWidget.child != null || _slide.value > 0) {
+      if (instant) {
+        _slide.value = 0;
+        _shown = null;
+      } else {
+        _slide.reverse();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _slide.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final shown = _shown;
+    if (shown == null) {
+      return const SizedBox.shrink();
+    }
+    return AnimatedBuilder(
+      animation: _width,
+      builder:
+          (context, child) =>
+              ClipRect(child: Align(alignment: Alignment.centerRight, widthFactor: _width.value, child: child)),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [shown, SizedBox(width: widget.gap)],
+      ),
+    );
   }
 }
