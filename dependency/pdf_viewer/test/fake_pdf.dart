@@ -18,12 +18,16 @@ class FakeSystemPdf implements SystemPdf {
   FakeSystemPdf({
     this.pages = const [Size(600, 800), Size(600, 800), Size(800, 600)],
     this.locked = false,
+    this.password,
     this.text = '— 1 —\n\nfirst page\n\n— 2 —\n\nsecond page',
     this.found = const [],
   });
 
   final List<Size> pages;
   final bool locked;
+
+  /// Чем отпирается запертый; null — ничем.
+  final String? password;
   final String text;
   final List<PdfMatch> found;
 
@@ -48,6 +52,12 @@ class FakePdfDocument implements SystemPdfDocument {
 
   bool closed = false;
 
+  /// Отперт ли паролем.
+  bool unlocked = false;
+
+  /// Какими паролями пробовали отпереть.
+  final List<String> tried = [];
+
   /// Что просили нарисовать: страница и ширина.
   final List<(int, int)> rendered = [];
 
@@ -60,7 +70,14 @@ class FakePdfDocument implements SystemPdfDocument {
   List<Size> get pages => system.pages;
 
   @override
-  bool get locked => system.locked;
+  bool get locked => system.locked && !unlocked;
+
+  @override
+  Future<bool> unlock(String password) async {
+    tried.add(password);
+    unlocked = system.password != null && password == system.password;
+    return unlocked;
+  }
 
   @override
   Future<Uint8List?> render(int page, int width) async {

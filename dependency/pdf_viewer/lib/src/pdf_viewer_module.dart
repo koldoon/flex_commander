@@ -55,6 +55,10 @@ class PdfViewer implements FcFrontendModule {
       ], save: settings.save);
     });
 
+    // Названные пароли — на весь сеанс: второй `F3` на том же документе и
+    // быстрый просмотр после него пароля уже не спрашивают (§15.2).
+    final passwords = PdfPasswords();
+
     registry.viewer(
       ViewerSpec(
         id: PdfViewerScreen.viewerId,
@@ -65,7 +69,15 @@ class PdfViewer implements FcFrontendModule {
         // сошёл бы за документ.
         accepts:
             (entry, type) => !entry.isDirectory && !entry.isParent && extensionOf(entry.name).toLowerCase() == 'pdf',
-        open: (request) => _open(request, settingsOf(), settings.save, _optional<SystemPdf>(registry.services)),
+        open:
+            (request) => _open(
+              request,
+              settingsOf(),
+              settings.save,
+              _optional<SystemPdf>(registry.services),
+              passwords,
+              _optional<Credentials>(registry.services),
+            ),
       ),
     );
 
@@ -131,6 +143,8 @@ class PdfViewer implements FcFrontendModule {
     PdfViewerSettings settings,
     void Function() onSettingsChanged,
     SystemPdf? system,
+    PdfPasswords passwords,
+    Credentials? credentials,
   ) async {
     final document = await PdfDocument.read(
       request.entry,
@@ -139,6 +153,9 @@ class PdfViewer implements FcFrontendModule {
       system: system,
       checkpoint: request.checkpoint,
       strings: request.app.strings,
+      passwords: passwords,
+      credentials: credentials,
+      mayAsk: request.place == ViewerPlace.fullscreen,
     );
     return PdfViewerScreen(
       entry: request.entry,
@@ -174,6 +191,9 @@ const Map<String, String> _russian = {
       'Это не PDF или файл повреждён (Cmd-O откроет его системой)',
   'This PDF is password-protected — open it with the system (Cmd-O)':
       'PDF защищён паролем; откройте его системой (Cmd-O)',
+  'This PDF is password-protected — press F3 to enter the password':
+      'PDF защищён паролем; нажмите F3, чтобы ввести пароль',
+  'Password-protected PDF': 'PDF под паролем',
 
   // Настройки.
   'Show the whole page instead of fitting the width': 'Показывать страницу целиком, а не по ширине',

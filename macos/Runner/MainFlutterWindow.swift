@@ -888,6 +888,15 @@ final class SystemPdf {
       work = { SystemPdf.find(open.document, text: text, caseSensitive: caseSensitive) }
     case "text":
       work = { SystemPdf.text(open.document) }
+    case "unlock":
+      let password = arguments["password"] as? String ?? ""
+      // Размеры — заново: у запертого документа система может не отдать их
+      // вовсе (`docs/spec/pdf-viewer.md`, §15.4).
+      work = {
+        open.document.unlock(withPassword: password) && !open.document.isLocked
+          ? ["pages": SystemPdf.pageSizes(open.document)]
+          : nil
+      }
     default:
       result(FlutterMethodNotImplemented)
       return

@@ -30,6 +30,9 @@ class PdfDocument {
     required SystemPdf? system,
     required Future<void> Function() checkpoint,
     Strings? strings,
+    PdfPasswords? passwords,
+    Credentials? credentials,
+    bool mayAsk = false,
   }) async {
     final said = strings ?? StringsRegistry();
 
@@ -71,8 +74,12 @@ class PdfDocument {
     }
 
     if (handle.locked) {
-      await handle.close();
-      throw ViewerRefused(said.tr('This PDF is password-protected — open it with the system (Cmd-O)'));
+      try {
+        await _unlock(handle, entry, said, checkpoint, passwords, credentials, mayAsk: mayAsk);
+      } on Object {
+        await handle.close();
+        rethrow;
+      }
     }
     if (handle.pages.isEmpty) {
       await handle.close();
@@ -83,4 +90,78 @@ class PdfDocument {
   }
 
   Future<void> close() => handle.close();
+
+  /// Отпереть: названным в этом сеансе паролем, а нет его — спросить
+  /// (`docs/spec/pdf-viewer.md`, §15).
+  ///
+  /// Спрашивает только [mayAsk] — `F3`. Быстрый просмотр не спрашивает
+  /// никогда: окно, выскакивающее от шага курсора, — ловушка.
+  static Future<void> _unlock(
+    SystemPdfDocument handle,
+    FileEntry entry,
+    Strings said,
+    Future<void> Function() checkpoint,
+    PdfPasswords? passwords,
+    Credentials? credentials, {
+    required bool mayAsk,
+  }) async {
+    final realm = PdfPasswords.realmOf(entry);
+
+    final known = passwords?[realm];
+    if (known != null) {
+      if (await handle.unlock(known)) {
+        return;
+      }
+      // Файл заменили, и пароль у него другой: прежний больше не нужен.
+      passwords?.forget(realm);
+    }
+
+    if (!mayAsk || credentials == null) {
+      throw ViewerRefused(
+        credentials == null
+            ? said.tr('This PDF is password-protected — open it with the system (Cmd-O)')
+            : said.tr('This PDF is password-protected — press F3 to enter the password'),
+      );
+    }
+
+    var request = CredentialRequest(
+      realm: realm,
+      title: 'Password-protected PDF',
+      message: entry.name,
+      retry: known != null,
+    );
+    while (true) {
+      final answer = await credentials.obtain(request);
+      // Закрыли окно — передумали: показ не открывается, и говорить не о чем.
+      if (answer == null) {
+        throw const OperationCanceled();
+      }
+      await checkpoint();
+      final password = answer.password ?? '';
+      if (await handle.unlock(password)) {
+        passwords?.remember(realm, password);
+        return;
+      }
+      request = request.retrying();
+    }
+  }
+}
+
+/// Пароли, названные в этом сеансе, — по адресу файла.
+///
+/// Помнит тот, кто спрашивает (`docs/spec/client-server.md`, §7.3): пароль от
+/// PDF спрашивает просмотрщик, он и помнит. Только в памяти — на диск пароль
+/// не пишется нигде.
+class PdfPasswords {
+  final Map<String, String> _known = {};
+
+  /// Ключ: схема и путь. Схема — чтобы не спутать с паролем от архива по тому
+  /// же пути.
+  static String realmOf(FileEntry entry) => 'pdf:${entry.path}';
+
+  String? operator [](String realm) => _known[realm];
+
+  void remember(String realm, String password) => _known[realm] = password;
+
+  void forget(String realm) => _known.remove(realm);
 }

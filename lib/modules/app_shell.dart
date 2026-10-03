@@ -191,6 +191,10 @@ class AppShell implements FcBackendModule, FcFrontendModule {
     // принять ответ. Спрашивает же его тот, кто работает с источником, — ядро,
     // — и оно же помнит названное (`docs/spec/client-server.md`, §7.3).
     registry.service<CredentialPrompt>((services) => services.resolve<CredentialsController>());
+    // А бывает, что с источником работает сам экран: просмотрщик PDF держит
+    // документ на этой стороне. Тогда спрашивает он — тем же окном и тем же
+    // контрактом, что и ядро (`docs/spec/pdf-viewer.md`, §15).
+    registry.service<Credentials>((services) => services.resolve<CredentialsController>());
     // Повышение прав разрезано там же и по той же причине: обнаруживает нужду
     // тот, кто до экрана не дотягивается, а спросить может только тот, у кого
     // экран есть.

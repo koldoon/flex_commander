@@ -47,10 +47,7 @@ class ChannelSystemPdf implements SystemPdf {
     return _ChannelPdfDocument(
       this,
       handle,
-      pages: [
-        for (final page in pages)
-          if (page is List && page.length == 2) Size((page[0] as num).toDouble(), (page[1] as num).toDouble()),
-      ],
+      pages: _ChannelPdfDocument.pagesOf(pages),
       locked: answer['locked'] == true,
     );
   }
@@ -88,14 +85,34 @@ class ChannelSystemPdf implements SystemPdf {
 class _ChannelPdfDocument implements SystemPdfDocument {
   _ChannelPdfDocument(this._owner, this._handle, {required this.pages, required this.locked});
 
+  static List<Size> pagesOf(List<Object?> pages) => [
+    for (final page in pages)
+      if (page is List && page.length == 2) Size((page[0] as num).toDouble(), (page[1] as num).toDouble()),
+  ];
+
   final ChannelSystemPdf _owner;
   final int _handle;
 
   @override
-  final List<Size> pages;
+  List<Size> pages;
 
   @override
-  final bool locked;
+  bool locked;
+
+  @override
+  Future<bool> unlock(String password) async {
+    if (_closed) {
+      return false;
+    }
+    final answer = await _owner._call<Map<Object?, Object?>>('unlock', {'handle': _handle, 'password': password});
+    final pages = answer?['pages'];
+    if (pages is! List) {
+      return false;
+    }
+    this.pages = pagesOf(pages);
+    locked = false;
+    return true;
+  }
 
   bool _closed = false;
 
