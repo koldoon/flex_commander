@@ -64,4 +64,36 @@ void main() {
     final nested = tester.getTopLeft(find.text('Getting started')).dx;
     expect(nested, greaterThan(top));
   });
+
+  testWidgets('открывшись в глубине длинного списка, подматывает к выбранной строке', (tester) async {
+    picked = [];
+    final many = [for (var i = 0; i < 200; i++) FcPickRow(id: '$i', title: 'Section $i')];
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(
+          extensions: [
+            FcTheme(colors: DefaultColors(), metrics: DefaultMetrics(), icons: DefaultIcons(), fonts: DefaultFonts()),
+          ],
+        ),
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              height: 400,
+              child: FcPickPalette(rows: many, hint: 'Chapter', keepOrder: true, initial: '150', onPick: picked.add),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    // Строка видна, и не у края, а серединой обзора: вокруг — соседние
+    // разделы.
+    final list = tester.getRect(find.byType(FcPickList));
+    final row = tester.getRect(find.text('Section 150'));
+    expect(list.contains(row.center), isTrue);
+    expect((row.center.dy - list.center.dy).abs(), lessThan(row.height * 2));
+    expect(tester.getRect(find.text('Section 0')).bottom, lessThan(list.top), reason: 'начало списка ушло вверх');
+  });
 }

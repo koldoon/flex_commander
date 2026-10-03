@@ -285,6 +285,18 @@ class _FcPickListState extends State<FcPickList> {
   final ScrollController _scroll = ScrollController();
 
   @override
+  void initState() {
+    super.initState();
+    // Открылись не на первой строке — подмотать к выбранной: оглавление
+    // открывается на текущем разделе, и курсор за краем списка было бы не
+    // видно вовсе (`docs/spec/pdf-viewer.md`, §16.1). После кадра: до
+    // раскладки у прокрутки нет обзора.
+    if (widget.selected > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showSelected(centered: true));
+    }
+  }
+
+  @override
   void dispose() {
     _scroll.dispose();
     super.dispose();
@@ -321,14 +333,23 @@ class _FcPickListState extends State<FcPickList> {
   /// Строка под нажатой кнопкой мыши; -1 — не нажата ни одна.
   int _pressed = -1;
 
-  void _showSelected() {
-    if (!_scroll.hasClients || widget.selected < 0) {
+  /// Выбранное — на виду.
+  ///
+  /// [centered] — серединой обзора, а не у края: так показывается первый раз,
+  /// чтобы вокруг текущего раздела были видны и соседние. При переборе
+  /// стрелками — у края, иначе список дёргался бы на каждом шаге.
+  void _showSelected({bool centered = false}) {
+    if (!mounted || !_scroll.hasClients || widget.selected < 0) {
       return;
     }
     final metrics = FcTheme.of(context).metrics;
     final line = metrics.rowHeight + metrics.rowGap;
     final top = widget.selected * line;
     final position = _scroll.position;
+    if (centered) {
+      _scroll.jumpTo((top + line / 2 - position.viewportDimension / 2).clamp(0, position.maxScrollExtent));
+      return;
+    }
     if (top < position.pixels) {
       _scroll.jumpTo(top);
     } else if (top + line > position.pixels + position.viewportDimension) {
