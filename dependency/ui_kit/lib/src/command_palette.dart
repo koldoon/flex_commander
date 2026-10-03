@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'command_dialog.dart';
 import 'app_scope.dart';
 import 'fc_theme.dart';
+import 'palette_search.dart';
 import 'pick_list.dart';
 
 /// Строка палитры: что показать и что запустить.
@@ -61,15 +62,9 @@ class PaletteItem {
 /// Показывается **только выполнимое**: палитра отвечает на вопрос «что мне
 /// доступно», а не «что бывает». Полный перечень остаётся в справке.
 ///
-/// Список и отбор — общие с историей адресов ([FcPickList]); своё здесь одно:
-/// `Enter` **запускает** выбранное, а не вписывает его в поле. Поле тут только
-/// для поиска.
-///
-/// Кнопок внизу нет вовсе — ни «Close», ни «Run». Это не окно с формой, которую
-/// заполняют и подтверждают, а поиск: набрал, выбрал, нажал `Enter`. Кнопка
-/// «Close» повторяла бы `Esc`, а «Run» — `Enter`, и обе отнимали бы у списка
-/// строку, ради которой окно и открывают.
-class FcCommandPalette extends StatefulWidget {
+/// Окно — общее [FcPickPalette]; своё здесь одно: `Enter` **запускает**
+/// выбранное.
+class FcCommandPalette extends StatelessWidget {
   const FcCommandPalette({super.key, required this.items, required this.recent, required this.onRun});
 
   final List<PaletteItem> items;
@@ -78,16 +73,67 @@ class FcCommandPalette extends StatefulWidget {
   final List<String> recent;
 
   /// Запустить выбранное. Окно закрывает вызывающий: у команды может быть своё.
-  ///
-  /// Закрытие по `Esc` сюда не приходит вовсе — его берёт на себя рама окна
-  /// (`onDismiss`), как у всех остальных окон.
   final void Function(String commandId) onRun;
 
   @override
-  State<FcCommandPalette> createState() => _FcCommandPaletteState();
+  Widget build(BuildContext context) => FcPickPalette(
+    rows: [for (final item in items) item.row],
+    recent: recent,
+    hint: context.strings.tr('Command'),
+    onPick: onRun,
+  );
 }
 
-class _FcCommandPaletteState extends State<FcCommandPalette> {
+/// Окно-палитра: поле отбора сверху, список под ним, `Enter` выбирает.
+///
+/// Его разделяют палитра команд и оглавление PDF (`docs/spec/pdf-viewer.md`,
+/// §16.1): раскладка, клавиши и высота у них одни, разное — что в списке и в
+/// каком порядке.
+///
+/// Список и отбор — общие с историей адресов ([FcPickList]). Поле тут только
+/// для поиска.
+///
+/// Кнопок внизу нет вовсе — ни «Close», ни «Run». Это не окно с формой, которую
+/// заполняют и подтверждают, а поиск: набрал, выбрал, нажал `Enter`. Кнопка
+/// «Close» повторяла бы `Esc`, а «Run» — `Enter`, и обе отнимали бы у списка
+/// строку, ради которой окно и открывают.
+class FcPickPalette extends StatefulWidget {
+  const FcPickPalette({
+    super.key,
+    required this.rows,
+    required this.hint,
+    required this.onPick,
+    this.recent = const [],
+    this.keepOrder = false,
+    this.initial,
+  });
+
+  final List<FcPickRow> rows;
+
+  /// Подсказка в пустом поле — она же имя окна: полосы заголовка нет.
+  final String hint;
+
+  /// Недавние — идентификаторами, свежие впереди.
+  final List<String> recent;
+
+  /// Держать порядок строк, а не сортировать по весу совпадения: у оглавления
+  /// порядок — это порядок документа, и отбор только прячет неподходящее.
+  final bool keepOrder;
+
+  /// На какой строке стоять, пока ничего не набрано; null — на первой.
+  final String? initial;
+
+  /// Выбрали строку. Окно закрывает вызывающий.
+  ///
+  /// Закрытие по `Esc` сюда не приходит вовсе — его берёт на себя рама окна
+  /// (`onDismiss`), как у всех остальных окон.
+  final void Function(String id) onPick;
+
+  @override
+  State<FcPickPalette> createState() => _FcPickPaletteState();
+}
+
+class _FcPickPaletteState extends State<FcPickPalette> {
   final TextEditingController _query = TextEditingController();
 
   /// Клавиши списка разбираются на самом поле ввода.
@@ -97,27 +143,33 @@ class _FcCommandPaletteState extends State<FcCommandPalette> {
   /// их истолковать.
   late final FocusNode _field = FocusNode(debugLabel: 'palette', onKeyEvent: _onKey);
 
-  /// Размер страницы для `PgUp`/`PgDn`: список меряет обзор и кладёт его сюда.
   final FcPickPage _page = FcPickPage();
 
-  int _selected = 0;
+  late int _selected = _initialIndex();
+
+  int _initialIndex() {
+    final index = widget.initial == null ? -1 : widget.rows.indexWhere((row) => row.id == widget.initial);
+    return index < 0 ? 0 : index;
+  }
+
+  /// Набранное в прошлый раз. Поле зовёт слушателя и на смену выделения —
+  /// получив фокус, например, — а сбрасывать курсор на первую строку надо
+  /// только тогда, когда отбор и правда поменялся. Иначе оглавление,
+  /// открытое на текущем разделе, тут же перескакивало бы к первому.
+  String _lastQuery = '';
 
   @override
   void initState() {
     super.initState();
-    _query.addListener(() => setState(() => _selected = 0));
+    _query.addListener(() {
+      if (_query.text == _lastQuery) {
+        return;
+      }
+      _lastQuery = _query.text;
+      setState(() => _selected = 0);
+    });
   }
 
-  /// Сколько места отдать списку: целое число строк, а не сколько осталось.
-  ///
-  /// Окно тянется во всю высоту экрана, и остаток от деления резал бы нижнюю
-  /// строку пополам: список выглядел бы обрезанным ровно там, где взгляд ищет
-  /// его конец. Поэтому предел округляется **вниз** до целой строки.
-  ///
-  /// Считается здесь, а не внутри списка: узнать доставшуюся высоту изнутри
-  /// можно только `LayoutBuilder`, а он не умеет отвечать на вопрос о
-  /// собственной ширине — тот самый, который рама окна задаёт каждому окну
-  /// (`IntrinsicWidth`).
   double _listHeight(FcMetrics metrics, double available) {
     final line = metrics.rowHeight + metrics.rowGap;
     // Своё место занимают поле ввода и его отступы — всё, что стоит над
@@ -138,7 +190,12 @@ class _FcCommandPaletteState extends State<FcCommandPalette> {
   }
 
   List<FcPickRow> get _found =>
-      FcPickList.filter([for (final item in widget.items) item.row], _query.text, recent: widget.recent);
+      widget.keepOrder
+          ? [
+            for (final row in widget.rows)
+              if (matchCommand(_query.text, label: row.title, keywords: row.keywords) != null) row,
+          ]
+          : FcPickList.filter(widget.rows, _query.text, recent: widget.recent);
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     final found = _found;
@@ -151,7 +208,7 @@ class _FcCommandPaletteState extends State<FcCommandPalette> {
     final enter = event.logicalKey == LogicalKeyboardKey.enter || event.logicalKey == LogicalKeyboardKey.numpadEnter;
     if (enter && (event is KeyDownEvent || event is KeyRepeatEvent)) {
       if (found.isNotEmpty) {
-        widget.onRun(found[_selected.clamp(0, found.length - 1)].id);
+        widget.onPick(found[_selected.clamp(0, found.length - 1)].id);
       }
       return KeyEventResult.handled;
     }
@@ -183,12 +240,7 @@ class _FcCommandPaletteState extends State<FcCommandPalette> {
           children: [
             Padding(
               padding: dialogContentPadding(context),
-              child: FcTextField(
-                controller: _query,
-                focusNode: _field,
-                autofocus: true,
-                hintText: context.strings.tr('Command'),
-              ),
+              child: FcTextField(controller: _query, focusNode: _field, autofocus: true, hintText: widget.hint),
             ),
             ConstrainedBox(
               constraints: BoxConstraints(maxHeight: _listHeight(metrics, limits.maxHeight - bottom)),
@@ -197,7 +249,7 @@ class _FcCommandPaletteState extends State<FcCommandPalette> {
                 query: _query.text,
                 selected: _selected,
                 page: _page,
-                onTap: widget.onRun,
+                onTap: widget.onPick,
               ),
             ),
             SizedBox(height: bottom),

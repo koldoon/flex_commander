@@ -1,4 +1,5 @@
 import 'package:fc_ui_api/fc_ui_api.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 
 import 'pdf_viewer_screen.dart';
 
@@ -143,5 +144,121 @@ class ZoomPdfCommand extends AppCommand {
       return;
     }
     screen.zoomBy(factor);
+  }
+}
+
+/// Оглавление окном палитры (`docs/spec/pdf-viewer.md`, §16.1).
+class ShowPdfOutlineCommand extends AppCommand {
+  static const String commandId = 'pdf.outline';
+
+  @override
+  String get id => commandId;
+
+  @override
+  String get label => tr('Contents', context: 'pdf');
+
+  @override
+  Set<String> get keywords => const {'outline', 'table of contents', 'toc', 'chapters', 'bookmarks'};
+
+  @override
+  String get description => tr('Go to a chapter of the document');
+
+  @override
+  bool isExecutable(CommandContext context) {
+    final screen = pdfViewerInFocus(context.app);
+    return screen != null && !screen.showsText;
+  }
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    final screen = pdfViewerInFocus(context.app);
+    if (screen == null) {
+      return;
+    }
+    final outline = await screen.loadOutline();
+    if (outline.isEmpty) {
+      // `F6` не молчит: оглавления нет, и это говорится.
+      context.app.toasts.show(tr('This PDF has no table of contents'));
+      return;
+    }
+
+    final view = context.app.view;
+    late final String dialogId;
+    void close() => view.closeDialog(dialogId);
+
+    dialogId = view.showDialog(
+      DialogSpec(
+        // Раскладка палитры: полосы заголовка нет, окно называет себя полем.
+        takesFocus: true,
+        ownWidth: true,
+        content: FcPickPalette(
+          rows: [
+            for (var i = 0; i < outline.length; i++)
+              FcPickRow(
+                id: '$i',
+                title: outline[i].title,
+                trailing: '${outline[i].target.page + 1}',
+                indent: outline[i].depth,
+              ),
+          ],
+          // Порядок — документа: отбор только прячет неподходящее.
+          keepOrder: true,
+          // Сразу видно, где ты.
+          initial: '${screen.currentSectionOf(outline)}',
+          hint: tr('Chapter'),
+          onPick: (id) {
+            close();
+            final index = int.tryParse(id);
+            if (index != null && index < outline.length) {
+              screen.jumpTo(outline[index].target);
+            }
+          },
+        ),
+        onDismiss: close,
+      ),
+    );
+  }
+}
+
+/// Назад или вперёд по переходам — оглавлением и ссылками (§16.3).
+class StepPdfHistoryCommand extends AppCommand {
+  StepPdfHistoryCommand({required this.forward});
+
+  static const String backCommandId = 'pdf.back';
+  static const String forwardCommandId = 'pdf.forward';
+
+  final bool forward;
+
+  @override
+  String get id => forward ? forwardCommandId : backCommandId;
+
+  @override
+  String get label => forward ? tr('Forward') : tr('Back');
+
+  @override
+  Set<String> get keywords => const {'history', 'return', 'link'};
+
+  @override
+  String get description =>
+      forward ? tr('Go forward to where the last return came from') : tr('Return to where the last jump started');
+
+  /// Без перехода возвращаться некуда — клавиша молчит, кнопка приглушена.
+  @override
+  bool isExecutable(CommandContext context) {
+    final screen = pdfViewerInFocus(context.app);
+    if (screen == null || screen.showsText) {
+      return false;
+    }
+    return forward ? screen.canGoForward : screen.canGoBack;
+  }
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    final screen = pdfViewerInFocus(context.app);
+    if (forward) {
+      screen?.goForward();
+    } else {
+      screen?.goBack();
+    }
   }
 }

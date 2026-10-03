@@ -888,6 +888,11 @@ final class SystemPdf {
       work = { SystemPdf.find(open.document, text: text, caseSensitive: caseSensitive) }
     case "text":
       work = { SystemPdf.text(open.document) }
+    case "outline":
+      work = { SystemPdf.outline(open.document) }
+    case "links":
+      let index = arguments["page"] as? Int ?? 0
+      work = { SystemPdf.links(open.document, page: index) }
     case "unlock":
       let password = arguments["password"] as? String ?? ""
       // Размеры — заново: у запертого документа система может не отдать их
@@ -1016,6 +1021,89 @@ final class SystemPdf {
       }
     }
     return found
+  }
+
+  /// Оглавление — плоско, в порядке документа: `[уровень, название, страница,
+  /// доля сверху]`; доли нет (`-1`) — к началу страницы
+  /// (`docs/spec/pdf-viewer.md`, §16.4).
+  private static func outline(_ document: PDFDocument) -> [[Any]] {
+    guard let root = document.outlineRoot else {
+      return []
+    }
+    var items: [[Any]] = []
+    func walk(_ node: PDFOutline, depth: Int) {
+      for index in 0..<node.numberOfChildren {
+        guard let child = node.child(at: index) else {
+          continue
+        }
+        let destination = child.destination ?? (child.action as? PDFActionGoTo)?.destination
+        if let (page, top) = target(of: destination, in: document) {
+          items.append([depth, child.label ?? "", page, top])
+        }
+        walk(child, depth: depth + 1)
+      }
+    }
+    walk(root, depth: 0)
+    return items
+  }
+
+  /// Ссылки страницы: `[x, y, ширина, высота, страница, доля сверху]` у
+  /// внутренних и `[x, y, ширина, высота, адрес]` у внешних — в долях
+  /// показанной страницы, отсчёт сверху слева.
+  private static func links(_ document: PDFDocument, page index: Int) -> [[Any]] {
+    guard let page = document.page(at: index) else {
+      return []
+    }
+    let size = displaySize(page)
+    guard size.width > 0, size.height > 0 else {
+      return []
+    }
+    let transform = page.transform(for: .cropBox)
+    var found: [[Any]] = []
+    for annotation in page.annotations {
+      let shown = annotation.bounds.applying(transform)
+      let rect: [Any] = [
+        Double(shown.minX / size.width),
+        Double(1 - shown.maxY / size.height),
+        Double(shown.width / size.width),
+        Double(shown.height / size.height),
+      ]
+      if let url = annotation.url ?? (annotation.action as? PDFActionURL)?.url {
+        found.append(rect + [url.absoluteString])
+        continue
+      }
+      let destination = annotation.destination ?? (annotation.action as? PDFActionGoTo)?.destination
+      if let (target, top) = target(of: destination, in: document) {
+        found.append(rect + [target, top])
+      }
+    }
+    return found
+  }
+
+  /// Место назначения — номер страницы и доля сверху в показанной странице.
+  ///
+  /// Неуказанная координата у PDF — огромное число (`kPDFDestinationUnspecifiedValue`):
+  /// по горизонтали её почти всегда нет, и считается она нулём; нет высоты —
+  /// `-1`, к началу страницы.
+  private static func target(of destination: PDFDestination?, in document: PDFDocument) -> (Int, Double)? {
+    guard let destination = destination, let page = destination.page else {
+      return nil
+    }
+    let index = document.index(for: page)
+    guard index != NSNotFound else {
+      return nil
+    }
+    let point = destination.point
+    let unspecified: (CGFloat) -> Bool = { $0 > 1e30 || $0.isNaN }
+    if unspecified(point.y) {
+      return (index, -1)
+    }
+    let size = displaySize(page)
+    guard size.height > 0 else {
+      return (index, -1)
+    }
+    let shown = CGPoint(x: unspecified(point.x) ? 0 : point.x, y: point.y).applying(page.transform(for: .cropBox))
+    return (index, Double(min(max(1 - shown.y / size.height, 0), 1)))
   }
 
   /// Весь текст: страницы под своими номерами. Пусто — текста нет вовсе.

@@ -155,6 +155,56 @@ class _ChannelPdfDocument implements SystemPdfDocument {
   }
 
   @override
+  Future<List<PdfOutlineItem>> outline() async {
+    if (_closed) {
+      return const [];
+    }
+    final answer = await _owner._call<List<Object?>>('outline', {'handle': _handle});
+    return [
+      for (final entry in answer ?? const [])
+        if (entry is List && entry.length == 4)
+          PdfOutlineItem(
+            depth: (entry[0] as num).toInt(),
+            title: entry[1] as String? ?? '',
+            target: _targetOf(entry[2], entry[3]),
+          ),
+    ];
+  }
+
+  @override
+  Future<List<PdfLink>> links(int page) async {
+    if (_closed) {
+      return const [];
+    }
+    final answer = await _owner._call<List<Object?>>('links', {'handle': _handle, 'page': page});
+    final links = <PdfLink>[];
+    for (final entry in answer ?? const []) {
+      if (entry is! List || entry.length < 5) {
+        continue;
+      }
+      final rect = Rect.fromLTWH(
+        (entry[0] as num).toDouble(),
+        (entry[1] as num).toDouble(),
+        (entry[2] as num).toDouble(),
+        (entry[3] as num).toDouble(),
+      );
+      // Пятым идёт адрес — у внешней; страница и доля — у внутренней.
+      if (entry[4] case final String url) {
+        links.add(PdfLink(rect: rect, url: url));
+      } else if (entry.length == 6) {
+        links.add(PdfLink(rect: rect, target: _targetOf(entry[4], entry[5])));
+      }
+    }
+    return links;
+  }
+
+  /// Место назначения из раннера: доля `-1` — начало страницы.
+  static PdfTarget _targetOf(Object? page, Object? top) {
+    final fraction = (top as num?)?.toDouble() ?? -1;
+    return PdfTarget((page as num).toInt(), top: fraction < 0 ? null : fraction);
+  }
+
+  @override
   Future<String> text() async {
     if (_closed) {
       return '';

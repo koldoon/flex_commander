@@ -40,6 +40,13 @@ abstract interface class SystemPdfDocument {
   /// Найти строку во всём документе, по порядку страниц.
   Future<List<PdfMatch>> find(String text, {required bool caseSensitive});
 
+  /// Оглавление — плоско, в порядке документа; пусто — его нет
+  /// (`docs/spec/pdf-viewer.md`, §16).
+  Future<List<PdfOutlineItem>> outline();
+
+  /// Ссылки страницы [page].
+  Future<List<PdfLink>> links(int page);
+
   /// Весь текст документа; пусто — текста нет (скан).
   ///
   /// Дорого — на трёхстах страницах больше секунды, — поэтому только по
@@ -65,4 +72,50 @@ class PdfMatch {
 
   /// Охватывающий прямоугольник — к нему подводится показ.
   Rect get bounds => rects.reduce((a, b) => a.expandToInclude(b));
+}
+
+/// Место в документе: страница и где на ней.
+class PdfTarget {
+  const PdfTarget(this.page, {this.top});
+
+  /// Номер страницы, с нуля.
+  final int page;
+
+  /// Доля высоты показанной страницы, отсчёт сверху; null — начало страницы.
+  final double? top;
+
+  @override
+  bool operator ==(Object other) => other is PdfTarget && other.page == page && other.top == top;
+
+  @override
+  int get hashCode => Object.hash(page, top);
+
+  @override
+  String toString() => 'PdfTarget($page, $top)';
+}
+
+/// Заголовок оглавления.
+class PdfOutlineItem {
+  const PdfOutlineItem({required this.depth, required this.title, required this.target});
+
+  /// Уровень вложенности, с нуля.
+  final int depth;
+
+  final String title;
+
+  final PdfTarget target;
+}
+
+/// Ссылка на странице: либо место в документе, либо внешний адрес.
+class PdfLink {
+  const PdfLink({required this.rect, this.target, this.url})
+    : assert((target == null) != (url == null), 'ссылка ведёт либо внутрь, либо наружу');
+
+  /// Где на странице — в долях её показанных сторон, отсчёт сверху слева.
+  final Rect rect;
+
+  final PdfTarget? target;
+
+  /// Внешний адрес: `https://…`, `mailto:…`.
+  final String? url;
 }

@@ -21,6 +21,8 @@ class FakeSystemPdf implements SystemPdf {
     this.password,
     this.text = '— 1 —\n\nfirst page\n\n— 2 —\n\nsecond page',
     this.found = const [],
+    this.outline = const [],
+    this.links = const {},
   });
 
   final List<Size> pages;
@@ -30,6 +32,10 @@ class FakeSystemPdf implements SystemPdf {
   final String? password;
   final String text;
   final List<PdfMatch> found;
+  final List<PdfOutlineItem> outline;
+
+  /// Ссылки по страницам.
+  final Map<int, List<PdfLink>> links;
 
   /// Все открытые за прогон — по ним видно, закрыты ли.
   final List<FakePdfDocument> opened = [];
@@ -90,6 +96,17 @@ class FakePdfDocument implements SystemPdfDocument {
     searched.add((text, caseSensitive));
     return system.found;
   }
+
+  int outlineAsked = 0;
+
+  @override
+  Future<List<PdfOutlineItem>> outline() async {
+    outlineAsked++;
+    return system.outline;
+  }
+
+  @override
+  Future<List<PdfLink>> links(int page) async => system.links[page] ?? const [];
 
   @override
   Future<String> text() async {

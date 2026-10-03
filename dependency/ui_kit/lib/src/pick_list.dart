@@ -23,6 +23,7 @@ class FcPickRow {
     this.badge,
     this.keywords = const [],
     this.marked = false,
+    this.indent = 0,
   }) : assert(trailing == '' || badge == null, 'справа либо приписка, либо знак: место одно'),
        assert(leading == '' || !marked, 'слева либо метка, либо значок: место одно');
 
@@ -71,6 +72,11 @@ class FcPickRow {
   /// сессия стоит сейчас, и по соседям видно, куда поведут «назад» и «вперёд»
   /// (`docs/spec/session-history.md`, §9).
   final bool marked;
+
+  /// Уровень вложенности: заголовок раздела внутри главы стоит правее
+  /// (`docs/spec/pdf-viewer.md`, §16.1). Свойством строки, а не пробелами в
+  /// названии: пробелы ломали бы подсветку найденного и обрезку длинного.
+  final int indent;
 }
 
 /// Просвет между именем и уточнением.
@@ -498,7 +504,9 @@ class _FcPickListState extends State<FcPickList> {
                 ),
               ),
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: inset),
+              // Уровень — полтора кегля на ступень: меньше не читается как
+              // вложенность, больше съедает ширину у длинных названий.
+              padding: EdgeInsets.only(left: inset + row.indent * metrics.fontSize * 1.5, right: inset),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Row(

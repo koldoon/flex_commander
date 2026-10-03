@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -128,13 +129,21 @@ class _PdfViewerViewState extends State<PdfViewerView> with SingleTickerProvider
 
                   return Listener(
                     onPointerSignal: _onSignal,
-                    child: GestureDetector(
-                      // От нажатия: иначе страница отстаёт от курсора ровно на то,
-                      // что ушло на признание жеста.
-                      dragStartBehavior: DragStartBehavior.down,
-                      onPanDown: (_) => _stopGlide(),
-                      onPanUpdate: (details) => screen.scrollBy(-details.delta),
-                      child: _pages(),
+                    child: MouseRegion(
+                      // Над ссылкой — «рука»: иначе ссылку не отличить от
+                      // текста (§16.2).
+                      cursor: _overLink ? SystemMouseCursors.click : MouseCursor.defer,
+                      onHover: (event) => _hover(event.localPosition),
+                      onExit: (_) => _hover(null),
+                      child: GestureDetector(
+                        // От нажатия: иначе страница отстаёт от курсора ровно
+                        // на то, что ушло на признание жеста.
+                        dragStartBehavior: DragStartBehavior.down,
+                        onPanDown: (_) => _stopGlide(),
+                        onPanUpdate: (details) => screen.scrollBy(-details.delta),
+                        onTapUp: (details) => _follow(details.localPosition),
+                        child: _pages(),
+                      ),
                     ),
                   );
                 },
@@ -164,6 +173,33 @@ class _PdfViewerViewState extends State<PdfViewerView> with SingleTickerProvider
     add(visible.first - 1);
     add(visible.last + 1);
     screen.cache.want(pages);
+
+    // Ссылки видимых — заранее: щелчок не должен ждать раннера.
+    visible.forEach(screen.linksOf);
+  }
+
+  /// Мышь над ссылкой — для «руки».
+  bool _overLink = false;
+
+  void _hover(Offset? point) {
+    final over = point != null && screen.linkAt(point) != null;
+    if (over != _overLink) {
+      setState(() => _overLink = over);
+    }
+  }
+
+  /// Щелчок: по внутренней ссылке — переход, по внешней — адрес системе.
+  void _follow(Offset point) {
+    final link = screen.linkAt(point);
+    if (link == null) {
+      return;
+    }
+    if (link.target case final target?) {
+      _stopGlide();
+      screen.jumpTo(target);
+    } else if (link.url case final url?) {
+      unawaited(screen.openWith?.call(url));
+    }
   }
 
   Widget _pages() {

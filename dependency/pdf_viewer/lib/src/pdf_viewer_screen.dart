@@ -24,6 +24,7 @@ class PdfViewerScreen extends ChangeNotifier implements ViewerContent, FcSearcha
     required this.settings,
     required this.onSettingsChanged,
     this.place = ViewerPlace.fullscreen,
+    this.openWith,
   }) : _entry = entry {
     cache = PdfPageCache(document)..addListener(notifyListeners);
     pageFinder = PdfFinder(document, reveal: revealMatch)..addListener(notifyListeners);
@@ -45,6 +46,10 @@ class PdfViewerScreen extends ChangeNotifier implements ViewerContent, FcSearcha
   final PdfDocument document;
   final PdfViewerSettings settings;
   final void Function() onSettingsChanged;
+
+  /// Чем отдать внешнюю ссылку системе; null — нечем, и щелчок по ней молчит
+  /// только потому, что открыть её и правда некому.
+  final SystemOpener? openWith;
 
   late final PdfPageCache cache;
   late final PdfFinder pageFinder;
@@ -286,6 +291,130 @@ class PdfViewerScreen extends ChangeNotifier implements ViewerContent, FcSearcha
         rect.center.dy - _viewport.height / 2,
       ),
     );
+  }
+
+  // --- Переходы: оглавление и ссылки (§16) --------------------------------
+
+  /// Где на документе точка [target], в точках экрана.
+  double _yOf(PdfTarget target) {
+    final rect = pageRects[target.page];
+    return target.top == null ? topOf(target.page) : rect.top + target.top! * rect.height;
+  }
+
+  /// Место чтения сейчас: страница сверху окна и доля её высоты. Долей, а не
+  /// точками: между переходами масштаб мог поменяться.
+  PdfTarget get readingPlace {
+    final top = _offset.dy;
+    final page = _pageAt(top);
+    final rect = pageRects[page];
+    return PdfTarget(page, top: rect.height == 0 ? 0 : ((top - rect.top) / rect.height).clamp(0.0, 1.0));
+  }
+
+  final List<PdfTarget> _back = [];
+  final List<PdfTarget> _forward = [];
+
+  bool get canGoBack => _back.isNotEmpty;
+  bool get canGoForward => _forward.isNotEmpty;
+
+  /// Перейти — по оглавлению или по ссылке. Откуда ушли, запоминается.
+  ///
+  /// Прокрутка историю не пишет: это чтение, а не переход (§16.3).
+  void jumpTo(PdfTarget target) {
+    if (target.page < 0 || target.page >= document.pageCount) {
+      return;
+    }
+    _back.add(readingPlace);
+    _forward.clear();
+    _show(target);
+  }
+
+  void goBack() => _walk(_back, _forward);
+
+  void goForward() => _walk(_forward, _back);
+
+  void _walk(List<PdfTarget> from, List<PdfTarget> to) {
+    if (from.isEmpty) {
+      return;
+    }
+    to.add(readingPlace);
+    // Запомненное место — ровно туда, где стояли: поле под краем нужно
+    // заголовку, к которому переходят, а не месту, откуда ушли.
+    _show(from.removeLast(), exact: true);
+  }
+
+  void _show(PdfTarget target, {bool exact = false}) {
+    // Место назначения — у верхнего края, с тем же полем, что над первой
+    // страницей: заголовок раздела не должен прилипать к краю окна.
+    final y = exact || target.top == null ? _yOf(target) : _yOf(target) - margin;
+    scrollTo(Offset(_offset.dx, y));
+    // Стоим там же — всё равно сказать показу: номер страницы и кнопки
+    // «назад» в ряду должны обновиться.
+    notifyListeners();
+  }
+
+  /// Оглавление; достаётся по первому `F6` и один раз.
+  Future<List<PdfOutlineItem>> loadOutline() => _outline ??= document.handle.outline();
+  Future<List<PdfOutlineItem>>? _outline;
+
+  /// Текущий раздел — последний заголовок, начало которого не ниже верха окна.
+  int currentSectionOf(List<PdfOutlineItem> outline) {
+    final top = _offset.dy + 1;
+    var current = 0;
+    for (var i = 0; i < outline.length; i++) {
+      final target = outline[i].target;
+      if (target.page >= document.pageCount) {
+        continue;
+      }
+      final y = target.top == null ? pageRects[target.page].top : _yOf(target) - margin;
+      if (y <= top + margin) {
+        current = i;
+      }
+    }
+    return current;
+  }
+
+  /// Ссылки страницы — когда уже достали; пока нет — пусто, и они
+  /// достаются: щелчок не должен ждать раннера (§16.2).
+  List<PdfLink> linksOf(int page) {
+    if (_links[page] case final links?) {
+      return links;
+    }
+    if (_asked.add(page)) {
+      unawaited(
+        document.handle.links(page).then((links) {
+          if (_disposed) {
+            return;
+          }
+          _links[page] = links;
+          if (links.isNotEmpty) {
+            notifyListeners();
+          }
+        }),
+      );
+    }
+    return const [];
+  }
+
+  final Map<int, List<PdfLink>> _links = {};
+  final Set<int> _asked = {};
+
+  /// Ссылка под точкой [point] окна показа; null — нет её там.
+  PdfLink? linkAt(Offset point) {
+    final at = point + _offset;
+    final rects = pageRects;
+    for (final page in visiblePages) {
+      final rect = rects[page];
+      if (!rect.contains(at)) {
+        continue;
+      }
+      final local = Offset((at.dx - rect.left) / rect.width, (at.dy - rect.top) / rect.height);
+      for (final link in linksOf(page)) {
+        if (link.rect.contains(local)) {
+          return link;
+        }
+      }
+    }
+    return null;
   }
 
   // --- Текст документа (`F5`) ------------------------------------------------

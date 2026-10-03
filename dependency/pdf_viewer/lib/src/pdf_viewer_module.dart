@@ -77,6 +77,7 @@ class PdfViewer implements FcFrontendModule {
               _optional<SystemPdf>(registry.services),
               passwords,
               _optional<Credentials>(registry.services),
+              _optional<SystemOpener>(registry.services),
             ),
       ),
     );
@@ -84,6 +85,9 @@ class PdfViewer implements FcFrontendModule {
     registry.command((context) => TogglePdfFitCommand());
     registry.command((context) => TogglePdfTextCommand());
     registry.command((context) => ZoomPdfCommand());
+    registry.command((context) => ShowPdfOutlineCommand());
+    registry.command((context) => StepPdfHistoryCommand(forward: false));
+    registry.command((context) => StepPdfHistoryCommand(forward: true));
     // Поиск — команды общие с текстом: окно одно, а кто ищет, решает экран —
     // в страницах система, в тексте поле (§9).
     registry.command((context) => FcFindTextCommand(id: _findId, screenId: PdfViewerScreen.viewerId));
@@ -103,6 +107,20 @@ class PdfViewer implements FcFrontendModule {
     registry.binding(
       KeyBinding.inState<PdfViewerScreen>('Shift-Cmd-G', _findPreviousId, context: KeyContext.pdfViewer),
     );
+    // Оглавление — `F6`: в просмотрщике свободна и видна в ряду кнопок; у
+    // панели она «перенести», и спорить им не о чем (§16.1).
+    registry.binding(
+      KeyBinding.inState<PdfViewerScreen>('F6', ShowPdfOutlineCommand.commandId, context: KeyContext.pdfViewer),
+    );
+    // Назад и вперёд по переходам — те же клавиши, что у истории панели (§16.3).
+    for (final (key, command, id) in [
+      ('Alt-Left', StepPdfHistoryCommand.backCommandId, 'pdf.back.alt'),
+      ('Cmd-[', StepPdfHistoryCommand.backCommandId, 'pdf.back'),
+      ('Alt-Right', StepPdfHistoryCommand.forwardCommandId, 'pdf.forward.alt'),
+      ('Cmd-]', StepPdfHistoryCommand.forwardCommandId, 'pdf.forward'),
+    ]) {
+      registry.binding(KeyBinding.inState<PdfViewerScreen>(key, command, id: id, context: KeyContext.pdfViewer));
+    }
     // Приближение — и на `+`, и на `=`, как у картинок: разные клавиши, у
     // каждой своё имя.
     for (final (key, id) in [('+', 'pdf.zoom.in.pad'), ('=', 'pdf.zoom.in')]) {
@@ -145,6 +163,7 @@ class PdfViewer implements FcFrontendModule {
     SystemPdf? system,
     PdfPasswords passwords,
     Credentials? credentials,
+    SystemOpener? openWith,
   ) async {
     final document = await PdfDocument.read(
       request.entry,
@@ -163,6 +182,7 @@ class PdfViewer implements FcFrontendModule {
       settings: settings,
       onSettingsChanged: onSettingsChanged,
       place: request.place,
+      openWith: openWith,
     );
   }
 }
@@ -181,6 +201,14 @@ const Map<String, String> _russian = {
   'This PDF has no text — it is probably a scan': 'В этом PDF нет текста — вероятно, это скан',
   'Zoom': 'Масштаб',
   'Zoom the pages in or out': 'Приблизить или отдалить страницы',
+  'pdf|Contents': 'Оглавление',
+  'Go to a chapter of the document': 'Перейти к разделу документа',
+  'Chapter': 'Раздел',
+  'This PDF has no table of contents': 'В этом PDF нет оглавления',
+  'Back': 'Назад',
+  'Forward': 'Вперёд',
+  'Return to where the last jump started': 'Вернуться туда, откуда был последний переход',
+  'Go forward to where the last return came from': 'Снова туда, откуда вернулись',
 
   // Отказы.
   'PDF viewing needs the system service — open it with the system (Cmd-O)':
