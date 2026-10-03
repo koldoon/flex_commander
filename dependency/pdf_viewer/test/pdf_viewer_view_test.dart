@@ -123,4 +123,73 @@ void main() {
     expect(screen.offset.dy, 120);
     expect(screen.scale, scale);
   });
+
+  group('бросок трекпадом', () {
+    /// Бросок вниз по документу: пальцы идут вверх.
+    ///
+    /// Трекпад приходит не нажатием, а событиями «pan-zoom» — так их и шлём,
+    /// с метками времени: по ним считается скорость в миг отпускания.
+    Future<void> flick(WidgetTester tester, PointerDeviceKind kind) async {
+      final center = tester.getCenter(find.byType(PdfViewerView));
+      if (kind == PointerDeviceKind.trackpad) {
+        final pointer = TestPointer(2, PointerDeviceKind.trackpad);
+        await tester.sendEventToBinding(pointer.panZoomStart(center));
+        for (var i = 1; i <= 6; i++) {
+          await tester.sendEventToBinding(
+            pointer.panZoomUpdate(center, pan: Offset(0, -20.0 * i), timeStamp: Duration(milliseconds: 10 * i)),
+          );
+        }
+        await tester.sendEventToBinding(pointer.panZoomEnd(timeStamp: const Duration(milliseconds: 60)));
+        return;
+      }
+      await tester.flingFrom(center, const Offset(0, -120), 2000, deviceKind: kind);
+    }
+
+    testWidgets('отпустили трекпад — документ докатывается по инерции', (tester) async {
+      await pump(tester);
+
+      await flick(tester, PointerDeviceKind.trackpad);
+      final released = screen.offset.dy;
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(screen.offset.dy, greaterThan(released + 20));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('мышь не бросает: взял и положил', (tester) async {
+      await pump(tester);
+
+      await flick(tester, PointerDeviceKind.mouse);
+      final released = screen.offset.dy;
+      await tester.pumpAndSettle();
+
+      expect(screen.offset.dy, released);
+    });
+
+    testWidgets('клавиша во время броска берёт своё от места, где документ стоит', (tester) async {
+      await pump(tester);
+      await flick(tester, PointerDeviceKind.trackpad);
+      await tester.pump(const Duration(milliseconds: 50));
+      final pressed = screen.offset.dy;
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+      await tester.pumpAndSettle();
+
+      // Ровно страница от места нажатия: бросок не доехал поверх клавиши.
+      expect(screen.offset.dy, closeTo(pressed + screen.viewport.height * 0.9, 0.5));
+    });
+
+    testWidgets('переход во время броска — бросок уступает', (tester) async {
+      await pump(tester);
+      await flick(tester, PointerDeviceKind.trackpad);
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // Так переходят оглавление и поиск: показ двигают не жестом.
+      screen.scrollTo(Offset.zero);
+      await tester.pumpAndSettle();
+
+      expect(screen.offset.dy, 0);
+    });
+  });
 }

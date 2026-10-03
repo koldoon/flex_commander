@@ -8,6 +8,7 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:re_editor/re_editor.dart';
 
@@ -34,7 +35,7 @@ class PdfViewerView extends StatefulWidget {
   State<PdfViewerView> createState() => _PdfViewerViewState();
 }
 
-class _PdfViewerViewState extends State<PdfViewerView> with SingleTickerProviderStateMixin {
+class _PdfViewerViewState extends State<PdfViewerView> with TickerProviderStateMixin {
   PdfViewerScreen get screen => widget.screen;
 
   final FocusNode _focus = FocusNode(debugLabel: 'PdfViewerView');
@@ -52,6 +53,7 @@ class _PdfViewerViewState extends State<PdfViewerView> with SingleTickerProvider
 
   @override
   void dispose() {
+    _flingTicker.dispose();
     _glide.dispose();
     _focus.dispose();
     super.dispose();
@@ -140,7 +142,9 @@ class _PdfViewerViewState extends State<PdfViewerView> with SingleTickerProvider
                         // на то, что ушло на признание жеста.
                         dragStartBehavior: DragStartBehavior.down,
                         onPanDown: (_) => _stopGlide(),
+                        onPanStart: (details) => _dragKind = details.kind,
                         onPanUpdate: (details) => screen.scrollBy(-details.delta),
+                        onPanEnd: (details) => _fling(-details.velocity.pixelsPerSecond),
                         onTapUp: (details) => _follow(details.localPosition),
                         child: _pages(),
                       ),
@@ -282,6 +286,9 @@ class _PdfViewerViewState extends State<PdfViewerView> with SingleTickerProvider
   }
 
   void _glideTo(double target, Duration duration) {
+    // Клавиша во время броска — бросок уступает ей сразу: ход от клавиши
+    // считается от места, где документ стоит сейчас, а не где докатится.
+    _stopFling();
     _flying = target;
     _glideFrom = screen.offset.dy;
     _glideCurve = CurvedAnimation(parent: _glide, curve: Curves.easeOutCubic);
@@ -309,6 +316,87 @@ class _PdfViewerViewState extends State<PdfViewerView> with SingleTickerProvider
       _glide.stop();
     }
     _flying = null;
+    _stopFling();
+  }
+
+  // --- Бросок трекпадом -----------------------------------------------------
+
+  /// Чем начали тащить: бросок — только у трекпада.
+  PointerDeviceKind? _dragKind;
+
+  late final Ticker _flingTicker = createTicker(_onFling);
+  Simulation? _flingX;
+  Simulation? _flingY;
+
+  /// Куда бросок поставил документ в прошлый кадр. Стоит не там — документ
+  /// сдвинул кто-то другой (оглавление, поиск, масштаб), и бросок уступает:
+  /// иначе он утащил бы показ с места, куда человек только что перешёл.
+  Offset? _flingLast;
+
+  /// Докатить по инерции после того, как пальцы отпустили трекпад.
+  ///
+  /// Прокрутка у показа своя (`docs/spec/pdf-viewer.md`, §6), а инерцию во
+  /// Flutter досчитывает прокручиваемый список — у нас его нет, и без этого
+  /// документ вставал как вкопанный ровно в миг отпускания. Физика — та, что
+  /// настроена в приложении для любого списка: бросок здесь обязан быть таким
+  /// же, как в markdown и в панелях.
+  ///
+  /// Мышь не бросает: перетаскивание мышью — точное движение «взял и
+  /// положил», и уехавший сам по себе документ читался бы как промах.
+  void _fling(Offset velocity) {
+    final kind = _dragKind;
+    _dragKind = null;
+    if (kind != PointerDeviceKind.trackpad) {
+      return;
+    }
+    final physics = ScrollConfiguration.of(context).getScrollPhysics(context);
+    final ratio = MediaQuery.maybeDevicePixelRatioOf(context) ?? 1;
+    Simulation? along(AxisDirection direction, double pixels, double max, double viewport, double speed) =>
+        physics.createBallisticSimulation(
+          FixedScrollMetrics(
+            minScrollExtent: 0,
+            maxScrollExtent: max,
+            pixels: pixels,
+            viewportDimension: viewport,
+            axisDirection: direction,
+            devicePixelRatio: ratio,
+          ),
+          speed,
+        );
+
+    final limit = screen.maxOffset;
+    _flingX = along(AxisDirection.right, screen.offset.dx, limit.dx, screen.viewport.width, velocity.dx);
+    _flingY = along(AxisDirection.down, screen.offset.dy, limit.dy, screen.viewport.height, velocity.dy);
+    if (_flingX == null && _flingY == null) {
+      return;
+    }
+    _flingTicker
+      ..stop()
+      ..start();
+  }
+
+  void _onFling(Duration elapsed) {
+    final t = elapsed.inMicroseconds / Duration.microsecondsPerSecond;
+    final x = _flingX;
+    final y = _flingY;
+    if (_flingLast case final last? when last != screen.offset) {
+      _stopFling();
+      return;
+    }
+    screen.scrollTo(Offset(x?.x(t) ?? screen.offset.dx, y?.x(t) ?? screen.offset.dy));
+    _flingLast = screen.offset;
+    if ((x == null || x.isDone(t)) && (y == null || y.isDone(t))) {
+      _stopFling();
+    }
+  }
+
+  void _stopFling() {
+    if (_flingTicker.isActive) {
+      _flingTicker.stop();
+    }
+    _flingX = null;
+    _flingY = null;
+    _flingLast = null;
   }
 
   /// Какие клавиши поле текста отпускает экрану: `Esc` закрывает показ.
