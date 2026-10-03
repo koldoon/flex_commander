@@ -47,6 +47,11 @@ abstract interface class SystemPdfDocument {
   /// Ссылки страницы [page].
   Future<List<PdfLink>> links(int page);
 
+  /// Выделить текст (`docs/spec/pdf-viewer.md`, §17.4): от [from] до [to]
+  /// или — по [unit] — слово либо строку под [from]. null — под точкой
+  /// текста нет.
+  Future<PdfSelection?> select(PdfPoint from, {PdfPoint? to, PdfSelectionUnit unit = PdfSelectionUnit.character});
+
   /// Весь текст документа; пусто — текста нет (скан).
   ///
   /// Дорого — на трёхстах страницах больше секунды, — поэтому только по
@@ -118,4 +123,34 @@ class PdfLink {
 
   /// Внешний адрес: `https://…`, `mailto:…`.
   final String? url;
+}
+
+/// Точка на странице: номер страницы и доли её показанных сторон, отсчёт
+/// сверху слева.
+class PdfPoint {
+  const PdfPoint(this.page, this.offset);
+
+  final int page;
+
+  /// Доли по ширине и по высоте.
+  final Offset offset;
+
+  @override
+  bool operator ==(Object other) => other is PdfPoint && other.page == page && other.offset == offset;
+
+  @override
+  int get hashCode => Object.hash(page, offset);
+}
+
+/// Чем выделять: протяжкой, словом (двойной щелчок) или строкой (тройной).
+enum PdfSelectionUnit { character, word, line }
+
+/// Выделенное: где подсветить и что копировать.
+class PdfSelection {
+  const PdfSelection({required this.rects, required this.text});
+
+  /// Прямоугольники по строкам — по страницам, в долях показанной страницы.
+  final Map<int, List<Rect>> rects;
+
+  final String text;
 }

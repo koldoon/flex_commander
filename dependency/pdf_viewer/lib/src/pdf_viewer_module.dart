@@ -26,6 +26,7 @@ class PdfViewer implements FcFrontendModule {
   @override
   void installFrontend(FrontendRegistry registry) {
     registry.strings('ru', _russian);
+    registry.plurals('ru', _plurals);
 
     registry.view<PdfViewerScreen>((context, state) => PdfViewerView(screen: state));
 
@@ -86,6 +87,7 @@ class PdfViewer implements FcFrontendModule {
     registry.command((context) => TogglePdfTextCommand());
     registry.command((context) => ZoomPdfCommand());
     registry.command((context) => ShowPdfOutlineCommand());
+    registry.command((context) => CopyPdfSelectionCommand(context.resolve<ClipboardService>()));
     registry.command((context) => StepPdfHistoryCommand(forward: false));
     registry.command((context) => StepPdfHistoryCommand(forward: true));
     // Поиск — команды общие с текстом: окно одно, а кто ищет, решает экран —
@@ -106,6 +108,11 @@ class PdfViewer implements FcFrontendModule {
     registry.binding(KeyBinding.inState<PdfViewerScreen>('Shift-F7', _findNextId, context: KeyContext.pdfViewer));
     registry.binding(
       KeyBinding.inState<PdfViewerScreen>('Shift-Cmd-G', _findPreviousId, context: KeyContext.pdfViewer),
+    );
+    // `Cmd-C` — выделенное на странице. Контекст свой: у панели та же клавиша
+    // копирует файлы, и спорить им не о чем (§17.3).
+    registry.binding(
+      KeyBinding.inState<PdfViewerScreen>('Cmd-C', CopyPdfSelectionCommand.commandId, context: KeyContext.pdfViewer),
     );
     // Оглавление — `F6`: в просмотрщике свободна и видна в ряду кнопок; у
     // панели она «перенести», и спорить им не о чем (§16.1).
@@ -205,6 +212,8 @@ const Map<String, String> _russian = {
   'Go to a chapter of the document': 'Перейти к разделу документа',
   'Chapter': 'Раздел',
   'This PDF has no table of contents': 'В этом PDF нет оглавления',
+  'Copy': 'Копировать',
+  'Copy the selected text to the clipboard': 'Скопировать выделенный текст в буфер обмена',
   'Back': 'Назад',
   'Forward': 'Вперёд',
   'Return to where the last jump started': 'Вернуться туда, откуда был последний переход',
@@ -227,4 +236,9 @@ const Map<String, String> _russian = {
   'Show the whole page instead of fitting the width': 'Показывать страницу целиком, а не по ширине',
   'Largest PDF to open': 'Наибольший открываемый PDF',
   'bytes': 'байт',
+};
+
+/// Множественные формы.
+const Map<String, PluralForms> _plurals = {
+  'Copied {n} characters': (one: 'Скопирован {n} знак', few: 'Скопировано {n} знака', many: 'Скопировано {n} знаков'),
 };

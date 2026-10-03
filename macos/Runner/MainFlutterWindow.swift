@@ -893,6 +893,11 @@ final class SystemPdf {
     case "links":
       let index = arguments["page"] as? Int ?? 0
       work = { SystemPdf.links(open.document, page: index) }
+    case "select":
+      let from = arguments["from"] as? [Double] ?? []
+      let to = arguments["to"] as? [Double] ?? []
+      let unit = arguments["unit"] as? String ?? "character"
+      work = { SystemPdf.select(open.document, from: from, to: to, unit: unit) }
     case "unlock":
       let password = arguments["password"] as? String ?? ""
       // Размеры — заново: у запертого документа система может не отдать их
@@ -1104,6 +1109,69 @@ final class SystemPdf {
     }
     let shown = CGPoint(x: unspecified(point.x) ? 0 : point.x, y: point.y).applying(page.transform(for: .cropBox))
     return (index, Double(min(max(1 - shown.y / size.height, 0), 1)))
+  }
+
+  /// Точка показанной страницы — `[страница, доля по ширине, доля сверху]` —
+  /// в пространство самой страницы: обратным тем `transform(for:)`, которым
+  /// туда переводятся найденное и ссылки. Проверено прототипом и на повёрнутой.
+  private static func point(_ at: [Double], in document: PDFDocument) -> (PDFPage, CGPoint)? {
+    guard at.count == 3, let page = document.page(at: Int(at[0])) else {
+      return nil
+    }
+    let size = displaySize(page)
+    let shown = CGPoint(x: CGFloat(at[1]) * size.width, y: (1 - CGFloat(at[2])) * size.height)
+    return (page, shown.applying(page.transform(for: .cropBox).inverted()))
+  }
+
+  /// Выделение (`docs/spec/pdf-viewer.md`, §17.4): от точки до точки, слово
+  /// или строка под точкой. Ответ — `{"rects": [[страница, x, y, ш, в, …]],
+  /// "text": …}`, прямоугольники по строкам в долях показанной страницы; null
+  /// — под точкой нет текста.
+  private static func select(_ document: PDFDocument, from: [Double], to: [Double], unit: String) -> [String: Any]? {
+    guard let (fromPage, fromPoint) = point(from, in: document) else {
+      return nil
+    }
+    let selection: PDFSelection?
+    switch unit {
+    case "word":
+      selection = fromPage.selectionForWord(at: fromPoint)
+    case "line":
+      selection = fromPage.selectionForLine(at: fromPoint)
+    default:
+      guard let (toPage, toPoint) = point(to, in: document) else {
+        return nil
+      }
+      selection = document.selection(from: fromPage, at: fromPoint, to: toPage, at: toPoint)
+    }
+    guard let selection = selection, let text = selection.string, !text.isEmpty else {
+      return nil
+    }
+
+    var rects: [[Double]] = []
+    for page in selection.pages {
+      let size = displaySize(page)
+      guard size.width > 0, size.height > 0 else {
+        continue
+      }
+      let transform = page.transform(for: .cropBox)
+      var entry: [Double] = [Double(document.index(for: page))]
+      for line in selection.selectionsByLine() {
+        let shown = line.bounds(for: page).applying(transform)
+        guard !shown.isEmpty else {
+          continue
+        }
+        entry += [
+          Double(shown.minX / size.width),
+          Double(1 - shown.maxY / size.height),
+          Double(shown.width / size.width),
+          Double(shown.height / size.height),
+        ]
+      }
+      if entry.count > 1 {
+        rects.append(entry)
+      }
+    }
+    return ["rects": rects, "text": text]
   }
 
   /// Весь текст: страницы под своими номерами. Пусто — текста нет вовсе.

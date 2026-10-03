@@ -417,6 +417,132 @@ class PdfViewerScreen extends ChangeNotifier implements ViewerContent, FcSearcha
     return null;
   }
 
+  // --- Выделение на страницах (§17) ----------------------------------------
+
+  /// Страница под точкой окна и где на ней — в долях. [nearest] — точка мимо
+  /// страниц всё равно даёт ближайшую, прижатую к её краю: так протяжка,
+  /// ушедшая в поле или за край окна, продолжает выделять.
+  PdfPoint? pointAt(Offset point, {bool nearest = false}) {
+    if (_viewport.isEmpty) {
+      return null;
+    }
+    final at = point + _offset;
+    final rects = pageRects;
+    var best = -1;
+    var distance = double.infinity;
+    for (var i = 0; i < rects.length; i++) {
+      final rect = rects[i];
+      if (rect.contains(at)) {
+        best = i;
+        break;
+      }
+      if (!nearest) {
+        continue;
+      }
+      final dy = at.dy < rect.top ? rect.top - at.dy : (at.dy > rect.bottom ? at.dy - rect.bottom : 0.0);
+      if (dy < distance) {
+        distance = dy;
+        best = i;
+      }
+    }
+    if (best < 0) {
+      return null;
+    }
+    final rect = rects[best];
+    return PdfPoint(
+      best,
+      Offset(((at.dx - rect.left) / rect.width).clamp(0.0, 1.0), ((at.dy - rect.top) / rect.height).clamp(0.0, 1.0)),
+    );
+  }
+
+  /// Выделенное; null — ничего.
+  PdfSelection? get selection => _selection;
+  PdfSelection? _selection;
+
+  bool get hasSelection => _selection?.text.isNotEmpty ?? false;
+
+  /// Откуда тянут.
+  PdfPoint? _selectionStart;
+
+  /// Начать выделение в точке окна: протяжкой — пока только запомнить, словом
+  /// и строкой — сразу спросить раннер.
+  void startSelection(Offset point, {PdfSelectionUnit unit = PdfSelectionUnit.character}) {
+    final start = pointAt(point);
+    if (start == null) {
+      clearSelection();
+      return;
+    }
+    _selectionStart = start;
+    if (unit == PdfSelectionUnit.character) {
+      _dropSelection();
+      return;
+    }
+    _ask((start, null, unit));
+  }
+
+  /// Тянут дальше — выделение до точки под мышью.
+  void extendSelection(Offset point) {
+    final start = _selectionStart;
+    final end = pointAt(point, nearest: true);
+    if (start == null || end == null) {
+      return;
+    }
+    _ask((start, end, PdfSelectionUnit.character));
+  }
+
+  void clearSelection() {
+    _selectionStart = null;
+    _dropSelection();
+  }
+
+  void _dropSelection() {
+    // Ответ, который ещё в пути, уже не про это выделение.
+    _selectionGeneration++;
+    _wanted = null;
+    if (_selection != null) {
+      _selection = null;
+      notifyListeners();
+    }
+  }
+
+  /// Что спросить следующим. Вопросы идут **по одному**: пока раннер считает,
+  /// новые положения мыши только заменяют друг друга, и спрашивается последнее
+  /// — показ отстаёт на кадр, а не копит очередь (§17.4).
+  (PdfPoint, PdfPoint?, PdfSelectionUnit)? _wanted;
+  bool _asking = false;
+  int _selectionGeneration = 0;
+
+  /// Сколько вопросов ушло в раннер — для проверки, что они не копятся.
+  @visibleForTesting
+  int selectionRequests = 0;
+
+  void _ask((PdfPoint, PdfPoint?, PdfSelectionUnit) wanted) {
+    _wanted = wanted;
+    if (!_asking) {
+      unawaited(_askNext());
+    }
+  }
+
+  Future<void> _askNext() async {
+    _asking = true;
+    try {
+      while (_wanted != null && !_disposed) {
+        final (from, to, unit) = _wanted!;
+        _wanted = null;
+        final generation = _selectionGeneration;
+        selectionRequests++;
+        final answer = await document.handle.select(from, to: to, unit: unit);
+        if (_disposed || generation != _selectionGeneration) {
+          continue;
+        }
+        _selection = answer;
+        notifyListeners();
+      }
+    } finally {
+      _asking = false;
+    }
+  }
+
   // --- Текст документа (`F5`) ------------------------------------------------
 
   /// Показан текст вместо страниц.

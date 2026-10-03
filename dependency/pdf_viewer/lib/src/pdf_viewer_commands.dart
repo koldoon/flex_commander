@@ -262,3 +262,39 @@ class StepPdfHistoryCommand extends AppCommand {
     }
   }
 }
+
+/// Копировать выделенное на странице (`docs/spec/pdf-viewer.md`, §17.3).
+class CopyPdfSelectionCommand extends AppCommand {
+  CopyPdfSelectionCommand(this.clipboard);
+
+  static const String commandId = 'pdf.copy';
+
+  final ClipboardService clipboard;
+
+  @override
+  String get id => commandId;
+
+  @override
+  String get label => tr('Copy');
+
+  @override
+  String get description => tr('Copy the selected text to the clipboard');
+
+  /// Копировать нечего, пока ничего не выделено: кнопка в ряду приглушена, а
+  /// не делает вид, что сработала.
+  @override
+  bool isExecutable(CommandContext context) {
+    final screen = pdfViewerInFocus(context.app);
+    return screen != null && !screen.showsText && screen.hasSelection;
+  }
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    final text = pdfViewerInFocus(context.app)?.selection?.text ?? '';
+    if (text.isEmpty) {
+      return;
+    }
+    await clipboard.writeText(text);
+    context.app.toasts.show(plural(text.length, one: 'Copied {n} character', other: 'Copied {n} characters'));
+  }
+}

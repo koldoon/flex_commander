@@ -198,6 +198,45 @@ class _ChannelPdfDocument implements SystemPdfDocument {
     return links;
   }
 
+  @override
+  Future<PdfSelection?> select(
+    PdfPoint from, {
+    PdfPoint? to,
+    PdfSelectionUnit unit = PdfSelectionUnit.character,
+  }) async {
+    if (_closed) {
+      return null;
+    }
+    List<double> pointOf(PdfPoint point) => [point.page.toDouble(), point.offset.dx, point.offset.dy];
+    final answer = await _owner._call<Map<Object?, Object?>>('select', {
+      'handle': _handle,
+      'from': pointOf(from),
+      'to': pointOf(to ?? from),
+      'unit': unit.name,
+    });
+    final text = answer?['text'];
+    final rects = answer?['rects'];
+    if (text is! String || rects is! List) {
+      return null;
+    }
+    return PdfSelection(
+      text: text,
+      rects: {
+        for (final entry in rects)
+          if (entry is List && entry.length >= 5)
+            (entry[0] as num).toInt(): [
+              for (var i = 1; i + 3 < entry.length; i += 4)
+                Rect.fromLTWH(
+                  (entry[i] as num).toDouble(),
+                  (entry[i + 1] as num).toDouble(),
+                  (entry[i + 2] as num).toDouble(),
+                  (entry[i + 3] as num).toDouble(),
+                ),
+            ],
+      },
+    );
+  }
+
   /// Место назначения из раннера: доля `-1` — начало страницы.
   static PdfTarget _targetOf(Object? page, Object? top) {
     final fraction = (top as num?)?.toDouble() ?? -1;

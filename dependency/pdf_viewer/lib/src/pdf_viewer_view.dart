@@ -54,6 +54,7 @@ class _PdfViewerViewState extends State<PdfViewerView> with TickerProviderStateM
   @override
   void dispose() {
     _flingTicker.dispose();
+    _edgeTicker.dispose();
     _glide.dispose();
     _focus.dispose();
     super.dispose();
@@ -133,8 +134,13 @@ class _PdfViewerViewState extends State<PdfViewerView> with TickerProviderStateM
                     onPointerSignal: _onSignal,
                     child: MouseRegion(
                       // Над ссылкой — «рука»: иначе ссылку не отличить от
-                      // текста (§16.2).
-                      cursor: _overLink ? SystemMouseCursors.click : MouseCursor.defer,
+                      // текста (§16.2). Над страницей — текстовый: по ней
+                      // тянут, чтобы выделить (§17.1).
+                      cursor: switch (_over) {
+                        _Over.link => SystemMouseCursors.click,
+                        _Over.page => SystemMouseCursors.text,
+                        _Over.margin => MouseCursor.defer,
+                      },
                       onHover: (event) => _hover(event.localPosition),
                       onExit: (_) => _hover(null),
                       child: GestureDetector(
@@ -142,10 +148,11 @@ class _PdfViewerViewState extends State<PdfViewerView> with TickerProviderStateM
                         // на то, что ушло на признание жеста.
                         dragStartBehavior: DragStartBehavior.down,
                         onPanDown: (_) => _stopGlide(),
-                        onPanStart: (details) => _dragKind = details.kind,
-                        onPanUpdate: (details) => screen.scrollBy(-details.delta),
-                        onPanEnd: (details) => _fling(-details.velocity.pixelsPerSecond),
-                        onTapUp: (details) => _follow(details.localPosition),
+                        onPanStart: _panStart,
+                        onPanUpdate: _panUpdate,
+                        onPanEnd: _panEnd,
+                        onTapDown: (details) => _countClick(details.localPosition),
+                        onTapUp: (details) => _click(details.localPosition),
                         child: _pages(),
                       ),
                     ),
@@ -182,14 +189,138 @@ class _PdfViewerViewState extends State<PdfViewerView> with TickerProviderStateM
     visible.forEach(screen.linksOf);
   }
 
-  /// Мышь над ссылкой — для «руки».
-  bool _overLink = false;
+  /// Что под мышью — по этому выбирается её курсор.
+  _Over _over = _Over.margin;
 
   void _hover(Offset? point) {
-    final over = point != null && screen.linkAt(point) != null;
-    if (over != _overLink) {
-      setState(() => _overLink = over);
+    final over = switch (point) {
+      null => _Over.margin,
+      final at when screen.linkAt(at) != null => _Over.link,
+      final at when screen.pointAt(at) != null => _Over.page,
+      _ => _Over.margin,
+    };
+    if (over != _over) {
+      setState(() => _over = over);
     }
+  }
+
+  // --- Протяжка: выделить или возить (§17.1) ---------------------------------
+
+  /// Тянут, чтобы выделить, — а не чтобы возить.
+  bool _selecting = false;
+
+  /// Где мышь сейчас, пока выделяют: за краем окна по ней крутится документ.
+  Offset? _selectPointer;
+
+  void _panStart(DragStartDetails details) {
+    _dragKind = details.kind;
+    // Мышью по странице — выделение; по полям — ход документа. Трекпад
+    // приходит не нажатием кнопки, и выделять ему нечего: он прокручивает.
+    _selecting = details.kind == PointerDeviceKind.mouse && screen.pointAt(details.localPosition) != null;
+    if (_selecting) {
+      screen.startSelection(details.localPosition);
+      _selectPointer = details.localPosition;
+    }
+  }
+
+  void _panUpdate(DragUpdateDetails details) {
+    if (!_selecting) {
+      screen.scrollBy(-details.delta);
+      return;
+    }
+    _selectPointer = details.localPosition;
+    screen.extendSelection(details.localPosition);
+    _followEdge();
+  }
+
+  void _panEnd(DragEndDetails details) {
+    if (_selecting) {
+      _selecting = false;
+      _selectPointer = null;
+      _stopEdge();
+      _dragKind = null;
+      return;
+    }
+    _fling(-details.velocity.pixelsPerSecond);
+  }
+
+  late final Ticker _edgeTicker = createTicker(_onEdge);
+  Duration _edgeLast = Duration.zero;
+
+  /// Мышь ушла за верх или низ окна, пока тянут, — документ крутится туда
+  /// сам, тем быстрее, чем дальше мышь (§17.2).
+  void _followEdge() {
+    if (_edgeOverflow() == 0) {
+      _stopEdge();
+    } else if (!_edgeTicker.isActive) {
+      _edgeLast = Duration.zero;
+      _edgeTicker.start();
+    }
+  }
+
+  double _edgeOverflow() {
+    final pointer = _selectPointer;
+    if (pointer == null) {
+      return 0;
+    }
+    final height = screen.viewport.height;
+    return pointer.dy < 0 ? pointer.dy : (pointer.dy > height ? pointer.dy - height : 0);
+  }
+
+  void _onEdge(Duration elapsed) {
+    final seconds = (elapsed - _edgeLast).inMicroseconds / Duration.microsecondsPerSecond;
+    _edgeLast = elapsed;
+    final overflow = _edgeOverflow();
+    final pointer = _selectPointer;
+    if (overflow == 0 || pointer == null) {
+      _stopEdge();
+      return;
+    }
+    // Десять точек в секунду на каждую точку за краем — и не быстрее двух
+    // тысяч: дальше выделение не успевает за глазом.
+    final speed = (overflow * 10).clamp(-2000.0, 2000.0);
+    screen.scrollBy(Offset(0, speed * seconds));
+    screen.extendSelection(pointer);
+  }
+
+  void _stopEdge() {
+    if (_edgeTicker.isActive) {
+      _edgeTicker.stop();
+    }
+  }
+
+  // --- Щелчки --------------------------------------------------------------
+
+  /// Сколько щелчков подряд в одном месте: один, два (слово), три (строка).
+  int _clicks = 0;
+  final Stopwatch _clock = Stopwatch()..start();
+  Duration? _lastClick;
+  Offset? _lastClickAt;
+
+  void _countClick(Offset point) {
+    final now = _clock.elapsed;
+    final last = _lastClick;
+    final at = _lastClickAt;
+    final again =
+        last != null && at != null && now - last <= kDoubleTapTimeout && (point - at).distance <= kDoubleTapSlop;
+    _clicks = again ? _clicks % 3 + 1 : 1;
+    _lastClick = now;
+    _lastClickAt = point;
+  }
+
+  /// Щелчок: по ссылке — переход; по странице — снять выделение; двойной —
+  /// слово, тройной — строка.
+  void _click(Offset point) {
+    if (_clicks == 2) {
+      screen.startSelection(point, unit: PdfSelectionUnit.word);
+      return;
+    }
+    if (_clicks == 3) {
+      screen.startSelection(point, unit: PdfSelectionUnit.line);
+      return;
+    }
+    screen.clearSelection();
+    _follow(point);
   }
 
   /// Щелчок: по внутренней ссылке — переход, по внешней — адрес системе.
@@ -225,6 +356,7 @@ class _PdfViewerViewState extends State<PdfViewerView> with TickerProviderStateM
             height: rects[page].height,
             child: _Page(
               image: screen.cache.imageOf(page),
+              selected: screen.selection?.rects[page] ?? const [],
               matches: [
                 for (final match in finder.matches)
                   if (match.page == page) (match.rects, identical(match, current)),
@@ -422,8 +554,14 @@ class _PdfViewerViewState extends State<PdfViewerView> with TickerProviderStateM
 ///
 /// Пока не отрисована — просто лист нужного размера: раскладка от этого не
 /// прыгает, и видно, где страница будет.
+/// Что под мышью: ссылка, страница или поле вокруг страниц.
+enum _Over { link, page, margin }
+
 class _Page extends StatelessWidget {
-  const _Page({required this.image, required this.matches});
+  const _Page({required this.image, required this.matches, this.selected = const []});
+
+  /// Выделенное на этой странице — прямоугольники в долях.
+  final List<Rect> selected;
 
   final ui.Image? image;
 
@@ -446,6 +584,8 @@ class _Page extends StatelessWidget {
               filterQuality: FilterQuality.medium,
             ),
           if (matches.isNotEmpty) CustomPaint(painter: _MatchPainter(matches)),
+          // Поверх найденного: выделение — то, что сейчас делает человек.
+          if (selected.isNotEmpty) CustomPaint(painter: _SelectionPainter(selected)),
         ],
       ),
     );
@@ -479,4 +619,33 @@ class _MatchPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_MatchPainter oldDelegate) => true;
+}
+
+/// Выделение: полупрозрачным синим, как выделение текста в macOS. Цвет свой, а
+/// не из оформления: лежит он на белой бумаге в любом оформлении.
+class _SelectionPainter extends CustomPainter {
+  _SelectionPainter(this.rects);
+
+  final List<Rect> rects;
+
+  static const Color color = Color(0x553A82F7);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    for (final rect in rects) {
+      canvas.drawRect(
+        Rect.fromLTWH(
+          rect.left * size.width,
+          rect.top * size.height,
+          rect.width * size.width,
+          rect.height * size.height,
+        ),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SelectionPainter oldDelegate) => oldDelegate.rects != rects;
 }

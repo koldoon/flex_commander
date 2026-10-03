@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui';
@@ -107,6 +108,38 @@ class FakePdfDocument implements SystemPdfDocument {
 
   @override
   Future<List<PdfLink>> links(int page) async => system.links[page] ?? const [];
+
+  /// Что спрашивали выделить: откуда, докуда и чем.
+  final List<(PdfPoint, PdfPoint?, PdfSelectionUnit)> selects = [];
+
+  /// Придержать ответы о выделении: пока не отпустят, раннер «считает».
+  bool holdSelects = false;
+  final List<Completer<void>> _held = [];
+
+  /// Отпустить один придержанный ответ.
+  void releaseSelect() => _held.removeAt(0).complete();
+
+  /// Выделение отвечает текстом из точек — по нему видно, о чём спрашивали.
+  @override
+  Future<PdfSelection?> select(
+    PdfPoint from, {
+    PdfPoint? to,
+    PdfSelectionUnit unit = PdfSelectionUnit.character,
+  }) async {
+    selects.add((from, to, unit));
+    if (holdSelects) {
+      final held = Completer<void>();
+      _held.add(held);
+      await held.future;
+    }
+    final end = to ?? from;
+    return PdfSelection(
+      text: '${unit.name}:${from.page}-${end.page}',
+      rects: {
+        for (var page = from.page; page <= end.page; page++) page: const [Rect.fromLTWH(0.1, 0.1, 0.5, 0.02)],
+      },
+    );
+  }
 
   @override
   Future<String> text() async {
