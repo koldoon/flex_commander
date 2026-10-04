@@ -150,4 +150,36 @@ void main() {
     final inside = tester.getTopLeft(find.text('x.json')).dx;
     expect(inside - one, closeTo(step, 0.01));
   });
+
+  testWidgets('PgDn и PgUp листают страницами, Home и End — к краям', (tester) async {
+    // Живая находка: в окне импорта и экспорта эти клавиши не делали ничего.
+    disk['/home/many'] = [for (var i = 0; i < 60; i++) dir('/home/many/d${i.toString().padLeft(2, '0')}')];
+    disk['/home'] = [...disk['/home']!, dir('/home/many')];
+    addTearDown(() {
+      disk.remove('/home/many');
+      disk['/home'] = [dir('/home/src'), dir('/home/one'), file('/home/top.json')];
+    });
+    await pump(tester, compact: false);
+    await tester.tap(find.text('many'));
+    await tester.pumpAndSettle();
+    expect(selected, '/home/many');
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+    await tester.pumpAndSettle();
+    final paged = selected;
+    expect(paged, startsWith('/home/many/d'));
+    expect(int.parse(paged.substring(paged.length - 2)), greaterThan(3), reason: 'страница, а не строка');
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.pageUp);
+    await tester.pumpAndSettle();
+    expect(selected, '/home/many', reason: 'страница назад — туда же');
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    await tester.pumpAndSettle();
+    expect(selected, '/home/many/d59', reason: 'последняя строка');
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    await tester.pumpAndSettle();
+    expect(selected, '/home', reason: 'корень');
+  });
 }

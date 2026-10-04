@@ -248,6 +248,17 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
         _select(rows, at + 1);
       case LogicalKeyboardKey.arrowUp:
         _select(rows, at - 1);
+      // Страницами и к краям — как в дереве панели (`docs/spec/panel-view-tree.md`,
+      // §6). Страница — видимые строки минус одна: перекрытие в строку не даёт
+      // потерять место, где остановился взгляд. У края — упор, а не заворот.
+      case LogicalKeyboardKey.pageDown:
+        _select(rows, (at + _page()).clamp(0, rows.length - 1));
+      case LogicalKeyboardKey.pageUp:
+        _select(rows, (at - _page()).clamp(0, rows.length - 1));
+      case LogicalKeyboardKey.home:
+        _select(rows, 0);
+      case LogicalKeyboardKey.end:
+        _select(rows, rows.length - 1);
       case LogicalKeyboardKey.arrowRight when at >= 0 && rows[at].leaf:
         // В файл не входят: раскрывать нечего.
         return KeyEventResult.ignored;
@@ -284,6 +295,15 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
     }
     _choose(rows[at].path, rows[at].leaf);
     _show(at);
+  }
+
+  /// Шаг страницы: видимые строки минус одна, но не меньше одной.
+  int _page() {
+    if (!_scroll.hasClients) {
+      return 1;
+    }
+    final visible = (_scroll.position.viewportDimension / _lineOf(context)).floor();
+    return visible > 1 ? visible - 1 : 1;
   }
 
   /// Подтянуть строку в обзор, если её не видно.

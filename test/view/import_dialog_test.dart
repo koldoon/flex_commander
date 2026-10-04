@@ -69,6 +69,34 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('клавиши страниц и краёв доходят до дерева в окне', (tester) async {
+    // Живая находка: PgUp и PgDn в дереве окна не делали ничего — дерево их не
+    // знало (`docs/spec/panel-view-compact-tree.md`, §12).
+    await openImport(tester, 'Keymap');
+    final before = nameField(tester);
+    await tester.tap(inTree('docs'));
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    await tester.pumpAndSettle();
+    expect(
+      nameField(tester),
+      isIn(['work.json', 'dark.json']),
+      reason: 'последняя строка — файл, и его имя встало в поле',
+    );
+    expect(nameField(tester), isNot(before));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.pageUp);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+    await tester.pumpAndSettle();
+    expect(
+      nameField(tester),
+      isIn(['work.json', 'dark.json']),
+      reason: 'страница вниз из начала — снова к концу короткого списка',
+    );
+  });
+
   testWidgets('в дереве видны файлы, из которых окно читает, — и только они', (tester) async {
     await openImport(tester, 'Keymap');
 
