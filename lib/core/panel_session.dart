@@ -2026,6 +2026,9 @@ class PanelSession {
       // Одни каталоги — просьба вида: файлы у него живут в соседнем столбце
       // (`docs/spec/panel-view-combined.md`, §4).
       directoriesOnly: _rows == RowsKind.branches,
+      // Склеивать цепочки — просьба сжатого дерева
+      // (`docs/spec/panel-view-compact-tree.md`, §9).
+      compact: _rows == RowsKind.compactTree,
     );
   }
 
@@ -2055,11 +2058,13 @@ class PanelSession {
     if (dir == null) {
       return;
     }
-    // Сверяется и то, каким деревом: `branches` от `tree` отличается
-    // строками, а не типом набора.
+    // Сверяется и то, каким деревом: `branches` и `compactTree` от `tree`
+    // отличаются строками, а не типом набора.
     final list = _list;
     if (_rows.isTree == (list is TreeNodeList) &&
-        (list is! TreeNodeList || list.directoriesOnly == (_rows == RowsKind.branches))) {
+        (list is! TreeNodeList ||
+            (list.directoriesOnly == (_rows == RowsKind.branches) &&
+                list.compact == (_rows == RowsKind.compactTree)))) {
       return;
     }
     _list = _listFor(dir);
@@ -2114,6 +2119,13 @@ class PanelSession {
       return;
     }
 
+    // Сжатое дерево раскрывает свежепрочитанное по цепочке само (§4): то, что
+    // оно раскрыло, запоминается, как раскрытое человеком, — иначе оно
+    // схлопнется при первом же перечитывании.
+    if (list is TreeNodeList && list.compact) {
+      _rememberExpanded(list);
+    }
+
     // Строка курсора — **после** чтения, а не до: пока ветвь читалась, та
     // сторона могла уйти дальше, и её `CursorAt` уже здесь. Запомненная до
     // чтения, она возвращала курсор назад — живой разбор 1 октября 2026, вид
@@ -2125,8 +2137,12 @@ class PanelSession {
     var placed = true;
     if (placeCursor != null) {
       placeCursor();
-    } else if (at == null || _cursorToPath(at)) {
+    } else if (at == null) {
       placed = false;
+    } else if (_cursorToPath(at)) {
+      // Путь нашёлся строкой цепочки — у той стороны такой строки нет, и
+      // курсор уезжает вместе со списком; нашёлся сам собой — ищет она.
+      placed = currentNode?.pathString != at;
     } else {
       _cursorToAncestor(at);
     }
@@ -2164,8 +2180,15 @@ class PanelSession {
     }
   }
 
+  /// Курсор на строку пути — или на строку цепочки, которой этот путь показан
+  /// в сжатом дереве (`docs/spec/panel-view-compact-tree.md`, §5).
   bool _cursorToPath(String path) {
-    final index = _nodes.indexWhere((node) => node.pathString == path);
+    var index = _nodes.indexWhere((node) => node.pathString == path);
+    if (index < 0) {
+      final list = _list;
+      final shown = list is TreeNodeList ? list.shownAs(path) : null;
+      index = shown == null ? -1 : _nodes.indexWhere((node) => identical(node, shown));
+    }
     if (index < 0) {
       return false;
     }
@@ -2414,7 +2437,11 @@ class PanelSession {
 
   /// Узел значением.
   FileEntry entryOf(FsNode node) {
-    final entry = entryValueOf(node).withId(_idOfRow[node] ?? 0);
+    final list = _list;
+    final entry = entryValueOf(
+      node,
+      chainHead: list is TreeNodeList ? list.chainHeadOf(node) : '',
+    ).withId(_idOfRow[node] ?? 0);
     if (entry.size >= 0) {
       return entry;
     }

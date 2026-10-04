@@ -8,7 +8,7 @@ import 'tree_provider.dart';
 /// Путь у «..» пустой нарочно: псевдострока показывает **чужой** каталог —
 /// тот, куда ведёт, — и запомненная по его пути подменяла бы собой настоящий.
 /// За этот урок уже заплачено (`spec/isolated-core.md`, §4.3.2).
-FileEntry entryValueOf(FsNode node) {
+FileEntry entryValueOf(FsNode node, {String chainHead = ''}) {
   final file = node is FileNode ? node : null;
   return FileEntry(
     name: node.name,
@@ -31,6 +31,9 @@ FileEntry entryValueOf(FsNode node) {
     // «Раскрывается» и «есть что внутри» — разные вопросы: у архива с одними
     // файлами второй ложен, а первый нет (`docs/spec/panel-view-tree.md`, §4б).
     mountsAsBranch: node.mountsAsBranch,
+    // Подпись строки сжатого дерева: знает её набор строк, а не узел — узлы
+    // общие у нескольких наборов (`docs/spec/panel-view-compact-tree.md`, §9).
+    chainHead: chainHead,
     // Показанный путь — тот, которым панель называет себя и которым открывают
     // каталог. У «..» его нет: она показывает чужой каталог.
     displayPath: node is ParentDirNode ? '' : node.displayPath,

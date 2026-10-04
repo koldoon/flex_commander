@@ -45,6 +45,7 @@ class TreeNodeList implements NodeList {
     required List<DirectoryNode> roots,
     Iterable<String> expanded = const [],
     this.directoriesOnly = false,
+    this.compact = false,
     this.mounter,
   }) : _rootDirectories = List.unmodifiable(roots),
        _roots = [for (final root in roots) _Branch(root)],
@@ -84,6 +85,34 @@ class TreeNodeList implements NodeList {
   /// (`docs/spec/panel-view-combined.md`, §4). Отбор стоит здесь, а не в виде:
   /// вид не отбирает строки, он их рисует.
   final bool directoriesOnly;
+
+  /// Склеивать цепочки: каталог, в котором ровно один показанный подкаталог,
+  /// стоит одной строкой с ним (`docs/spec/panel-view-compact-tree.md`, §2).
+  ///
+  /// Просьба вида, как и [directoriesOnly]. Выключен — строки выходят ровно те
+  /// же, что у обычного дерева: склеивающий цикл не делает ни шага.
+  final bool compact;
+
+  /// Подписи строк-цепочек: строка → имена поглощённых каталогов через `/`.
+  ///
+  /// Здесь, а не на узле: узлы общие у нескольких наборов (находки показаны и
+  /// деревом, и списком), и подпись на узле утекала бы в чужой список.
+  /// Пересобирается на каждой раскладке.
+  final Map<FsNode, String> _heads = Map.identity();
+
+  /// Поглощённый путь → строка, которой он показан.
+  final Map<String, FsNode> _absorbed = {};
+
+  /// Голова цепочки у строки; пусто — строка стоит сама по себе.
+  String chainHeadOf(FsNode row) => _heads[row] ?? '';
+
+  /// Строка, которой показан поглощённый цепочкой путь; null — путь не
+  /// поглощён (или его в строках нет вовсе).
+  ///
+  /// Курсору: раскрыли `a`, а внутри один `b` — строки `a` больше нет, она
+  /// стала строкой `a/b`, и курсор обязан встать на неё, а не уйти к предку
+  /// (§5).
+  FsNode? shownAs(String path) => _absorbed[path];
 
   final List<DirectoryNode> _rootDirectories;
 
@@ -138,7 +167,7 @@ class TreeNodeList implements NodeList {
   Operation<void, List<FsNode>> read({required NodeListOrder order}) {
     return TaskOperation<void, List<FsNode>>((op, _) async {
       for (final branch in _roots) {
-        await _fill(branch, op);
+        await _fill(branch, op, includeHidden: order.includeHidden);
       }
       return _flatten(order);
     });
@@ -411,7 +440,13 @@ class TreeNodeList implements NodeList {
   bool isExpanded(String path) => _expanded.contains(path);
 
   /// Дочитывает раскрытые ветви — и только их.
-  Future<void> _fill(_Branch branch, OperationContext op) async {
+  ///
+  /// В сжатом дереве **свежее раскрытие идёт по цепочке дальше**: только что
+  /// прочитанный каталог с единственным показанным подкаталогом раскрывает и
+  /// его — иначе каждое раскрытие лишь склеивало бы строку, а внутрь приходилось
+  /// бы заглядывать снова и снова (§4). Только прочитанное **сейчас**: что
+  /// человек свернул, то само не раскрывается.
+  Future<void> _fill(_Branch branch, OperationContext op, {int level = 0, required bool includeHidden}) async {
     op.checkCanceled();
     if (!_expanded.contains(branch.node.pathString)) {
       return;
@@ -435,27 +470,45 @@ class TreeNodeList implements NodeList {
         return;
       }
       branch.children = [for (final child in children) _Branch(child)];
+      if (compact && level > 0) {
+        final shown = _shownIn(branch, level + 1, includeHidden: includeHidden);
+        if (shown.length == 1 && shown.single.node is DirectoryNode) {
+          _expanded.add(shown.single.node.pathString);
+        }
+      }
     }
 
     for (final child in branch.children!) {
-      await _fill(child, op);
+      await _fill(child, op, level: level + 1, includeHidden: includeHidden);
     }
   }
+
+  /// Показанные дети прочитанной ветви, стоящие на глубине [level]: без
+  /// скрытого (пока его не показывают) и, если просили, без файлов.
+  ///
+  /// Скрытое прячется **внутри** ветвей, а корни остаются: их выбрали нарочно —
+  /// это каталог панели, находки или избранное, — и прятать выбранное из-за
+  /// точки в имени значило бы показать пустоту.
+  List<_Branch> _shownIn(_Branch? branch, int level, {required bool includeHidden}) =>
+      _shown(branch?.children ?? const [], level, includeHidden: includeHidden);
+
+  List<_Branch> _shown(List<_Branch> branches, int level, {required bool includeHidden}) => [
+    for (final branch in branches)
+      if ((level == 0 || includeHidden || !branch.node.name.startsWith('.')) &&
+          (!directoriesOnly || _isBranch(branch.node)))
+        branch,
+  ];
 
   /// Собирает строки: глубина и раскрытость проставляются здесь и только здесь.
   List<FsNode> _flatten(NodeListOrder order) {
     final rows = <FsNode>[];
+    _heads.clear();
+    _absorbed.clear();
 
-    void walk(List<_Branch> branches, int level) {
-      // Скрытое прячется **внутри** ветвей, а корни остаются: их выбрали
-      // нарочно — это каталог панели, находки или избранное, — и прятать
-      // выбранное из-за точки в имени значило бы показать пустоту.
-      final shown = [
-        for (final branch in branches)
-          if ((level == 0 || order.includeHidden || !branch.node.name.startsWith('.')) &&
-              (!directoriesOnly || _isBranch(branch.node)))
-            branch,
-      ];
+    bool openOf(_Branch branch) =>
+        (branch.node is DirectoryNode || branch.mounted != null) && _expanded.contains(branch.node.pathString);
+
+    void walk(List<_Branch> shown, int level) {
       // Корни идут в том порядке, в каком их дали: их выбрали — человек в
       // избранном, поиск в находках, панель в обычном дереве, — и правило
       // сортировки их не переставляет. Раскладывается **содержимое** ветвей.
@@ -465,9 +518,30 @@ class TreeNodeList implements NodeList {
           shown.sort((a, b) => compare(a.node, b.node));
         }
       }
-      for (final branch in shown) {
+      for (final top in shown) {
+        var branch = top;
+        // Дети строки, если их уже отобрали, проходя цепочку: второй раз
+        // отбирать незачем.
+        List<_Branch>? kids;
+        final absorbed = <FsNode>[];
+
+        // Цепочка: раскрытый прочитанный каталог с единственным показанным
+        // подкаталогом поглощается им (§2). Корни не склеиваются — их выбрали
+        // нарочно; ссылки и архивы цепочку обрывают — их сами не раскрывают.
+        if (compact && level > 0) {
+          while (branch.node is DirectoryNode && openOf(branch) && branch.children != null) {
+            final inside = _shownIn(branch, level + 1, includeHidden: order.includeHidden);
+            if (inside.length != 1 || inside.single.node is! DirectoryNode) {
+              kids = inside;
+              break;
+            }
+            absorbed.add(branch.node);
+            branch = inside.single;
+          }
+        }
+
         final node = branch.node;
-        final open = (node is DirectoryNode || branch.mounted != null) && _expanded.contains(node.pathString);
+        final open = openOf(branch);
         node
           ..level = level
           ..isOpen = open
@@ -477,14 +551,21 @@ class TreeNodeList implements NodeList {
           // раскрытия ровно в тот миг, когда архив открыли (§4б).
           ..mountsAsBranch = node is! DirectoryNode && _isBranch(node)
           ..hasBranches = branch.hasBranches ?? _branchesIn(branch, order.includeHidden);
+        if (absorbed.isNotEmpty) {
+          // Голова — имена поглощённых по порядку: начало цепочки первым.
+          _heads[node] = absorbed.map((it) => it.name).join('/');
+          for (final it in absorbed) {
+            _absorbed[it.pathString] = node;
+          }
+        }
         rows.add(node);
         if (open) {
-          walk(branch.children ?? const [], level + 1);
+          walk(kids ?? _shownIn(branch, level + 1, includeHidden: order.includeHidden), level + 1);
         }
       }
     }
 
-    walk(_roots, 0);
+    walk(_shown(_roots, 0, includeHidden: order.includeHidden), 0);
     return rows;
   }
 }

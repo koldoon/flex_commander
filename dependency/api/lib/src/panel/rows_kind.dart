@@ -14,13 +14,18 @@ enum RowsKind {
   ///
   /// Левый столбец комбинированного вида: файлы живут в правом и второй раз не
   /// показываются (`docs/spec/panel-view-combined.md`, §4).
-  branches;
+  branches,
+
+  /// Дерево, в котором цепочка каталогов с единственным подкаталогом стоит
+  /// одной строкой (`docs/spec/panel-view-compact-tree.md`). Остальное — как у
+  /// [tree]: потому и считается деревом.
+  compactTree;
 
   /// Набраны ли строки ветвями.
   ///
   /// Спрашивают это команды дерева: раскрыть, свернуть, сходить по ссылке — им
   /// всё равно, есть ли в ветвях файлы, важно лишь, что это ветви.
-  bool get isTree => this == tree || this == branches;
+  bool get isTree => this == tree || this == branches || this == compactTree;
 
   static RowsKind? byName(String value) {
     for (final kind in values) {

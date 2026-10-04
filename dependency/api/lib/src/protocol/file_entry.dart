@@ -45,6 +45,7 @@ class FileEntry {
     this.isOpen = false,
     this.hasBranches = false,
     this.mountsAsBranch = false,
+    this.chainHead = '',
     this.displayPath = '',
     this.sizeIsFinal = true,
     this.id = 0,
@@ -155,6 +156,7 @@ class FileEntry {
     isOpen: isOpen,
     hasBranches: hasBranches,
     mountsAsBranch: mountsAsBranch,
+    chainHead: chainHead,
     displayPath: displayPath,
     sizeIsFinal: isFinal,
     canStream: canStream,
@@ -183,12 +185,24 @@ class FileEntry {
     isOpen: isOpen,
     hasBranches: hasBranches,
     mountsAsBranch: mountsAsBranch,
+    chainHead: chainHead,
     displayPath: displayPath,
     sizeIsFinal: sizeIsFinal,
     canStream: canStream,
     canReceive: canReceive,
     id: value,
   );
+
+  /// Имена каталогов, поглощённых строкой сжатого дерева, через `/`: `src/main`
+  /// у строки `java`. Пусто — строка стоит сама по себе.
+  ///
+  /// **Подпись, а не путь**: её показывают и никогда не разбирают. Адрес
+  /// строки — по-прежнему [path] самого глубокого каталога
+  /// (`docs/spec/panel-view-compact-tree.md`, §3).
+  final String chainHead;
+
+  /// Что показать строкой: голова цепочки и имя — или одно имя.
+  String get label => chainHead.isEmpty ? name : '$chainHead/$name';
 
   /// Глубина строки в списке: 0 у корневых, дальше по вложенности.
   ///
