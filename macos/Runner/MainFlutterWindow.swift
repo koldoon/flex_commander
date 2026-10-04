@@ -350,19 +350,15 @@ final class FileDrag: NSObject, NSFilePromiseProviderDelegate {
   /// можно было бы спросить, ещё нет.
   private func fileType(of name: String) -> String {
     let ext = (name as NSString).pathExtension
-    if #available(macOS 11.0, *) {
-      return (UTType(filenameExtension: ext) ?? .data).identifier
-    }
-    return "public.data"
+    // Сборка — от macOS 12: ветка для систем старше 11-й была мёртвой и только
+    // приносила предупреждение об устаревшем вызове в каждую сборку.
+    return (UTType(filenameExtension: ext) ?? .data).identifier
   }
 
   /// Значок для обещанного — системный, по тому же расширению.
   private func icon(of name: String) -> NSImage {
     let ext = (name as NSString).pathExtension
-    if #available(macOS 11.0, *) {
-      return NSWorkspace.shared.icon(for: UTType(filenameExtension: ext) ?? .data)
-    }
-    return NSWorkspace.shared.icon(forFileType: ext)
+    return NSWorkspace.shared.icon(for: UTType(filenameExtension: ext) ?? .data)
   }
 
   /// Очередь, на которой выкладывается обещанное: работа с диском не должна
