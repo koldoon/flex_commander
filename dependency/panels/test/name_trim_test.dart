@@ -54,7 +54,13 @@ void main() {
 
   /// Правило одно на все виды: одно и то же имя, выглядящее в дереве и в
   /// таблице по-разному, — это не настройка, а поломка (§3).
-  for (final view in [BriefView.viewId, TreeView.viewId, IconsView.viewId, ColumnsView.viewId]) {
+  for (final view in [
+    BriefView.viewId,
+    TreeView.viewId,
+    CompactTreeView.viewId,
+    IconsView.viewId,
+    ColumnsView.viewId,
+  ]) {
     testWidgets('середина режется и в виде «$view»', (tester) async {
       final runtime = await open(tester);
       settingsOf(runtime).nameTrim = PanelsSettings.trimMiddle;

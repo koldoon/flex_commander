@@ -1,3 +1,4 @@
+import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'quick_search_state.dart';
@@ -103,12 +104,29 @@ class QuickSearchCommand extends AppCommand {
       if (entry.isParent) {
         continue;
       }
-      if (entry.name.toLowerCase().startsWith(needle)) {
+      if (_matches(entry, needle)) {
         panel.setCursorIndex(index);
         return true;
       }
     }
     return false;
+  }
+
+  /// Начинается ли имя строки с образца.
+  ///
+  /// У строки цепочки сжатого дерева — **любое звено** подписи и вся подпись
+  /// целиком: поглощённые имена своих строк не имеют, и иначе `java` в
+  /// `src/main/java/com/acme` не нашёлся бы вовсе
+  /// (`docs/spec/panel-view-compact-tree.md`, §7).
+  static bool _matches(FileEntry entry, String needle) {
+    if (entry.name.toLowerCase().startsWith(needle)) {
+      return true;
+    }
+    if (entry.chainHead.isEmpty) {
+      return false;
+    }
+    final label = entry.label.toLowerCase();
+    return label.startsWith(needle) || label.split('/').any((part) => part.startsWith(needle));
   }
 }
 

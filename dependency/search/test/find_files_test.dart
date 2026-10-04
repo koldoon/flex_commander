@@ -406,7 +406,7 @@ void main() {
     // Деревом, а не кучей: видно, где что нашлось. Вид просит сам источник, и
     // раскрыто оно сразу — иначе находки прятались бы за нажатиями
     // (`docs/spec/file-search.md`, §4).
-    expect(app.left.view, TreeView.viewId);
+    expect(app.left.view, CompactTreeView.viewId);
     expect(
       [for (final entry in app.left.entries) '${'  ' * entry.level}${entry.name}'],
       // В порядке обхода, а не по алфавиту: список растёт по ходу поиска, и
@@ -531,7 +531,10 @@ void main() {
     await search(tester, '*.dart');
     await press(tester, 'To panel');
 
-    expect(app.left.rows, RowsKind.tree);
+    // Находки просят сжатое дерево, какое бы ни стояло до них
+    // (`docs/spec/panel-view-compact-tree.md`, §8); главное здесь — что они
+    // раскрыты, а не показаны списком своего корня.
+    expect(app.left.rows, RowsKind.compactTree);
     expect(
       [for (final entry in app.left.entries) '${'  ' * entry.level}${entry.name}'],
       // В порядке обхода, а не по алфавиту: список растёт по ходу поиска, и

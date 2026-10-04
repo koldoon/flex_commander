@@ -84,6 +84,7 @@ void main() {
   group('шаг курсора в прочих видах', () {
     for (final (view, row, limit) in const [
       (TreeView.viewId, '_BranchRow', 2),
+      (CompactTreeView.viewId, '_BranchRow', 2),
       (BriefView.viewId, 'FileTableRow', 2),
       (IconsView.viewId, 'IconTile', 2),
       (ColumnsView.viewId, '_ColumnRow', 4),

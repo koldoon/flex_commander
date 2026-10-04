@@ -101,9 +101,13 @@ class SearchProvider
   @override
   OperationSpec get work => SearchWork.specFor(address);
 
-  /// Найденное показывается деревом: плоским списком структуры не видно.
+  /// Найденное показывается **сжатым** деревом: плоским списком структуры не
+  /// видно, а в обычном дереве находки тонут в ступенях — поиск по проекту даёт
+  /// `src › main › java › com › acme` пятью строками ради одного файла
+  /// (`docs/spec/panel-view-compact-tree.md`, §8). Строкой, а не константой
+  /// вида: от модуля панелей источник не зависит.
   @override
-  String get preferredView => 'tree';
+  String get preferredView => 'compactTree';
 
   /// Пути виртуальных ветвей: их дерево раскрывает сразу.
   ///

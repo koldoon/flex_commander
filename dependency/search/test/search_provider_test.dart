@@ -2,6 +2,8 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_search/fc_search.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:flex_commander/core/node_list.dart';
+import 'package:flex_commander/core/tree_node_list.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Источник находок: адреса строк, выход наверх и плоский список
@@ -83,6 +85,23 @@ void main() {
 
     walk(source.rootDirectory);
     expect(source.openBranches, rows, reason: 'панель сравнивает их со своим раскрытым');
+  });
+
+  test('находки просят сжатое дерево — и цепочка мест внутри него одна строка', () async {
+    final source = await found(['/home/readme.txt', '/home/docs/deep/plan.txt']);
+    expect(source.preferredView, 'compactTree');
+
+    // Так их и показывает панель: корень — адрес поиска, раскрыто всё, что
+    // просит источник (`docs/spec/panel-view-compact-tree.md`, §8).
+    final list = TreeNodeList(roots: [source.rootDirectory], expanded: source.openBranches, compact: true);
+    final rows = await list
+        .read(order: NodeListOrder.of(const SortSpec(), includeHidden: false, column: null))
+        .run(null);
+
+    expect([
+      for (final node in rows)
+        '${'  ' * node.level}${list.chainHeadOf(node).isEmpty ? '' : '${list.chainHeadOf(node)}/'}${node.name}',
+    ], containsAllInOrder(['  docs/deep', '    plan.txt']));
   });
 
   test('список — уровень, как у всякого каталога', () async {

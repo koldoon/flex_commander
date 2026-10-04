@@ -188,6 +188,33 @@ void main() {
     );
     sendable('беда', const LinkCrashed(1, 'ядро упало', 'stack'));
   });
+
+  group('строка цепочки сжатого дерева', () {
+    // Подпись — новое поле строки: без неё сжатое дерево на той стороне
+    // показало бы одни имена (`docs/spec/panel-view-compact-tree.md`, §3).
+    const chain = FileEntry(
+      name: 'acme',
+      kind: EntryKind.directory,
+      path: '/home/src/main/acme',
+      directoryPath: '/home/src/main',
+      chainHead: 'src/main',
+    );
+
+    test('едет через порт с подписью', () async {
+      final back = await roundtrip(
+        const LinkEvent(PanelListed(PanelId.left, PanelListing(generation: 1, entries: [chain]))),
+      );
+
+      final entry = ((back! as LinkEvent).event as PanelListed).listing.entries.single;
+      expect(entry.chainHead, 'src/main');
+      expect(entry.label, 'src/main/acme');
+    });
+
+    test('подпись переживает новый размер и выданный номер', () {
+      expect(chain.withSize(10).chainHead, 'src/main');
+      expect(chain.withId(5).chainHead, 'src/main');
+    });
+  });
 }
 
 /// Эхо: что приехало, то и уехало обратно.

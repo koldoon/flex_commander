@@ -9,6 +9,7 @@ import 'brief_view.dart';
 import 'columns.dart';
 import 'columns_commands.dart';
 import 'columns_view.dart';
+import 'compact_tree_view.dart';
 import 'combined_view.dart';
 import 'crumbs_header.dart';
 import 'brief_view_options.dart';
@@ -224,6 +225,19 @@ class Panels implements FcBackendModule, FcFrontendModule {
       ),
     );
 
+    // Сжатое дерево — после столбцов: порядок списка видов это порядок их
+    // клавиш, и ему достаётся `Cmd-7`. Настройки у него дерева: рисует он
+    // той же отрисовкой (`docs/spec/panel-view-compact-tree.md`, §8).
+    registry.panelView(
+      PanelViewSpec(
+        id: CompactTreeView.viewId,
+        title: 'Compact tree',
+        description: 'A tree where a chain of single folders stands as one row',
+        build: (context, panel) => CompactTreeView(panel: panel, settings: settingsOf),
+        options: (context, draft) => TreeViewOptions(settings: settingsOf, save: settings.save, draft: draft),
+      ),
+    );
+
     // Четыре команды дерева: поддерево под курсором и всё дерево, каждое — в
     // обе стороны (`docs/spec/panel-view-tree.md`, §6а).
     for (final expand in const [true, false]) {
@@ -322,6 +336,16 @@ class Panels implements FcBackendModule, FcFrontendModule {
         SetPanelViewCommand.commandId,
         id: 'panel.view.columns',
         parameters: {SetPanelViewCommand.viewParam: ColumnsView.viewId},
+        context: KeyContext.panel,
+      ),
+    );
+
+    registry.binding(
+      KeyBinding(
+        'Cmd-7',
+        SetPanelViewCommand.commandId,
+        id: 'panel.view.compactTree',
+        parameters: {SetPanelViewCommand.viewParam: CompactTreeView.viewId},
         context: KeyContext.panel,
       ),
     );
@@ -461,6 +485,9 @@ const Map<String, String> _russian = {
   'Name width': 'Ширина имени',
   'Custom': 'Своё',
   'Path columns': 'Столбцы',
+  'Compact tree': 'Сжатое дерево',
+  'A tree where a chain of single folders stands as one row':
+      'Дерево, в котором цепочка одиночных каталогов стоит одной строкой',
   'Into the directory': 'В каталог',
   'Out to the parent': 'К родителю',
   'Show what is inside and move the cursor there': 'Показать содержимое и перевести туда курсор',

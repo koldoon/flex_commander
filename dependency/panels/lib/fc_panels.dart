@@ -17,6 +17,7 @@ export 'src/icons_view_options.dart';
 export 'src/history_arrows.dart';
 export 'src/panels_settings.dart';
 export 'src/table_view_options.dart';
+export 'src/compact_tree_view.dart';
 export 'src/tree_view.dart';
 export 'src/tree_view_options.dart';
 export 'src/file_table_header.dart';

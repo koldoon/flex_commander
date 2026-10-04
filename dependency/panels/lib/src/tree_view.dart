@@ -186,7 +186,15 @@ class TreeViewState extends State<TreeView> {
   /// прежнего вида — списочный, — и рисовать его деревом нельзя: на миг
   /// показался бы каталог, притворяющийся ветвями
   /// (`docs/spec/panel-node-list.md`, §3).
-  List<FileEntry> get _rows => widget.panel.rows.isTree ? widget.panel.entries : const [];
+  ///
+  /// Сжатое дерево — строго своё: обычные ветви, нарисованные его видом, на
+  /// миг показали бы лестницу, которую он обещал убрать. И наоборот.
+  List<FileEntry> get _rows {
+    final rows = widget.panel.rows;
+    final asked = widget.rows == RowsKind.compactTree;
+    final fits = asked ? rows == RowsKind.compactTree : rows.isTree && rows != RowsKind.compactTree;
+    return fits ? widget.panel.entries : const [];
+  }
 
   /// Прокрутить к курсору, если он ушёл из виду.
   ///
@@ -917,7 +925,37 @@ class _BranchRow extends StatelessWidget {
                                   // осталось от знака, значка и колонки
                                   // размера, — а считать это семью слагаемыми
                                   // было бы хрупко.
-                                  child: FcTrimmedText(text: row.name, style: style, side: nameSide),
+                                  //
+                                  // Строка цепочки сжатого дерева — голова и
+                                  // имя: голова приглушена, как начало пути в
+                                  // истории адресов. У прочих строк подпись
+                                  // ровно прежняя — эталоны дерева не двигаются
+                                  // (`docs/spec/panel-view-compact-tree.md`, §3).
+                                  child:
+                                      row.chainHead.isEmpty
+                                          ? FcTrimmedText(text: row.name, style: style, side: nameSide)
+                                          : FcChainName(
+                                            head: row.chainHead,
+                                            name: row.name,
+                                            style: style,
+                                            headStyle: style.copyWith(
+                                              // Цвет строки, приспущенный к фону под
+                                              // ней. Не общий приглушённый: в
+                                              // оформлении по умолчанию строки им же
+                                              // и набраны, и голова не отличалась бы
+                                              // от имени, а на подсветке он тонет.
+                                              color: Color.lerp(
+                                                style.color,
+                                                _selected
+                                                    ? colors.cursorBackground
+                                                    : marked
+                                                    ? colors.markedBackground
+                                                    : colors.panelBackground,
+                                                0.45,
+                                              ),
+                                            ),
+                                            nameSide: nameSide,
+                                          ),
                                 ),
                               ),
                             ),
