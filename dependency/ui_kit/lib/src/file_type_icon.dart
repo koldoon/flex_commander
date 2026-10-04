@@ -2,9 +2,15 @@ import 'package:flutter/widgets.dart';
 
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
-import 'package:fc_ui_kit/fc_ui_kit.dart';
+
+import 'app_scope.dart';
+import 'fc_theme.dart';
 
 /// Иконка типа объекта.
+///
+/// Одна на приложение: ею рисуют строки панели и дерево выбора места в окнах
+/// импорта и экспорта. Два разных значка одного файла в одном приложении
+/// человек видит сразу — поэтому виджет живёт в общем наборе, а не в панелях.
 ///
 /// Что показать, панель больше не решает: она спрашивает службу иконок
 /// (`docs/spec/file-icons.md`), а та проходит правила — глиф, картинка с диска,
@@ -81,7 +87,9 @@ class _FileTypeIconState extends State<FileTypeIcon> {
   @override
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
-    final icons = AppScope.read(context).fileIcons;
+    // Без приложения над деревом — встроенный хвост: виджет живёт в общем
+    // наборе, и стоять ему доводится и там, где службы иконок нет.
+    final icons = AppScope.maybeRead(context)?.fileIcons;
     final size = widget.size ?? FileIconSize.of(theme.metrics, icons);
 
     _resolve(context, icons, size);

@@ -5,8 +5,6 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
 
-import 'file_type_icon.dart';
-
 /// Одна плитка сетки: значок, под ним имя в две строки.
 ///
 /// То же, чем `FileTableRow` служит списку, — но подсветка устроена иначе.

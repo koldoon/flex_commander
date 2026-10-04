@@ -10,7 +10,6 @@ import 'columns.dart';
 import 'cursor_pin.dart';
 import 'file_table_header.dart';
 import 'file_colors.dart';
-import 'file_type_icon.dart';
 import 'mark_drag.dart';
 import 'panel_drag.dart';
 import 'row_cache.dart';

@@ -1,5 +1,6 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -68,7 +69,7 @@ void main() {
   /// Подписи строк сверху вниз: у цепочки — голова и имя.
   List<String> rows(WidgetTester tester) => [
     for (final element in find.descendant(of: find.byType(ListView), matching: find.byType(Text)).evaluate())
-      if ((element.widget as Text).data case final text? when text.codeUnitAt(0) < 0xE000) text,
+      if ((element.widget as Text).data case final text? when text.isNotEmpty && text.codeUnitAt(0) < 0xE000) text,
     for (final name in tester.widgetList<FcChainName>(find.byType(FcChainName))) '${name.head}/${name.name}',
   ];
 
@@ -131,5 +132,22 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
     await tester.pumpAndSettle();
     expect(selected, '/home');
+  });
+
+  testWidgets('строка как в дереве панели: значок объекта и тот же шаг вглубь', (tester) async {
+    // Давняя разница: в окне вместо значка стоял один шеврон, а у файла — глиф
+    // «файл» на его месте, и имя начиналось не там, где в панели.
+    await pump(tester, compact: false);
+    await tester.tap(find.text('one'));
+    await tester.pumpAndSettle();
+
+    // Home, src, one, x.json и top.json — у каждой строки свой значок.
+    expect(find.byType(FileTypeIcon), findsNWidgets(5));
+
+    final metrics = FcTheme.of(tester.element(find.byType(FcDirectoryTree))).metrics;
+    final step = FileIconSize.of(metrics, null) + metrics.treeMarkGap;
+    final one = tester.getTopLeft(find.text('one')).dx;
+    final inside = tester.getTopLeft(find.text('x.json')).dx;
+    expect(inside - one, closeTo(step, 0.01));
   });
 }

@@ -8,7 +8,6 @@ import 'package:flutter/widgets.dart';
 
 import 'column_chain.dart';
 import 'file_colors.dart';
-import 'file_type_icon.dart';
 import 'mark_drag.dart';
 import 'panel_drag.dart';
 import 'panels_settings.dart';

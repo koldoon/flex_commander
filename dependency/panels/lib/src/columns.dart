@@ -5,8 +5,6 @@ import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 
-import 'file_type_icon.dart';
-
 /// Имена штатных колонок.
 ///
 /// Внешний контракт: они лежат в `settings.json`, ездят в протоколе и

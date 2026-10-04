@@ -1,11 +1,14 @@
 import 'dart:async';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import 'app_scope.dart';
 import 'chain_name.dart';
 import 'fc_theme.dart';
+import 'file_type_icon.dart';
 import 'plate.dart';
 
 /// Дерево каталогов в окне: где человек выбирает место, не сходя с него
@@ -187,7 +190,15 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
   Map<String, String> get _shownAs => _layout().$2;
 
   (List<_Branch>, Map<String, String>) _layout() {
-    final rows = <_Branch>[_Branch(path: _root, name: widget.rootTitle, depth: 0)];
+    // У корня строки-объекта нет — его называет окно («Home»); значок ему тот
+    // же, что любому каталогу.
+    final rows = <_Branch>[
+      _Branch(
+        entry: FileEntry(name: widget.rootTitle, kind: EntryKind.directory, path: _root),
+        name: widget.rootTitle,
+        depth: 0,
+      ),
+    ];
     final shownAs = <String, String>{};
     void walk(String path, int depth) {
       for (final top in _open[path] ?? const <FileEntry>[]) {
@@ -207,9 +218,7 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
             entry = inside.single;
           }
         }
-        rows.add(
-          _Branch(path: entry.path, name: entry.name, head: head.join('/'), depth: depth, leaf: !entry.canEnter),
-        );
+        rows.add(_Branch(entry: entry, name: entry.name, head: head.join('/'), depth: depth, leaf: !entry.canEnter));
         walk(entry.path, depth + 1);
       }
     }
@@ -282,7 +291,7 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
     if (!_scroll.hasClients) {
       return;
     }
-    final line = _lineOf(FcTheme.of(context));
+    final line = _lineOf(context);
     final top = at * line;
     final position = _scroll.position;
     if (top < position.pixels) {
@@ -292,8 +301,14 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
     }
   }
 
-  /// Высота строки — та же, что у панели: строка и просвет под ней.
-  static double _lineOf(FcTheme theme) => theme.metrics.rowHeight + theme.metrics.rowGap;
+  /// Шаг строки — тот же, что у дерева панели: он растёт вместе со значком,
+  /// когда значки настроены покрупнее (`FileIconSize.listRow`).
+  static double _lineOf(BuildContext context) =>
+      FileIconSize.listRow(FcTheme.of(context).metrics, AppScope.maybeRead(context)?.fileIcons);
+
+  /// Квадрат значка — и знака раскрытия: тот же, что у дерева панели.
+  static double _squareOf(BuildContext context) =>
+      FileIconSize.of(FcTheme.of(context).metrics, AppScope.maybeRead(context)?.fileIcons);
 
   @override
   Widget build(BuildContext context) {
@@ -311,27 +326,30 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
         child: ListView.builder(
           controller: _scroll,
           itemCount: rows.length,
-          itemExtent: _lineOf(theme),
-          itemBuilder: (context, index) => _row(theme, rows[index]),
+          itemExtent: _lineOf(context),
+          itemBuilder: (context, index) => _row(context, theme, rows[index]),
         ),
       ),
     );
   }
 
-  Widget _row(FcTheme theme, _Branch branch) {
+  /// Строка — **та же, что в дереве панели**: квадрат знака раскрытия
+  /// размером со значок, просвет `treeMarkGap`, значок объекта, просвет
+  /// `iconGap` и имя; шаг вглубь — квадрат с просветом. Два разных дерева в
+  /// одном приложении человек видит сразу (`docs/spec/panel-view-tree.md`, §4).
+  Widget _row(BuildContext context, FcTheme theme, _Branch branch) {
     final metrics = theme.metrics;
     final chosen = branch.path == widget.selected;
     final opened = _open.containsKey(branch.path);
     final colors = theme.colors;
     final icons = theme.icons;
     final style = chosen ? theme.rowStyle.copyWith(color: colors.cursorText) : theme.rowStyle;
+    final square = _squareOf(context);
 
-    // Знак раскрытия — **тот же глиф и тем же шрифтом**, что в дереве панели:
-    // два разных шеврона в одном приложении человек видит сразу
-    // (`docs/spec/panel-view-tree.md`, §4).
-    final mark = String.fromCharCode(
-      branch.leaf ? icons.file.codePoint : (opened ? icons.branchOpen.codePoint : icons.branchClosed.codePoint),
-    );
+    // Знак раскрытия — тот же глиф тем же шрифтом, что в панели. У файла его
+    // нет вовсе: место пустое, а значок файла стоит дальше, на своём месте.
+    final mark =
+        branch.leaf ? '' : String.fromCharCode(opened ? icons.branchOpen.codePoint : icons.branchClosed.codePoint);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -351,60 +369,75 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
           unawaited(_expand(branch.path));
         }
       },
-      child: Container(
-        height: _lineOf(theme),
-        color: chosen ? colors.cursorBackground : null,
-        // Шаг вглубь — квадрат знака вместе с просветом: знак дочерней ветви
-        // приходится серединой на середину родительского. То же, что в панели.
-        padding: EdgeInsets.only(
-          left: metrics.iconLeftPadding + branch.depth * (metrics.iconSize + metrics.treeMarkGap),
-        ),
-        alignment: Alignment.centerLeft,
-        child: Row(
-          children: [
-            SizedBox(
-              width: metrics.iconSize,
-              // По середине квадрата, а не по левому краю: глиф угла узкий.
-              child: Center(
-                child: Text(
-                  mark,
-                  style: TextStyle(
-                    fontFamily: icons.fontFamily,
-                    fontSize: metrics.fontSize,
-                    color: chosen ? colors.iconSelected : colors.icon,
+      child: Padding(
+        // Просвет под строкой — как в панели: подсветка курсора на строку, а
+        // не на шаг.
+        padding: EdgeInsets.only(bottom: metrics.rowGap),
+        child: Container(
+          color: chosen ? colors.cursorBackground : null,
+          padding: EdgeInsets.only(left: metrics.iconLeftPadding + branch.depth * (square + metrics.treeMarkGap)),
+          alignment: Alignment.centerLeft,
+          // Те же две поправки, что у строки панели: содержимое опущено
+          // относительно подсветки, а имя — относительно значка.
+          child: Transform.translate(
+            offset: Offset(0, metrics.rowContentVerticalNudge),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: square,
+                  // По середине квадрата, а не по левому краю: глиф угла узкий.
+                  child: Center(
+                    child: Text(
+                      mark,
+                      style: TextStyle(
+                        fontFamily: icons.fontFamily,
+                        fontSize: metrics.fontSize,
+                        color: chosen ? colors.iconSelected : colors.icon,
+                      ),
+                    ),
                   ),
                 ),
-              ),
+                SizedBox(width: metrics.treeMarkGap),
+                FileTypeIcon(entry: branch.entry, selected: chosen),
+                SizedBox(width: metrics.iconGap),
+                Flexible(
+                  child: Padding(
+                    padding: EdgeInsets.only(right: metrics.cellPadding),
+                    child: Transform.translate(
+                      offset: Offset(0, metrics.rowTextVerticalNudge),
+                      child:
+                          branch.head.isEmpty
+                              ? Text(
+                                branch.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                // Набором строки панели, а не окна: это список
+                                // объектов, и читается он теми же буквами, что
+                                // список в панели.
+                                style: style,
+                              )
+                              // Строка цепочки — той же подписью, что в панели:
+                              // голова приглушена к фону под ней, длинная
+                              // режется слева
+                              // (`docs/spec/panel-view-compact-tree.md`, §13).
+                              : FcChainName(
+                                head: branch.head,
+                                name: branch.name,
+                                style: style,
+                                headStyle: style.copyWith(
+                                  color: Color.lerp(
+                                    style.color,
+                                    chosen ? colors.cursorBackground : colors.dialogListBackground,
+                                    0.45,
+                                  ),
+                                ),
+                              ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            SizedBox(width: metrics.treeMarkGap),
-            Flexible(
-              child:
-                  branch.head.isEmpty
-                      ? Text(
-                        branch.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        // Набором строки панели, а не окна: это список
-                        // объектов, и читается он теми же буквами, что список в
-                        // панели.
-                        style: style,
-                      )
-                      // Строка цепочки — той же подписью, что в панели: голова
-                      // приглушена к фону под ней, длинная режется слева (§13).
-                      : FcChainName(
-                        head: branch.head,
-                        name: branch.name,
-                        style: style,
-                        headStyle: style.copyWith(
-                          color: Color.lerp(
-                            style.color,
-                            chosen ? colors.cursorBackground : colors.dialogListBackground,
-                            0.45,
-                          ),
-                        ),
-                      ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -413,9 +446,13 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
 
 /// Ветвь на экране: адрес, имя и глубина.
 class _Branch {
-  const _Branch({required this.path, required this.name, required this.depth, this.head = '', this.leaf = false});
+  const _Branch({required this.entry, required this.name, required this.depth, this.head = '', this.leaf = false});
 
-  final String path;
+  /// Объект строки — ради значка: тот же, что в панели.
+  final FileEntry entry;
+
+  String get path => entry.path;
+
   final String name;
   final int depth;
 
