@@ -4,6 +4,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import 'chain_name.dart';
 import 'fc_theme.dart';
 import 'plate.dart';
 
@@ -26,7 +27,14 @@ class FcDirectoryTree extends StatefulWidget {
     required this.selected,
     required this.onSelected,
     this.shows,
+    this.compact = false,
   });
+
+  /// Склеивать цепочки: каталог, в котором ровно один каталог, стоит одной
+  /// строкой с ним — `src/main/java/com/acme`
+  /// (`docs/spec/panel-view-compact-tree.md`, §13). Выключен — дерево ровно
+  /// прежнее.
+  final bool compact;
 
   /// С чего начинается дерево: адрес корня.
   ///
@@ -114,12 +122,55 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
         _root = real;
         if (chosenRoot) {
           // Корень — ветвь, а не файл: настоящий адрес дома узнали и сказали.
-          widget.onSelected(real, false);
+          _choose(real, false);
         }
       } else {
         _open[path] = children;
       }
     });
+
+    if (!widget.compact) {
+      return;
+    }
+    // Выбранное могло уйти в цепочку — тогда оно переезжает на её строку:
+    // выделенной должна быть та строка, чьё место стоит в окне (§13).
+    _followChain();
+    // Свежее раскрытие идёт по цепочке дальше: внутри один каталог — он
+    // раскрывается тоже, до развилки. Корень не склеивается, и за него не
+    // идём. Прочитанное **сейчас**: свёрнутое человеком само не раскроется —
+    // сюда оно не попадает.
+    if (path != _root && real.isEmpty && children.length == 1 && children.single.kind == EntryKind.directory) {
+      unawaited(_expand(children.single.path));
+    }
+  }
+
+  /// Выбранный адрес, поглощённый цепочкой, — на её строку.
+  void _followChain() {
+    final row = _shownAs[_chosen];
+    if (row != null) {
+      _choose(row, false);
+    }
+  }
+
+  /// Последний выбор — свой, а не из параметра.
+  ///
+  /// Выбор уходит наверх, а возвращается параметром только со следующим
+  /// кадром; ветвь же прочитаться успевает раньше. Сверяйся склейка с
+  /// параметром — она видела бы прежний выбор, и выбранный каталог, ушедший в
+  /// цепочку, так и остался бы без строки (§13).
+  late String _chosen = widget.selected;
+
+  void _choose(String path, bool isFile) {
+    _chosen = path;
+    widget.onSelected(path, isFile);
+  }
+
+  @override
+  void didUpdateWidget(FcDirectoryTree oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selected != oldWidget.selected) {
+      _chosen = widget.selected;
+    }
   }
 
   void _collapse(String path) {
@@ -130,17 +181,50 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
   }
 
   /// Строки дерева сверху вниз: корень и всё, что раскрыто под ним.
-  List<_Branch> get _rows {
+  List<_Branch> get _rows => _layout().$1;
+
+  /// Поглощённый цепочкой адрес → адрес строки, которой он показан.
+  Map<String, String> get _shownAs => _layout().$2;
+
+  (List<_Branch>, Map<String, String>) _layout() {
     final rows = <_Branch>[_Branch(path: _root, name: widget.rootTitle, depth: 0)];
+    final shownAs = <String, String>{};
     void walk(String path, int depth) {
-      for (final entry in _open[path] ?? const <FileEntry>[]) {
-        rows.add(_Branch(path: entry.path, name: entry.name, depth: depth, leaf: !entry.canEnter));
+      for (final top in _open[path] ?? const <FileEntry>[]) {
+        var entry = top;
+        final head = <String>[];
+        // Цепочка (§13): раскрытый прочитанный каталог с единственным каталогом
+        // внутри поглощается им. Ссылка и файл цепочку обрывают, закрытый
+        // каталог её завершает.
+        if (widget.compact) {
+          while (entry.kind == EntryKind.directory) {
+            final inside = _open[entry.path];
+            if (inside == null || inside.length != 1 || inside.single.kind != EntryKind.directory) {
+              break;
+            }
+            head.add(entry.name);
+            shownAs[entry.path] = inside.single.path;
+            entry = inside.single;
+          }
+        }
+        rows.add(
+          _Branch(path: entry.path, name: entry.name, head: head.join('/'), depth: depth, leaf: !entry.canEnter),
+        );
         walk(entry.path, depth + 1);
       }
     }
 
     walk(_root, 1);
-    return rows;
+    // Цепочка из трёх и больше звеньев сказала о каждом поглощённом лишь
+    // следующее звено — доводим до строки, которой он показан.
+    for (final key in shownAs.keys.toList()) {
+      var at = shownAs[key]!;
+      for (var next = shownAs[at]; next != null; next = shownAs[at]) {
+        at = next;
+      }
+      shownAs[key] = at;
+    }
+    return (rows, shownAs);
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
@@ -189,7 +273,7 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
     if (at < 0 || at >= rows.length) {
       return;
     }
-    widget.onSelected(rows[at].path, rows[at].leaf);
+    _choose(rows[at].path, rows[at].leaf);
     _show(at);
   }
 
@@ -240,6 +324,7 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
     final opened = _open.containsKey(branch.path);
     final colors = theme.colors;
     final icons = theme.icons;
+    final style = chosen ? theme.rowStyle.copyWith(color: colors.cursorText) : theme.rowStyle;
 
     // Знак раскрытия — **тот же глиф и тем же шрифтом**, что в дереве панели:
     // два разных шеврона в одном приложении человек видит сразу
@@ -252,7 +337,7 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
       behavior: HitTestBehavior.opaque,
       onTap: () {
         _keys.requestFocus();
-        widget.onSelected(branch.path, branch.leaf);
+        _choose(branch.path, branch.leaf);
         if (branch.leaf) {
           // В файл не входят: щелчок по нему только выбирает.
           return;
@@ -293,14 +378,31 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
             ),
             SizedBox(width: metrics.treeMarkGap),
             Flexible(
-              child: Text(
-                branch.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                // Набором строки панели, а не окна: это список объектов, и
-                // читается он теми же буквами, что список в панели.
-                style: chosen ? theme.rowStyle.copyWith(color: colors.cursorText) : theme.rowStyle,
-              ),
+              child:
+                  branch.head.isEmpty
+                      ? Text(
+                        branch.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        // Набором строки панели, а не окна: это список
+                        // объектов, и читается он теми же буквами, что список в
+                        // панели.
+                        style: style,
+                      )
+                      // Строка цепочки — той же подписью, что в панели: голова
+                      // приглушена к фону под ней, длинная режется слева (§13).
+                      : FcChainName(
+                        head: branch.head,
+                        name: branch.name,
+                        style: style,
+                        headStyle: style.copyWith(
+                          color: Color.lerp(
+                            style.color,
+                            chosen ? colors.cursorBackground : colors.dialogListBackground,
+                            0.45,
+                          ),
+                        ),
+                      ),
             ),
           ],
         ),
@@ -311,11 +413,15 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
 
 /// Ветвь на экране: адрес, имя и глубина.
 class _Branch {
-  const _Branch({required this.path, required this.name, required this.depth, this.leaf = false});
+  const _Branch({required this.path, required this.name, required this.depth, this.head = '', this.leaf = false});
 
   final String path;
   final String name;
   final int depth;
+
+  /// Имена каталогов, поглощённых строкой, через `/`; пусто — строка сама по
+  /// себе.
+  final String head;
 
   /// Файл: внутрь него не входят, и знака раскрытия у него нет.
   final bool leaf;

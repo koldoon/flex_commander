@@ -316,6 +316,10 @@ class _FileFormState extends State<_FileForm> {
                           selected: state.selected,
                           shows: state.picks,
                           onSelected: state.choose,
+                          // Глубокий путь — одной строкой: место выбирают в
+                          // развилках, а не в ступенях
+                          // (`docs/spec/panel-view-compact-tree.md`, §13).
+                          compact: true,
                         ),
                       ),
                     ),
