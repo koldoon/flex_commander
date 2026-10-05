@@ -1,0 +1,43 @@
+name: fc_s3
+description: "Хранилища S3: AWS, MinIO, Google Storage и прочие совместимые — источник по адресу s3://."
+publish_to: 'none'
+version: 1.0.0
+
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  fc_api:
+    path: ../api
+
+  fc_core_api:
+    path: ../core_api
+
+  path: ^1.9.0
+
+  # Подпись SigV4: SHA-256 и HMAC. Своим кодом их не пишем — это ровно то
+  # место, где самодельное ошибается молча.
+  crypto: ^3.0.3
+
+  # Ответы хранилища — XML: листинги страницами, ошибки, итоги многочастной
+  # загрузки.
+  xml: ^7.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  fc_test_kit:
+    path: ../test_kit
+
+  # Круг через настоящий движок переноса: диск — с одной стороны.
+  flex_commander:
+    path: ../..
+
+  fc_local_fs:
+    path: ../local_fs

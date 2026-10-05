@@ -22,6 +22,7 @@ import 'package:fc_navigation/fc_navigation.dart';
 import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_pdf_viewer/fc_pdf_viewer.dart';
 import 'package:fc_places/fc_places.dart';
+import 'package:fc_s3/fc_s3.dart';
 import 'package:fc_search/fc_search.dart';
 import 'package:fc_ssh/fc_ssh.dart';
 import 'package:fc_tar/fc_tar.dart';
@@ -124,6 +125,10 @@ List<FcModule> featureModules() => [
   // канал данных при FTPS не шифруется, а сертификат принимается любой
   // (`docs/spec/ftp.md`, §8).
   const FtpFileSystem(),
+  // Третий источник по адресу — хранилища S3. Клиент свой, на dart:io, с
+  // подписью SigV4; соединение — в адресе, как у ssh и ftp
+  // (`docs/spec/s3.md`, §5).
+  const S3FileSystem(),
   // Оболочка просмотра занимает место заглушки на F3; просмотрщики объявляют
   // себя ей в реестр. Первая выбирает, вторые показывают.
   const Viewer(),

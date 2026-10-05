@@ -53,6 +53,7 @@ workspace:
   # просмотрщике разрывается между строками. Членство в воркспейсе и есть
   # подмена — все, кто просит re_editor, получают её.
   - dependency/re_editor
+  - dependency/s3
   - dependency/search
   - dependency/ssh
   - dependency/tar
@@ -113,6 +114,11 @@ dependencies:
 
   fc_ftp:
     path: dependency/ftp
+
+  # Хранилища S3: AWS, MinIO, Google Storage — источником по адресу
+  # `s3://` (`docs/spec/s3.md`).
+  fc_s3:
+    path: dependency/s3
 
   fc_history:
     path: dependency/history
