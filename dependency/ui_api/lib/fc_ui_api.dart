@@ -63,4 +63,5 @@ export 'src/os/system_fonts.dart';
 export 'src/os/system_icons.dart';
 export 'src/os/system_images.dart';
 export 'src/os/system_pdf.dart';
+export 'src/os/system_video.dart';
 export 'src/os/window_service.dart';

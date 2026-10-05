@@ -41,6 +41,7 @@ import '../modules/fonts/system_fonts.dart';
 import '../modules/icons/system_icons.dart';
 import '../modules/images/system_images.dart';
 import '../modules/pdf/system_pdf.dart';
+import '../modules/video/system_video.dart';
 
 /// Из чего собрано приложение.
 ///
@@ -113,6 +114,9 @@ List<FcModule> featureModules() => [
   // PDF силами системы: документ держит раннер, просмотрщик просит нарисовать
   // видимые страницы (`docs/spec/pdf-viewer.md`, §3).
   const SystemPdfRendering(),
+  // Видео силами системы: плеер держит раннер, кадры идут в текстуру
+  // (`docs/spec/video-viewer.md`, §3).
+  const SystemVideoPlayback(),
   const FileIconRules(),
   const ZipArchiver(),
   const SevenZipArchiver(),

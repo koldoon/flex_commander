@@ -1,3 +1,4 @@
+import AVFoundation
 import Cocoa
 import FlutterMacOS
 import PDFKit
@@ -17,6 +18,9 @@ class MainFlutterWindow: NSWindow, NSDraggingDestination {
 
   /// Документы PDF, которые показывает просмотрщик. Живёт столько же.
   private var systemPdf: SystemPdf?
+
+  /// Ролики, которые играет просмотрщик видео. Живёт столько же.
+  private var systemVideo: SystemVideo?
 
   /// Что приложение знает о самом себе: версия, место на диске, процессор.
   private var appBuild: AppBuild?
@@ -55,6 +59,11 @@ class MainFlutterWindow: NSWindow, NSDraggingDestination {
     // Страницы PDF: документ разбирает и держит система, Dart просит
     // нарисовать видимое (`docs/spec/pdf-viewer.md`, §3).
     systemPdf = SystemPdf(messenger: flutterViewController.engine.binaryMessenger)
+
+    // Видео: плеер держит система, кадры идут в текстуру Flutter, Dart держит
+    // ручку (`docs/spec/video-viewer.md`, §3). Текстуры регистрируются через
+    // регистратор — у голого канала их нет.
+    systemVideo = SystemVideo(registrar: flutterViewController.registrar(forPlugin: "SystemVideo"))
 
     // Своя версия и своё место на диске. Из Flutter их не узнать: версия лежит
     // в `Info.plist` бандла, а путь к бандлу знает только он сам
@@ -1396,5 +1405,265 @@ final class SystemAccent {
       value = (a << 24) | (r << 16) | (g << 8) | b
     }
     return value
+  }
+}
+
+/// Видео силами системы (`docs/spec/video-viewer.md`, §3).
+///
+/// Плееры живут здесь под ручкой; Dart держит ручку и номер текстуры. Кадры не
+/// едут через канал: движок берёт пиксельный буфер сам, из `VideoPlayer`.
+final class SystemVideo {
+  static let channelName = "flex_commander/video"
+
+  private let channel: FlutterMethodChannel
+  private let textures: FlutterTextureRegistry
+
+  /// Открытые плееры. Трогается только с главной нити.
+  private var players: [Int: VideoPlayer] = [:]
+  private var nextHandle = 1
+
+  init(registrar: FlutterPluginRegistrar) {
+    textures = registrar.textures
+    channel = FlutterMethodChannel(name: SystemVideo.channelName, binaryMessenger: registrar.messenger)
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard let self = self else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      self.handle(call, result)
+    }
+  }
+
+  private func handle(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) {
+    let arguments = call.arguments as? [String: Any] ?? [:]
+
+    if call.method == "open" {
+      guard let path = arguments["path"] as? String else {
+        result(nil)
+        return
+      }
+      open(path, result)
+      return
+    }
+
+    guard let handle = arguments["handle"] as? Int else {
+      result(nil)
+      return
+    }
+
+    if call.method == "close" {
+      players.removeValue(forKey: handle)?.close()
+      result(nil)
+      return
+    }
+
+    // Плеер уже закрыт: показ ушёл, а запрос догнал его. Не ошибка — отвечать
+    // просто нечем.
+    guard let player = players[handle] else {
+      result(nil)
+      return
+    }
+
+    switch call.method {
+    case "play":
+      player.player.play()
+      result(nil)
+    case "pause":
+      player.player.pause()
+      result(nil)
+    case "seek":
+      let seconds = arguments["seconds"] as? Double ?? 0
+      let time = CMTime(seconds: seconds, preferredTimescale: 600)
+      // Без допуска: иначе система встаёт на ближайший опорный кадр, и шаг
+      // на кадр не работает.
+      player.player.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero) { _ in
+        result(nil)
+      }
+    case "step":
+      player.player.pause()
+      player.player.currentItem?.step(byCount: arguments["frames"] as? Int ?? 1)
+      result(nil)
+    case "volume":
+      player.player.volume = Float(arguments["volume"] as? Double ?? 1)
+      result(nil)
+    case "muted":
+      player.player.isMuted = arguments["muted"] as? Bool ?? false
+      result(nil)
+    case "state":
+      result(player.state())
+    default:
+      result(FlutterMethodNotImplemented)
+    }
+  }
+
+  private func open(_ path: String, _ result: @escaping FlutterResult) {
+    let asset = AVURLAsset(url: URL(fileURLWithPath: path))
+    Task {
+      let answer: [String: Any]
+      do {
+        let (playable, duration) = try await asset.load(.isPlayable, .duration)
+        let video = try await asset.loadTracks(withMediaType: .video).first
+        guard playable else {
+          answer = ["refused": "unplayable"]
+          await MainActor.run { result(answer) }
+          return
+        }
+        guard let video = video else {
+          answer = ["refused": "noVideo"]
+          await MainActor.run { result(answer) }
+          return
+        }
+        let (natural, transform, frameRate, formats) = try await video.load(
+          .naturalSize, .preferredTransform, .nominalFrameRate, .formatDescriptions)
+        var bitRate = Double(try await video.load(.estimatedDataRate))
+        var audioCodecs: [String] = []
+        for audio in try await asset.loadTracks(withMediaType: .audio) {
+          let (rate, audioFormats) = try await audio.load(.estimatedDataRate, .formatDescriptions)
+          bitRate += Double(rate)
+          if let format = audioFormats.first {
+            audioCodecs.append(SystemVideo.fourCC(CMFormatDescriptionGetMediaSubType(format)))
+          }
+        }
+        // Поворот — четвертями оборота: кадры текстуры приходят такими, какими
+        // записаны, а повернуть их Dart может только так.
+        let angle = atan2(transform.b, transform.a)
+        let quarterTurns = (Int((angle / (.pi / 2)).rounded()) % 4 + 4) % 4
+        let shown = quarterTurns % 2 == 1 ? CGSize(width: natural.height, height: natural.width) : natural
+        answer = [
+          "width": Double(shown.width),
+          "height": Double(shown.height),
+          "quarterTurns": quarterTurns,
+          "duration": duration.seconds.isFinite ? duration.seconds : 0,
+          "videoCodec": formats.first.map { SystemVideo.fourCC(CMFormatDescriptionGetMediaSubType($0)) } ?? "",
+          "audioCodecs": audioCodecs,
+          "frameRate": Double(frameRate),
+          "bitRate": bitRate,
+        ]
+      } catch {
+        await MainActor.run { result(["refused": "unplayable"]) }
+        return
+      }
+      await MainActor.run {
+        let player = VideoPlayer(asset: asset, textures: self.textures)
+        let handle = self.nextHandle
+        self.nextHandle += 1
+        self.players[handle] = player
+        var opened = answer
+        opened["handle"] = handle
+        opened["texture"] = player.textureId
+        result(opened)
+      }
+    }
+  }
+
+  /// Код кодека строкой: `avc1`, `hvc1`, `aac `.
+  static func fourCC(_ code: FourCharCode) -> String {
+    let bytes = [24, 16, 8, 0].map { UInt8((code >> $0) & 0xFF) }
+    return String(bytes: bytes, encoding: .ascii)?.trimmingCharacters(in: .whitespaces) ?? ""
+  }
+}
+
+/// Один плеер и его текстура.
+///
+/// Кадры снимает `AVPlayerItemVideoOutput`; движок забирает их сам через
+/// `copyPixelBuffer` на своей нити, а о новом кадре узнаёт от display link — в
+/// такт экрану, а не таймером.
+final class VideoPlayer: NSObject, FlutterTexture {
+  let player: AVPlayer
+  private(set) var textureId: Int64 = 0
+
+  private let output: AVPlayerItemVideoOutput
+  private let textures: FlutterTextureRegistry
+  private var displayLink: CVDisplayLink?
+
+  /// Последний снятый кадр: его отдают, пока нового нет. Под замком — его
+  /// читает нить движка, а пишет она же и display link.
+  private var latest: CVPixelBuffer?
+  private let lock = NSLock()
+
+  init(asset: AVAsset, textures: FlutterTextureRegistry) {
+    self.textures = textures
+    output = AVPlayerItemVideoOutput(pixelBufferAttributes: [
+      kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+      kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any](),
+      kCVPixelBufferMetalCompatibilityKey as String: true,
+    ])
+    let item = AVPlayerItem(asset: asset)
+    item.add(output)
+    player = AVPlayer(playerItem: item)
+    // Доиграл — стоит на последнем кадре, а не уходит в чёрное.
+    player.actionAtItemEnd = .pause
+    super.init()
+    textureId = textures.register(self)
+    startDisplayLink()
+  }
+
+  private func startDisplayLink() {
+    var link: CVDisplayLink?
+    CVDisplayLinkCreateWithActiveCGDisplays(&link)
+    guard let link = link else {
+      return
+    }
+    let context = Unmanaged.passUnretained(self).toOpaque()
+    CVDisplayLinkSetOutputCallback(link, { _, _, _, _, _, context in
+      guard let context = context else {
+        return kCVReturnSuccess
+      }
+      let player = Unmanaged<VideoPlayer>.fromOpaque(context).takeUnretainedValue()
+      player.tick()
+      return kCVReturnSuccess
+    }, context)
+    CVDisplayLinkStart(link)
+    displayLink = link
+  }
+
+  /// Такт экрана: есть новый кадр — сказать движку.
+  private func tick() {
+    let time = output.itemTime(forHostTime: CACurrentMediaTime())
+    guard output.hasNewPixelBuffer(forItemTime: time) else {
+      return
+    }
+    let id = textureId
+    DispatchQueue.main.async { [weak self] in
+      self?.textures.textureFrameAvailable(id)
+    }
+  }
+
+  func copyPixelBuffer() -> Unmanaged<CVPixelBuffer>? {
+    let time = output.itemTime(forHostTime: CACurrentMediaTime())
+    lock.lock()
+    defer { lock.unlock() }
+    if output.hasNewPixelBuffer(forItemTime: time),
+      let fresh = output.copyPixelBuffer(forItemTime: time, itemTimeForDisplay: nil)
+    {
+      latest = fresh
+    }
+    guard let frame = latest else {
+      return nil
+    }
+    return Unmanaged.passRetained(frame)
+  }
+
+  /// Где плеер сейчас — для плашки времени.
+  func state() -> [String: Any] {
+    let position = player.currentTime().seconds
+    let duration = player.currentItem?.duration.seconds ?? 0
+    let ended = duration.isFinite && duration > 0 && position >= duration - 0.01
+    return [
+      "position": position.isFinite ? position : 0,
+      "playing": player.rate != 0,
+      "ended": ended,
+    ]
+  }
+
+  /// Отпустить: звук смолкает, такт останавливается, текстура снимается.
+  func close() {
+    player.pause()
+    player.replaceCurrentItem(with: nil)
+    if let link = displayLink {
+      CVDisplayLinkStop(link)
+    }
+    displayLink = nil
+    textures.unregisterTexture(textureId)
   }
 }

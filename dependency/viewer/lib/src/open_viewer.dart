@@ -32,6 +32,7 @@ Future<ViewerContent> openViewer(
   Future<void> Function()? checkpoint,
   List<FileEntry> siblings = const [],
   NodeSource Function(FileEntry entry)? sourceOf,
+  String? localPath,
 }) async {
   // Тип по содержимому — подсказка, а не условие: он известен, когда строку уже
   // читали ради иконки, и тогда решает он. Ждать его здесь нельзя — показ
@@ -50,6 +51,7 @@ Future<ViewerContent> openViewer(
     checkpoint: checkpoint ?? _never,
     siblings: siblings,
     sourceOf: sourceOf,
+    localPath: localPath,
   );
 
   for (final spec in app.viewers) {

@@ -27,6 +27,7 @@ class ViewerRequest {
     required this.place,
     required this.checkpoint,
     this.siblings = const [],
+    this.localPath,
     NodeSource Function(FileEntry entry)? sourceOf,
   }) : _sourceOf = sourceOf;
 
@@ -45,6 +46,15 @@ class ViewerRequest {
   final Content content;
 
   final ViewerPlace place;
+
+  /// Путь к файлу на настоящей файловой системе; null — файл в архиве, на
+  /// сервере или ещё где-то, куда системе дороги нет.
+  ///
+  /// Нужен тому, кто читает файл не потоком, а сам: проигрыватель видео
+  /// открывает ролик по пути, и копировать гигабайты, лежащие рядом, незачем
+  /// (`docs/spec/video-viewer.md`, §4). Признак тот же, по которому `Cmd-O`
+  /// решает, есть ли что отдать системе.
+  final String? localPath;
 
   /// Соседи по списку — то, что показано в панели рядом.
   ///
