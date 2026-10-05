@@ -73,6 +73,14 @@ void main() {
       expect(find.textContaining('#'), findsNothing);
     });
 
+    testWidgets('поля слева и справа — из contentPadding', (tester) async {
+      await pump(tester, 'Просто абзац.\n', contentPadding: const EdgeInsets.symmetric(horizontal: 24));
+
+      final view = tester.getRect(find.byType(FcMarkdownView));
+      final text = tester.getRect(find.text('Просто абзац.'));
+      expect(text.left - view.left, moreOrLessEquals(24, epsilon: 1), reason: 'текст не прижат к краю окна');
+    });
+
     testWidgets('в таблице текст прижат влево и вверх', (tester) async {
       // У правой ячейки три строки, у левой одна: по середине высоты они
       // разъехались бы.

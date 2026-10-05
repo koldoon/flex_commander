@@ -65,7 +65,8 @@ class FcMarkdownView extends StatefulWidget {
   /// Отступ **каждого** блока: им разносят абзацы между собой.
   final EdgeInsets blockPadding;
 
-  /// Отступ всего документа — сверху и снизу один раз, а не у каждого блока.
+  /// Отступ всего документа — сверху и снизу один раз, а не у каждого блока;
+  /// слева и справа — сверх полей от [contentWidthFactor].
   ///
   /// Документ должен читаться документом, а не сплошным текстом от края до
   /// края: поля сверху и снизу для того и нужны.
@@ -376,7 +377,9 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
       // Поля по краям — отступом списка, а не рамкой вокруг него: полоса
       // прокрутки должна остаться у края области, а не ехать вместе с текстом.
       final side = (available * (1 - factor) / 2).floorToDouble();
-      final width = available - side * 2;
+      final left = side + widget.contentPadding.left;
+      final right = side + widget.contentPadding.right;
+      final width = available - left - right;
 
       if (width != _width) {
         _width = width;
@@ -399,7 +402,7 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
                 if (_origin > 0)
                   SliverPadding(
                     // Поле документа сверху — над **первым** блоком, а он здесь.
-                    padding: EdgeInsets.only(top: widget.contentPadding.top, left: side, right: side),
+                    padding: EdgeInsets.only(top: widget.contentPadding.top, left: left, right: right),
                     sliver: SliverList(
                       // Отсчёт вверх: нулевой ребёнок — блок прямо над началом.
                       delegate: SliverChildBuilderDelegate(
@@ -414,8 +417,8 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
                     // А если начинают с самого начала, то первый блок — здесь.
                     top: _origin == 0 ? widget.contentPadding.top : 0,
                     bottom: widget.contentPadding.bottom,
-                    left: side,
-                    right: side,
+                    left: left,
+                    right: right,
                   ),
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate(

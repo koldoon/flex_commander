@@ -65,7 +65,12 @@ class _MultiRenameHelpState extends State<MultiRenameHelp> {
         document: _document,
         autofocus: true,
         blockPadding: EdgeInsets.symmetric(vertical: metrics.dialogLineGap),
-        contentPadding: EdgeInsets.all(metrics.dialogPadding),
+        // Поля окна — те же, что у заголовка и форм: текст стоит на одной
+        // вертикали с названием окна.
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: metrics.dialogHorizontalPadding,
+          vertical: metrics.dialogPadding,
+        ),
         headingSpacing: metrics.dialogSectionGap * 2,
       ),
     );
