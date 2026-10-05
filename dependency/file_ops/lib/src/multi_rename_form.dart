@@ -309,24 +309,37 @@ class RenamePreviewTable extends StatelessWidget {
     final strings = context.strings;
     final line = theme.metrics.rowHeight;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(children: [Expanded(child: FcLabel(strings.tr('Was'))), Expanded(child: FcLabel(strings.tr('Becomes')))]),
-        SizedBox(height: theme.metrics.dialogLineGap),
-        Expanded(
-          // Плашка — та же, какой обведены все списки в окнах; вплотную:
-          // строка упирается в её края.
-          child: FcPlate(
-            tight: true,
+    // Шапка — внутри плашки, первой строкой на тёмной полосе, как у таблицы в
+    // документе: снаружи над плашкой подписи читались отдельными метками, а не
+    // заголовками столбцов. Линеек между строками нет — плашка и так держит
+    // таблицу, а строки различает подсветка цветом.
+    final head = theme.dialogTextStyle.copyWith(fontWeight: FontWeight.bold, color: theme.colors.dialogLabel);
+    return FcPlate(
+      tight: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            height: line,
+            color: theme.colors.dialogListHeaderBackground,
+            padding: EdgeInsets.symmetric(horizontal: theme.metrics.dialogPadding),
+            child: Row(
+              children: [
+                Expanded(child: Text(strings.tr('Was'), style: head)),
+                SizedBox(width: theme.metrics.dialogGap),
+                Expanded(child: Text(strings.tr('Becomes'), style: head)),
+              ],
+            ),
+          ),
+          Expanded(
             child: ListView.builder(
               itemCount: plan.rows.length,
               itemExtent: line,
               itemBuilder: (context, index) => _row(context, plan.rows[index]),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -346,6 +359,9 @@ class RenamePreviewTable extends StatelessWidget {
       child: Row(
         children: [
           Expanded(child: FcTrimmedText(text: row.from, style: style)),
+          // Просвет между столбцами: длинное имя слева иначе упиралось в
+          // начало правого, и два имени читались одним.
+          SizedBox(width: theme.metrics.dialogGap),
           Expanded(child: FcTrimmedText(text: row.to, style: style)),
         ],
       ),

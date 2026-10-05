@@ -137,6 +137,17 @@ abstract class FcColors {
 
   Color get dialogListBorder => inputBorder;
 
+  /// Строка заголовков таблицы на плашке — «Было | Станет» группового
+  /// переименования.
+  ///
+  /// Темнее самой плашки, чтобы заголовки читались шапкой, а не первой строкой
+  /// данных: линеек между строками у такой таблицы нет. По умолчанию — плашка,
+  /// **положенная на фон окна** (у оформлений macOS она полупрозрачная, и
+  /// затемнять её саму значило бы затемнять и то, что под ней), под чёрным: в
+  /// тёмном оформлении на четверть — меньше шаг не виден, в светлом на 6 % —
+  /// больше шапка становится серой полосой.
+  Color get dialogListHeaderBackground => _shadedPlate(dialogListBackground, dialogBackground);
+
   // --- кнопки окна команды ---
 
   Color get buttonBackground;
@@ -272,4 +283,12 @@ abstract class FcColors {
   Color get progress;
 
   Color get error;
+}
+
+/// Плашка на фоне окна, затемнённая под шапку таблицы
+/// ([FcColors.dialogListHeaderBackground]).
+Color _shadedPlate(Color plate, Color ground) {
+  final flat = Color.alphaBlend(plate, ground);
+  final shade = flat.computeLuminance() > 0.5 ? 0x0F : 0x40;
+  return Color.alphaBlend(Color.fromARGB(shade, 0, 0, 0), flat);
 }

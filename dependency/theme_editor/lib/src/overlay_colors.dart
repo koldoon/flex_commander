@@ -141,6 +141,9 @@ class OverlayColors implements FcColors {
   Color get dialogListBorder => overrides['dialogListBorder'] ?? base.dialogListBorder;
 
   @override
+  Color get dialogListHeaderBackground => overrides['dialogListHeaderBackground'] ?? base.dialogListHeaderBackground;
+
+  @override
   Color get buttonBackground => overrides['buttonBackground'] ?? base.buttonBackground;
 
   @override

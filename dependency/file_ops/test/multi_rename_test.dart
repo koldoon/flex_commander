@@ -90,6 +90,32 @@ void main() {
     expect(find.text('IMG_0041.JPG'), findsWidgets, reason: 'левая колонка — как есть');
   });
 
+  testWidgets('шапка таблицы — внутри плашки, на своей полосе', (tester) async {
+    await markPhotos(tester);
+    await pumpDialog(tester);
+
+    final plate = find.byType(FcPlate);
+    expect(find.descendant(of: plate, matching: find.text('Was')), findsOneWidget);
+    expect(find.descendant(of: plate, matching: find.text('Becomes')), findsOneWidget);
+
+    final band = find.ancestor(of: find.text('Was'), matching: find.byType(Container)).first;
+    final colors = FcTheme.of(tester.element(plate)).colors;
+    expect(tester.widget<Container>(band).color, colors.dialogListHeaderBackground);
+    expect(
+      tester.getTopLeft(find.text('Was')).dy,
+      lessThan(tester.getTopLeft(find.text('IMG_0041.JPG').first).dy),
+      reason: 'шапка над строками',
+    );
+
+    final left = tester.getRect(find.byType(FcTrimmedText).first);
+    final metrics = FcTheme.of(tester.element(plate)).metrics;
+    expect(
+      tester.getTopLeft(find.text('Becomes')).dx - left.right,
+      greaterThanOrEqualTo(metrics.dialogGap),
+      reason: 'между столбцами просвет: длинные имена не сливаются',
+    );
+  });
+
   testWidgets('набранная маска сразу видна в правой колонке', (tester) async {
     await markPhotos(tester);
     await pumpDialog(tester);
