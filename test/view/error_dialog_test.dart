@@ -83,7 +83,7 @@ void main() {
 
     // Закрывают крестиком в полосе заголовка: своей кнопки «Close» у окна
     // больше нет — ряд ради одного слова отнимал бы полосу высоты.
-    Finder cross() => find.descendant(of: find.byType(DialogFrame), matching: find.byType(CustomPaint)).first;
+    Finder cross() => find.descendant(of: find.byType(DialogFrame), matching: find.byKey(DialogFrame.closeKey));
 
     await tester.tap(cross());
     // Следующая ошибка — новое окно стопки: встаёт следующим кадром.

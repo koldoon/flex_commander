@@ -96,6 +96,15 @@ abstract class FcIcons {
 
   /// Место внутри архива.
   IconData get archive;
+
+  // Знаки полосы заголовка окна: рядом друг с другом, и потому из одного
+  // набора и одного веса.
+
+  /// Закрыть окно — то же, что `Esc`.
+  IconData get close;
+
+  /// Справка окна — то же, что `F1` в нём.
+  IconData get help;
 }
 
 /// Роль по имени — для правил, приехавших из файла настроек.
@@ -128,6 +137,8 @@ extension FcIconRoles on FcIcons {
     'volume' => volume,
     'server' => server,
     'archive' => archive,
+    'close' => close,
+    'help' => help,
     _ => null,
   };
 }

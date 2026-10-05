@@ -21,6 +21,7 @@ dependencies:
 
   fc_ui_kit:
     path: ../ui_kit
+  font_awesome_flutter: ^11.0.0
 
 dev_dependencies:
   flutter_test:

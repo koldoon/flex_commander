@@ -22,8 +22,11 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 /// Рама не знает и о том, чьё это окно: кроме команд, ею пользуется вопрос о
 /// пароле, который задаёт не команда, а провайдер из глубины.
 class DialogFrame extends StatefulWidget {
-  /// Знак «?» в заголовке: он нарисован, и текстом его не найти.
+  /// Знак «?» в заголовке: он значок, и текстом его не найти.
   static const Key helpKey = ValueKey('dialogFrame.help');
+
+  /// Крестик в заголовке — по той же причине.
+  static const Key closeKey = ValueKey('dialogFrame.close');
 
   const DialogFrame({
     super.key,
@@ -313,10 +316,8 @@ class _DialogFrameState extends State<DialogFrame> {
 
   /// Знак справки — то же, что `F1` в окне, но мышью.
   ///
-  /// **Рисуется тем же штрихом, что и крестик** (см. [_close]): в той же
-  /// клетке, той же толщиной и с теми же полями. Знак шрифта рядом с
-  /// нарисованным крестиком выглядел жирнее — толщина у глифа своя, а пара
-  /// знаков в углу должна читаться одним рисунком.
+  /// Значком темы в паре с крестиком ([_close]): оба из одного набора, и в
+  /// углу окна читаются одним рисунком.
   Widget _help(FcTheme theme, FcMetrics metrics) {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -328,10 +329,7 @@ class _DialogFrameState extends State<DialogFrame> {
           message: context.strings.tr('Help'),
           child: Padding(
             padding: EdgeInsets.only(left: metrics.dialogGap),
-            child: CustomPaint(
-              size: Size.square(metrics.fontSize),
-              painter: _HelpSign(color: theme.colors.dialogTitleText, width: metrics.strokeWidth),
-            ),
+            child: Icon(theme.icons.help, size: metrics.fontSize, color: theme.colors.dialogTitleText),
           ),
         ),
       ),
@@ -344,24 +342,19 @@ class _DialogFrameState extends State<DialogFrame> {
   /// (`docs/spec/dialog-body.md`), а здесь место уже занято заголовком и
   /// пустует справа.
   ///
-  /// **Рисуется штрихом, а не глифом шрифта значков.** Крестик FontAwesome в
-  /// этом кегле жирен — он нарисован для кнопок, а не для полосы заголовка, — и
-  /// тоньше его не сделать: толщина у глифа своя. Два отрезка в ту же клетку
-  /// дают тонкий штрих и остаются чёткими на любом множителе экрана.
+  /// Значком темы, в паре со знаком справки ([_help]).
   Widget _close(FcTheme theme, FcMetrics metrics) {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         // Своим жестом, а не кнопкой: полоса заголовка ловит протяжку, и
         // кнопка внутри неё отбирала бы у окна возможность двигаться.
+        key: DialogFrame.closeKey,
         behavior: HitTestBehavior.opaque,
         onTap: widget.onDismiss,
         child: Padding(
           padding: EdgeInsets.only(left: metrics.dialogGap),
-          child: CustomPaint(
-            size: Size.square(metrics.fontSize),
-            painter: _CloseCross(color: theme.colors.dialogTitleText, width: metrics.strokeWidth),
-          ),
+          child: Icon(theme.icons.close, size: metrics.fontSize, color: theme.colors.dialogTitleText),
         ),
       ),
     );
@@ -946,84 +939,4 @@ class _RenderUnmeasuredTitle extends RenderProxyBox {
 
   @override
   double computeMaxIntrinsicWidth(double height) => 0;
-}
-
-/// Крестик двумя отрезками.
-///
-/// Своим рисованием, а не глифом: в шрифте значков он нарисован жирным, и
-/// толщину у глифа не отнять. Здесь она задана — линейкой темы, той же, какой
-/// отбиты рамки и линейки.
-class _CloseCross extends CustomPainter {
-  const _CloseCross({required this.color, required this.width});
-
-  final Color color;
-  final double width;
-
-  /// Поле внутри клетки: крестик не упирается в её края, иначе рядом с текстом
-  /// он выглядит крупнее, чем есть.
-  static const double _inset = 0.18;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint =
-        Paint()
-          ..color = color
-          ..strokeWidth = width
-          ..strokeCap = StrokeCap.round
-          ..isAntiAlias = true;
-    final from = size.width * _inset;
-    final to = size.width * (1 - _inset);
-    canvas.drawLine(Offset(from, from), Offset(to, to), paint);
-    canvas.drawLine(Offset(to, from), Offset(from, to), paint);
-  }
-
-  @override
-  bool shouldRepaint(_CloseCross old) => old.color != color || old.width != width;
-}
-
-/// Знак вопроса штрихом крестика: дуга крючка, короткая ножка и точка.
-///
-/// Высотой — от верхнего поля клетки до нижнего, как и крестик ([_CloseCross]),
-/// чтобы оба знака стояли на одной линии.
-class _HelpSign extends CustomPainter {
-  const _HelpSign({required this.color, required this.width});
-
-  final Color color;
-  final double width;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final unit = size.width;
-    final top = unit * _CloseCross._inset;
-    final bottom = unit * (1 - _CloseCross._inset);
-    final height = bottom - top;
-    // Снизу вверх: точка, просвет, ножка, крючок. Просвет меряется штрихами, а
-    // не долей клетки: в кегле заголовка доля выходила меньше пикселя, и
-    // точка сливалась с ножкой.
-    final dot = width * 0.85;
-    final dotCentre = Offset(unit / 2, bottom - width * 0.5);
-    final stemEnd = dotCentre.dy - dot - width * 1.5 - width * 0.5;
-    // Крючок — что осталось над ножкой; дуга опускается почти на два радиуса.
-    final radius = math.min(height * 0.3, (stemEnd - top - height * 0.1) / 2);
-    final centre = Offset(unit / 2, top + radius);
-    final paint =
-        Paint()
-          ..color = color
-          ..strokeWidth = width
-          ..strokeCap = StrokeCap.round
-          ..style = PaintingStyle.stroke
-          ..isAntiAlias = true;
-    // Крючок: от левого бока чуть выше середины — через верх и правый бок —
-    // вниз, к ножке под центром.
-    final hook =
-        Path()
-          ..addArc(Rect.fromCircle(center: centre, radius: radius), math.pi * 1.05, math.pi * 1.4)
-          ..lineTo(unit / 2, stemEnd);
-    canvas.drawPath(hook, paint);
-    // Точка — кружком чуть толще штриха, иначе она теряется.
-    canvas.drawCircle(dotCentre, dot, paint..style = PaintingStyle.fill);
-  }
-
-  @override
-  bool shouldRepaint(_HelpSign old) => old.color != color || old.width != width;
 }

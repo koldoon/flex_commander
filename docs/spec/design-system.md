@@ -176,6 +176,7 @@ Figma четырёх стилей хватало ровно потому, что
 | интерфейс | `Ubuntu` | `assets/fonts`, стоит и в системе |
 | список файлов | `Consolas` | `DefaultFonts.fixed`, стоит в `~/Library/Fonts` |
 | иконки | `FontAwesome` | `DefaultIcons.defaultFontFamily`, `assets/fonts` |
+| знаки заголовка окна | Font Awesome 7 Solid | пакет `font_awesome_flutter`, `DefaultIcons.close`/`help` |
 
 Больше в файле не набрано ничем: 593 слоя `Ubuntu`, 23 `Consolas`, 8
 `FontAwesome` — и это проверяется (§8, сверка).
@@ -790,6 +791,14 @@ FontAwesome в этом кегле жирен — он нарисован для
 
 В макете его пока нет — Sketch не подключён. Долг: крестик в полосе заголовка на
 `Components / 03 Surfaces`, рядом с окном. *Закрыт 1 октября — в самой раме.*
+
+**5 октября 2026 — крестик и «?» из Font Awesome 7.** Рядом с крестиком
+встал знак справки (`spec/multi-rename.md`, §14). Глиф шрифта рядом с
+нарисованным крестиком был жирнее, а нарисованный штрихом вопрос — чужим по
+рисунку. Оба знака теперь из одного набора — `xmark` и `question` Font Awesome 7
+Solid (пакет `font_awesome_flutter`, свои роли `FcIcons.close` и `help`). В
+FontAwesome 4.7, из которого остальные значки, `xmark` нет. Отрисованный
+крестик 17 сентября этим заменён.
 
 
 **16 сентября 2026 — значок приложения и macOS 26.** Значок нарисован заново,

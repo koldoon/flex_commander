@@ -690,7 +690,7 @@ void main() {
   testWidgets('крестик в заголовке закрывает окно', (tester) async {
     await openSettings(tester);
 
-    final cross = find.descendant(of: find.byType(DialogFrame), matching: find.byType(CustomPaint)).first;
+    final cross = find.descendant(of: find.byType(DialogFrame), matching: find.byKey(DialogFrame.closeKey));
     expect(cross, findsOneWidget, reason: 'мышью окно тоже надо чем-то закрывать');
 
     await tester.tap(cross);

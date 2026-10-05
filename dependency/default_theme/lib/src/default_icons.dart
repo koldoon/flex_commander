@@ -1,4 +1,5 @@
 import 'package:fc_ui_api/fc_ui_api.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter/widgets.dart';
 
 /// Иконки оформления по умолчанию — глифы FontAwesome, как в референсе
@@ -87,6 +88,16 @@ class DefaultIcons extends FcIcons {
   /// `fa-archive` — ящик.
   @override
   IconData get archive => _icon(0xf187);
+
+  /// `xmark` из Font Awesome 7, а не `fa-times` из 4.7: тот же знак в новом
+  /// наборе тоньше и стоит в одном рисунке с [help]. Шрифт у обоих — свой, из
+  /// пакета, а не [fontFamily] темы: в 4.7 `xmark` нет.
+  @override
+  IconData get close => FontAwesomeIcons.xmark.data;
+
+  /// `question` из Font Awesome 7 — пара к [close].
+  @override
+  IconData get help => FontAwesomeIcons.question.data;
 
   // Анализатор предлагает сделать IconData константой — но именно этого мы и
   // не хотим: шрифт берётся у темы, а она известна только во время работы.
