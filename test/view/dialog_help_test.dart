@@ -29,7 +29,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Finder helpSign() => find.descendant(of: find.byType(DialogFrame), matching: find.text('?'));
+  Finder helpSign() => find.descendant(of: find.byType(DialogFrame), matching: find.byKey(DialogFrame.helpKey));
 
   testWidgets('окно со справкой — знак «?», щелчок и F1 её зовут', (tester) async {
     await pumpApp(tester);

@@ -22,6 +22,9 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 /// Рама не знает и о том, чьё это окно: кроме команд, ею пользуется вопрос о
 /// пароле, который задаёт не команда, а провайдер из глубины.
 class DialogFrame extends StatefulWidget {
+  /// Знак «?» в заголовке: он нарисован, и текстом его не найти.
+  static const Key helpKey = ValueKey('dialogFrame.help');
+
   const DialogFrame({
     super.key,
     required this.onSubmit,
@@ -310,20 +313,25 @@ class _DialogFrameState extends State<DialogFrame> {
 
   /// Знак справки — то же, что `F1` в окне, но мышью.
   ///
-  /// Текстом в цвете и кегле заголовка, а не глифом значков: вопрос в шрифте
-  /// значков жирен, как и его крестик (см. [_close]), а знак текста стоит
-  /// рядом с крестиком на одной высоте.
+  /// **Рисуется тем же штрихом, что и крестик** (см. [_close]): в той же
+  /// клетке, той же толщиной и с теми же полями. Знак шрифта рядом с
+  /// нарисованным крестиком выглядел жирнее — толщина у глифа своя, а пара
+  /// знаков в углу должна читаться одним рисунком.
   Widget _help(FcTheme theme, FcMetrics metrics) {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
+        key: DialogFrame.helpKey,
         behavior: HitTestBehavior.opaque,
         onTap: widget.onHelp,
         child: FcTooltip(
           message: context.strings.tr('Help'),
           child: Padding(
             padding: EdgeInsets.only(left: metrics.dialogGap),
-            child: Text('?', style: theme.dialogTitleStyle),
+            child: CustomPaint(
+              size: Size.square(metrics.fontSize),
+              painter: _HelpSign(color: theme.colors.dialogTitleText, width: metrics.strokeWidth),
+            ),
           ),
         ),
       ),
@@ -971,4 +979,44 @@ class _CloseCross extends CustomPainter {
 
   @override
   bool shouldRepaint(_CloseCross old) => old.color != color || old.width != width;
+}
+
+/// Знак вопроса штрихом крестика: дуга крючка, короткая ножка и точка.
+///
+/// Высотой — от верхнего поля клетки до нижнего, как и крестик ([_CloseCross]),
+/// чтобы оба знака стояли на одной линии.
+class _HelpSign extends CustomPainter {
+  const _HelpSign({required this.color, required this.width});
+
+  final Color color;
+  final double width;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final unit = size.width;
+    final top = unit * _CloseCross._inset;
+    final bottom = unit * (1 - _CloseCross._inset);
+    final height = bottom - top;
+    final radius = height * 0.3;
+    final centre = Offset(unit / 2, top + radius);
+    final paint =
+        Paint()
+          ..color = color
+          ..strokeWidth = width
+          ..strokeCap = StrokeCap.round
+          ..style = PaintingStyle.stroke
+          ..isAntiAlias = true;
+    // Крючок: от левого бока чуть выше середины — через верх и правый бок —
+    // вниз, к ножке под центром.
+    final hook =
+        Path()
+          ..addArc(Rect.fromCircle(center: centre, radius: radius), math.pi * 1.05, math.pi * 1.4)
+          ..lineTo(unit / 2, top + height * 0.75);
+    canvas.drawPath(hook, paint);
+    // Точка — кружком в толщину штриха и чуть больше, иначе она теряется.
+    canvas.drawCircle(Offset(unit / 2, bottom - width * 0.5), width * 0.85, paint..style = PaintingStyle.fill);
+  }
+
+  @override
+  bool shouldRepaint(_HelpSign old) => old.color != color || old.width != width;
 }
