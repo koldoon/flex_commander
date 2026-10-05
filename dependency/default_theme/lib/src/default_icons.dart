@@ -1,5 +1,4 @@
 import 'package:fc_ui_api/fc_ui_api.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter/widgets.dart';
 
 /// Иконки оформления по умолчанию — глифы FontAwesome, как в референсе
@@ -89,15 +88,22 @@ class DefaultIcons extends FcIcons {
   @override
   IconData get archive => _icon(0xf187);
 
-  /// `xmark` из Font Awesome 7, а не `fa-times` из 4.7: тот же знак в новом
-  /// наборе тоньше и стоит в одном рисунке с [help]. Шрифт у обоих — свой, из
-  /// пакета, а не [fontFamily] темы: в 4.7 `xmark` нет.
+  /// `x` из Phosphor Light, а не `fa-times` из FontAwesome: рядом стоит
+  /// [help], и пара должна быть одной высоты и одной толщины линии. У Phosphor
+  /// значки построены одной линией на общей сетке — у FontAwesome вопрос и
+  /// крестик нарисованы под разную ширину и при одном кегле разъезжаются.
+  /// Шрифт у обоих свой, из этого пакета, а не [fontFamily] темы.
   @override
-  IconData get close => FontAwesomeIcons.xmark.data;
+  IconData get close => const IconData(0xe4f6, fontFamily: phosphorFamily, fontPackage: 'fc_default_theme');
 
-  /// `question` из Font Awesome 7 — пара к [close].
+  /// `question-mark` из Phosphor Light — пара к [close]; голый знак, а не
+  /// `question` в круге. Номер — по шрифту, а не с сайта Phosphor: там
+  /// нумерация другая, и U+E3E8 в этом шрифте — как раз `question` в круге.
   @override
-  IconData get help => FontAwesomeIcons.question.data;
+  IconData get help => const IconData(0xe3e9, fontFamily: phosphorFamily, fontPackage: 'fc_default_theme');
+
+  /// Семейство Phosphor Light в `pubspec.yaml` пакета.
+  static const String phosphorFamily = 'PhosphorLight';
 
   // Анализатор предлагает сделать IconData константой — но именно этого мы и
   // не хотим: шрифт берётся у темы, а она известна только во время работы.

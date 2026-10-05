@@ -402,10 +402,10 @@ Future<bool> _loadFonts() async {
   const assets = 'assets/fonts';
   final ui = await _load('Ubuntu', ['$assets/Ubuntu-R.ttf', '$assets/Ubuntu-B.ttf']);
   final icons = await _load('FontAwesome', ['$assets/fontawesome-webfont.ttf']);
-  // Знаки заголовка окна — из Font Awesome 7 пакета `font_awesome_flutter`:
-  // имя семейства у пакетного шрифта с приставкой пакета.
-  final solid = await _load('packages/font_awesome_flutter/FontAwesomeSolid', [
-    '${_packageRoot('font_awesome_flutter')}/lib/fonts/Font-Awesome-7-Free-Solid-900.otf',
+  // Знаки заголовка окна — Phosphor Light из пакета темы: имя семейства у
+  // пакетного шрифта с приставкой пакета.
+  final phosphor = await _load('packages/fc_default_theme/PhosphorLight', [
+    'dependency/default_theme/assets/fonts/Phosphor-Light.ttf',
   ]);
   // Только Consolas, без подмены. Эталон снят им, и Menlo вместо него — это не
   // «почти то же самое», а другой снимок: на раннере GitHub, где Consolas нет,
@@ -414,15 +414,7 @@ Future<bool> _loadFonts() async {
   // обещано в `spec/design-system.md`.
   final home = Platform.environment['HOME'] ?? '';
   final fixed = await _load('Consolas', ['$home/Library/Fonts/CONSOLA.TTF', '$home/Library/Fonts/CONSOLAB.TTF']);
-  return ui && icons && solid && fixed;
-}
-
-/// Каталог пакета по `package_config.json` рабочего пространства.
-String _packageRoot(String name) {
-  final config = File('${Directory.current.path}/.dart_tool/package_config.json');
-  final packages = (jsonDecode(config.readAsStringSync()) as Map<String, dynamic>)['packages'] as List<dynamic>;
-  final entry = packages.cast<Map<String, dynamic>>().firstWhere((package) => package['name'] == name);
-  return config.parent.uri.resolve(entry['rootUri'] as String).toFilePath();
+  return ui && icons && phosphor && fixed;
 }
 
 Future<bool> _load(String family, List<String> paths) async {

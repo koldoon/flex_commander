@@ -15,13 +15,11 @@ dependencies:
   fc_api:
     path: ../api
 
-
   fc_ui_api:
     path: ../ui_api
 
   fc_ui_kit:
     path: ../ui_kit
-  font_awesome_flutter: ^11.0.0
 
 dev_dependencies:
   flutter_test:
@@ -29,3 +27,13 @@ dev_dependencies:
 
   fc_test_kit:
     path: ../test_kit
+
+flutter:
+  # Знаки полосы заголовка окна — крестик и «?» — из Phosphor Light (MIT,
+  # `assets/fonts/Phosphor-LICENSE`). Только шрифт: Dart-код пакета
+  # `phosphor_flutter` 2.1.0 наследует `IconData`, который стал `final`, и не
+  # собирается. Номера знаков — в `DefaultIcons`.
+  fonts:
+    - family: PhosphorLight
+      fonts:
+        - asset: assets/fonts/Phosphor-Light.ttf

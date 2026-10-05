@@ -176,7 +176,7 @@ Figma четырёх стилей хватало ровно потому, что
 | интерфейс | `Ubuntu` | `assets/fonts`, стоит и в системе |
 | список файлов | `Consolas` | `DefaultFonts.fixed`, стоит в `~/Library/Fonts` |
 | иконки | `FontAwesome` | `DefaultIcons.defaultFontFamily`, `assets/fonts` |
-| знаки заголовка окна | Font Awesome 7 Solid | пакет `font_awesome_flutter`, `DefaultIcons.close`/`help` |
+| знаки заголовка окна | Phosphor Light | `dependency/default_theme/assets/fonts`, `DefaultIcons.close`/`help` |
 
 Больше в файле не набрано ничем: 593 слоя `Ubuntu`, 23 `Consolas`, 8
 `FontAwesome` — и это проверяется (§8, сверка).
@@ -792,13 +792,25 @@ FontAwesome в этом кегле жирен — он нарисован для
 В макете его пока нет — Sketch не подключён. Долг: крестик в полосе заголовка на
 `Components / 03 Surfaces`, рядом с окном. *Закрыт 1 октября — в самой раме.*
 
-**5 октября 2026 — крестик и «?» из Font Awesome 7.** Рядом с крестиком
+**5 октября 2026 — крестик и «?» из Phosphor Light.** Рядом с крестиком
 встал знак справки (`spec/multi-rename.md`, §14). Глиф шрифта рядом с
-нарисованным крестиком был жирнее, а нарисованный штрихом вопрос — чужим по
-рисунку. Оба знака теперь из одного набора — `xmark` и `question` Font Awesome 7
-Solid (пакет `font_awesome_flutter`, свои роли `FcIcons.close` и `help`). В
-FontAwesome 4.7, из которого остальные значки, `xmark` нет. Отрисованный
-крестик 17 сентября этим заменён.
+нарисованным штрихом крестиком был жирнее, а нарисованный штрихом вопрос — чужим
+по рисунку. Попробовали `xmark` и `question` Font Awesome 7 Solid: оба жирные,
+а вопрос выше и уже крестика — у FontAwesome знаки нарисованы под разную
+ширину, и кеглем их по отдельности не выровнять, уедет толщина линии.
+
+Выбор — стендом из одиннадцати вариантов в полосе заголовка (Font Awesome 7,
+Phosphor Thin/Light/Regular, Lucide, Tabler, Material Symbols) при 1× и 2×.
+Взяты `x` и `question-mark` **Phosphor Light** (MIT): одна высота, одна
+толщина линии, ближе всего к тонкому крестику. Взят **только шрифт** — он лежит
+в пакете темы: Dart-код `phosphor_flutter` 2.1.0 наследует `IconData`, который
+во Flutter стал `final`, и не собирается. Lucide отпал —
+голого «?» нет, только в круге; Tabler — вопрос мельче крестика. Роли —
+`FcIcons.close` и `help`; остальные значки по-прежнему FontAwesome 4.7.
+
+Нумерация знаков в этом шрифте своя: `question-mark` — U+E3E9, а U+E3E8 —
+`question` в круге; на сайте Phosphor номера другие. Сверять со шрифтом, а не с
+сайтом.
 
 
 **16 сентября 2026 — значок приложения и macOS 26.** Значок нарисован заново,
