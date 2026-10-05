@@ -139,6 +139,9 @@ class OverlayMetrics implements FcMetrics {
   double get dialogTitleHeight => overrides['dialogTitleHeight'] ?? base.dialogTitleHeight;
 
   @override
+  double get dialogTitleButtonWidth => overrides['dialogTitleButtonWidth'] ?? base.dialogTitleButtonWidth;
+
+  @override
   double get dialogPadding => overrides['dialogPadding'] ?? base.dialogPadding;
 
   @override

@@ -258,6 +258,13 @@ abstract class FcMetrics {
   /// бы выше референсной.
   double get dialogTitleHeight;
 
+  /// Ширина кнопки в полосе заголовка — «?» и крестика.
+  ///
+  /// Кнопка во всю высоту полосы, как в Windows 11: подсветка при наведении
+  /// заливает её целиком, до краёв окна. Шире, чем высота, — там же это
+  /// 46 на 32: узкая заливка рядом с текстом читалась бы пятном, а не кнопкой.
+  double get dialogTitleButtonWidth => (dialogTitleHeight * 1.45).roundToDouble();
+
   /// Содержимое: `padding="20" paddingLeft="40"`.
   double get dialogPadding;
 

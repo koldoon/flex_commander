@@ -120,6 +120,12 @@ class OverlayColors implements FcColors {
   Color get dialogTitleText => overrides['dialogTitleText'] ?? base.dialogTitleText;
 
   @override
+  Color get dialogTitleButtonHover => overrides['dialogTitleButtonHover'] ?? base.dialogTitleButtonHover;
+
+  @override
+  Color get dialogTitleButtonHoverText => overrides['dialogTitleButtonHoverText'] ?? base.dialogTitleButtonHoverText;
+
+  @override
   Color get dialogLabel => overrides['dialogLabel'] ?? base.dialogLabel;
 
   @override

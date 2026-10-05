@@ -4,6 +4,8 @@ import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flex_commander/view/dialogs/dialog_frame.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -71,5 +73,40 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(helpSign(), findsNothing);
+  });
+
+  testWidgets('кнопка заголовка под указателем залита акцентом во всю высоту полосы', (tester) async {
+    await pumpApp(tester);
+    late final String id;
+    id = runtime.app.view.showDialog(
+      DialogSpec(
+        title: 'With help',
+        takesFocus: true,
+        content: const Text('body'),
+        onDismiss: () => runtime.app.view.closeDialog(id),
+        onHelp: () {},
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    Color? fill(Key key) =>
+        tester.widget<Container>(find.descendant(of: find.byKey(key), matching: find.byType(Container)).first).color;
+    final colors = FcTheme.of(tester.element(find.byKey(DialogFrame.helpKey))).colors;
+    final metrics = FcTheme.of(tester.element(find.byKey(DialogFrame.helpKey))).metrics;
+
+    expect(fill(DialogFrame.helpKey), isNull);
+    expect(tester.getSize(find.byKey(DialogFrame.helpKey)).height, metrics.dialogTitleHeight);
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: tester.getCenter(find.byKey(DialogFrame.helpKey)));
+    await tester.pumpAndSettle();
+    expect(fill(DialogFrame.helpKey), colors.dialogTitleButtonHover);
+    expect(fill(DialogFrame.closeKey), isNull, reason: 'подсвечена только та, что под указателем');
+
+    await mouse.moveTo(tester.getCenter(find.byKey(DialogFrame.closeKey)));
+    await tester.pumpAndSettle();
+    expect(fill(DialogFrame.helpKey), isNull);
+    expect(fill(DialogFrame.closeKey), colors.dialogTitleButtonHover);
   });
 }

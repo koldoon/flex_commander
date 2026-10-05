@@ -109,6 +109,13 @@ abstract class FcColors {
 
   Color get dialogTitleText;
 
+  /// Заливка кнопки полосы заголовка под указателем — акцент, как у кнопки
+  /// подтверждения.
+  Color get dialogTitleButtonHover => buttonPrimaryBackground;
+
+  /// Значок на этой заливке — подписью кнопки подтверждения: заливка та же.
+  Color get dialogTitleButtonHoverText => buttonPrimaryText;
+
   Color get dialogLabel;
 
   Color get dialogText;

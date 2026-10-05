@@ -273,8 +273,12 @@ class _DialogFrameState extends State<DialogFrame> {
         height: metrics.dialogTitleHeight,
         alignment: Alignment.centerLeft,
         // Тем же полем, что и содержимое: заголовок и подписи под ним стоят на
-        // одной вертикали, и левый край окна читается прямым.
-        padding: EdgeInsets.symmetric(horizontal: metrics.dialogHorizontalPadding),
+        // одной вертикали, и левый край окна читается прямым. Справа поля нет,
+        // если там кнопки: их заливка доходит до края окна (см. [_TitleButton]).
+        padding: EdgeInsets.only(
+          left: metrics.dialogHorizontalPadding,
+          right: widget.onHelp != null || widget.closable ? 0 : metrics.dialogHorizontalPadding,
+        ),
         decoration: BoxDecoration(
           color: colors.dialogTitleBackground,
           // Полоса заголовка отбрасывает тень на содержимое — тот же фильтр,
@@ -306,6 +310,7 @@ class _DialogFrameState extends State<DialogFrame> {
                 ),
               ),
             ),
+            if (widget.onHelp != null || widget.closable) SizedBox(width: metrics.dialogGap),
             if (widget.onHelp != null) _help(theme, metrics),
             if (widget.closable) _close(theme, metrics),
           ],
@@ -319,20 +324,9 @@ class _DialogFrameState extends State<DialogFrame> {
   /// Значком темы в паре с крестиком ([_close]): оба из одного набора, и в
   /// углу окна читаются одним рисунком.
   Widget _help(FcTheme theme, FcMetrics metrics) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        key: DialogFrame.helpKey,
-        behavior: HitTestBehavior.opaque,
-        onTap: widget.onHelp,
-        child: FcTooltip(
-          message: context.strings.tr('Help'),
-          child: Padding(
-            padding: EdgeInsets.only(left: metrics.dialogGap),
-            child: Icon(theme.icons.help, size: metrics.fontSize, color: theme.colors.dialogTitleText),
-          ),
-        ),
-      ),
+    return FcTooltip(
+      message: context.strings.tr('Help'),
+      child: _TitleButton(key: DialogFrame.helpKey, icon: theme.icons.help, onTap: widget.onHelp),
     );
   }
 
@@ -341,23 +335,8 @@ class _DialogFrameState extends State<DialogFrame> {
   /// В полосе заголовка, а не кнопкой внизу: кнопка стоила бы окну целого ряда
   /// (`docs/spec/dialog-body.md`), а здесь место уже занято заголовком и
   /// пустует справа.
-  ///
-  /// Значком темы, в паре со знаком справки ([_help]).
   Widget _close(FcTheme theme, FcMetrics metrics) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        // Своим жестом, а не кнопкой: полоса заголовка ловит протяжку, и
-        // кнопка внутри неё отбирала бы у окна возможность двигаться.
-        key: DialogFrame.closeKey,
-        behavior: HitTestBehavior.opaque,
-        onTap: widget.onDismiss,
-        child: Padding(
-          padding: EdgeInsets.only(left: metrics.dialogGap),
-          child: Icon(theme.icons.close, size: metrics.fontSize, color: theme.colors.dialogTitleText),
-        ),
-      ),
-    );
+    return _TitleButton(key: DialogFrame.closeKey, icon: theme.icons.close, onTap: widget.onDismiss);
   }
 
   // --- растяжение -----------------------------------------------------------
@@ -939,4 +918,60 @@ class _RenderUnmeasuredTitle extends RenderProxyBox {
 
   @override
   double computeMaxIntrinsicWidth(double height) => 0;
+}
+
+/// Кнопка полосы заголовка: во всю её высоту, под указателем — залита
+/// акцентом, как кнопки окна в Windows 11.
+///
+/// Своим жестом, а не [FcButton]: полоса заголовка ловит протяжку, и кнопка
+/// внутри неё отбирала бы у окна возможность двигаться. Нажатая — темнее, тем
+/// же затемнением, что и прочие кнопки.
+class _TitleButton extends StatefulWidget {
+  const _TitleButton({super.key, required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  @override
+  State<_TitleButton> createState() => _TitleButtonState();
+}
+
+class _TitleButtonState extends State<_TitleButton> {
+  bool _hovered = false;
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FcTheme.of(context);
+    final colors = theme.colors;
+    final metrics = theme.metrics;
+    final fill = _hovered ? colors.dialogTitleButtonHover : null;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit:
+          (_) => setState(() {
+            _hovered = false;
+            _pressed = false;
+          }),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapCancel: () => setState(() => _pressed = false),
+        onTapUp: (_) => setState(() => _pressed = false),
+        onTap: widget.onTap,
+        child: Container(
+          width: metrics.dialogTitleButtonWidth,
+          height: double.infinity,
+          alignment: Alignment.center,
+          color: fill == null ? null : (_pressed ? Color.alphaBlend(colors.buttonPressed, fill) : fill),
+          child: Icon(
+            widget.icon,
+            size: metrics.fontSize,
+            color: _hovered ? colors.dialogTitleButtonHoverText : colors.dialogTitleText,
+          ),
+        ),
+      ),
+    );
+  }
 }
