@@ -1,6 +1,7 @@
 import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -407,5 +408,74 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.byType(FcTooltip), findsNothing, reason: 'окно ровно такой ширины, какой хватило');
     });
+  });
+
+  /// Живой дефект: у края списка выбранное мерцало. Прокрутка за ним шла после
+  /// кадра, и в кадре смены выбранная строка лежала за краем
+  /// (`docs/widgets.md`, раздел о списке). Поэтому — один кадр на шаг.
+  testWidgets('у края выбранное не пропадает ни на кадр', (tester) async {
+    final names = [for (var i = 0; i < 60; i++) 'Item ${i.toString().padLeft(2, '0')}'];
+    var selected = 0;
+    late StateSetter update;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(
+          extensions: [
+            FcTheme(colors: DefaultColors(), metrics: DefaultMetrics(), icons: DefaultIcons(), fonts: DefaultFonts()),
+          ],
+        ),
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 400,
+              height: 200,
+              child: StatefulBuilder(
+                builder: (context, setState) {
+                  update = setState;
+                  return FcPickList(
+                    rows: [for (final name in names) FcPickRow(id: name, title: name)],
+                    query: '',
+                    selected: selected,
+                    onTap: (_) {},
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Положение строки здесь проверкой не служит: прокрутка без ленивого
+    // списка считает экранное место от **нынешнего** смещения, и подмотка после
+    // кадра его уже поправила бы. Честный признак — **когда** сдвинулось
+    // смещение: после отрисовки значит, что кадр со сменой выбранного ушёл без
+    // подмотки.
+    final afterFrame = <int>[];
+    var step = 0;
+    final position = tester.state<ScrollableState>(find.byType(Scrollable)).position;
+    void watch() {
+      if (SchedulerBinding.instance.schedulerPhase == SchedulerPhase.postFrameCallbacks) {
+        afterFrame.add(step);
+      }
+    }
+
+    position.addListener(watch);
+    addTearDown(() => position.removeListener(watch));
+
+    for (step = 1; step < 40; step++) {
+      update(() => selected = step);
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(afterFrame, isEmpty, reason: 'прокрутка за выбранным — после кадра, на шагах $afterFrame');
+      final viewport = tester.getRect(find.byType(Scrollable));
+      final row = tester.getRect(find.text(names[step]));
+      expect(
+        viewport.top <= row.top && row.bottom <= viewport.bottom,
+        isTrue,
+        reason: 'шаг $step: выбранная строка $row за краем списка $viewport',
+      );
+    }
   });
 }

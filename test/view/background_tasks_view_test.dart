@@ -292,6 +292,36 @@ void main() {
     await settle(tester);
   });
 
+  /// Живой дефект: у края списка курсор мерцал — прокрутка за ним шла после
+  /// кадра (`docs/widgets.md`, раздел о списке). Поэтому — один кадр на шаг.
+  testWidgets('у края курсор списка работ не пропадает ни на кадр', (tester) async {
+    await pumpApp(tester);
+    for (var i = 0; i < 8; i++) {
+      await sendToBackground(tester, title: 'Work $i');
+    }
+    await press(tester, 'Cmd-B');
+
+    final view = find.byType(BackgroundTasksView);
+    final state = tester.widget<BackgroundTasksView>(view).state;
+    final list = find.descendant(of: view, matching: find.byType(ListView));
+    for (var step = 0; step < 7; step++) {
+      runtime.commands.dispatch(KeyCombination.parse('Down'));
+      await tester.pump();
+      final title = state.runs[state.cursor].title;
+      final row = find.descendant(of: list, matching: find.textContaining(title));
+      expect(row, findsWidgets, reason: 'шаг $step: строки под курсором ($title) в этом кадре нет');
+      final rect = tester.getRect(row.first);
+      final viewport = tester.getRect(list);
+      expect(
+        viewport.top <= rect.top && rect.bottom <= viewport.bottom + 0.5,
+        isTrue,
+        reason: 'шаг $step: строка под курсором $rect за краем списка $viewport',
+      );
+    }
+
+    await settle(tester);
+  });
+
   testWidgets('список работ совпадает с эталоном', (tester) async {
     // Снимок: рама, курсор и три строки под панелью. Обновление —
     // `flutter test --update-goldens`.

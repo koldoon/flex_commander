@@ -307,7 +307,12 @@ class _FcPickListState extends State<FcPickList> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selected != widget.selected) {
       // Выбранное держится на виду: перебор стрелками не должен уезжать за
-      // край.
+      // край. Сразу, в том же кадре: подмотка после кадра оставляла у края
+      // кадр, где выбранное лежало за краем, и оно мерцало (`docs/widgets.md`,
+      // раздел о списке). Размеры — с прошлой раскладки; если вместе с выбором
+      // сменился и сам список (отбор по набранному), они врут, и проверка
+      // после кадра доправит.
+      _showSelected();
       WidgetsBinding.instance.addPostFrameCallback((_) => _showSelected());
     }
   }

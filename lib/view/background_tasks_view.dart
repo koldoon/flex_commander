@@ -31,10 +31,43 @@ class _BackgroundTasksViewState extends State<BackgroundTasksView> {
 
   int _shownCursor = -1;
 
+  /// Шаг строки последней сборки: им считается подмотка из сообщения.
+  double _line = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.state.addListener(_onStateChanged);
+  }
+
+  @override
+  void didUpdateWidget(BackgroundTasksView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.state != widget.state) {
+      oldWidget.state.removeListener(_onStateChanged);
+      widget.state.addListener(_onStateChanged);
+    }
+  }
+
   @override
   void dispose() {
+    widget.state.removeListener(_onStateChanged);
     _scroll.dispose();
     super.dispose();
+  }
+
+  /// Курсор сдвинулся — прокрутка за ним **сразу**, в том же кадре.
+  ///
+  /// Из сообщения, а не после кадра: у края новый курсор целый кадр лежал бы
+  /// за краем, и он мерцал бы (`docs/widgets.md`, раздел о списке). До первой
+  /// сборки шага нет — тогда ведёт проверка в сборке.
+  void _onStateChanged() {
+    final at = widget.state.cursor;
+    if (_line <= 0 || at == _shownCursor) {
+      return;
+    }
+    _shownCursor = at;
+    _showCursor(_line);
   }
 
   /// Держит строку под курсором на виду: перебор стрелками не должен уезжать
@@ -62,6 +95,7 @@ class _BackgroundTasksViewState extends State<BackgroundTasksView> {
     // вместе с размером иконки. Считай мы его здесь своей формулой — ритм
     // совпадал бы только при размере по умолчанию.
     final line = FileIconSize.listRow(metrics, app.fileIcons);
+    _line = line;
 
     return ListenableBuilder(
       // И на рабочую область тоже: курсор горит только там, куда попадёт

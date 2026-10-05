@@ -144,16 +144,56 @@ class ColumnsViewState extends State<ColumnsView> {
   /// обвести надо то, на что указали.
   Rect? _dropRect;
 
+  /// Строка под курсором и число строк, к которым прокрутка уже подведена из
+  /// сообщения панели.
+  String? _followedPath;
+  int _followedCount = -1;
+
   @override
   void initState() {
     super.initState();
+    widget.panel.addListener(_onPanelChanged);
     // Вид говорит, что ему нужно; собирать строки — дело ядра
     // (`docs/spec/panel-node-list.md`, §3).
     unawaited(widget.panel.showRows(RowsKind.tree));
   }
 
   @override
+  void didUpdateWidget(ColumnsView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.panel != widget.panel) {
+      oldWidget.panel.removeListener(_onPanelChanged);
+      widget.panel.addListener(_onPanelChanged);
+    }
+  }
+
+  /// Курсор ушёл на другую строку — вертикали столбцов за ним **сразу**, в том
+  /// же кадре.
+  ///
+  /// Из сообщения панели, а не после кадра: у края новый курсор целый кадр
+  /// лежал бы за краем, и он мерцал бы (`docs/widgets.md`, раздел о списке).
+  /// Только ход стрелкой — строк столько же, а под курсором другая — и только
+  /// вертикали. Лента, уборка раскрытого и всё прочее остаются сборке: ленте
+  /// нужна раскладка новой цепочки, а уборка ходит в ядро, и отсюда это было бы
+  /// посреди чужого сообщения.
+  void _onPanelChanged() {
+    final rows = _rows;
+    final at = widget.panel.cursorIndex;
+    if (at < 0 || at >= rows.length) {
+      return;
+    }
+    final path = rows[at].path;
+    final moved = path != _followedPath && rows.length == _followedCount;
+    _followedPath = path;
+    _followedCount = rows.length;
+    if (moved) {
+      _reveal(_memo.of(rows, at), ribbon: false);
+    }
+  }
+
+  @override
   void dispose() {
+    widget.panel.removeListener(_onPanelChanged);
     _marking.dispose();
     _hold?.cancel();
     for (final controller in _verticals.values) {
@@ -194,7 +234,11 @@ class ColumnsViewState extends State<ColumnsView> {
   /// догоняется каталог) — вертикаль столбцов не трогаем вовсе: человек в это
   /// время читает список мышью, и подмотка отбирала бы у него прокрутку на
   /// каждой пачке.
-  void _reveal(ColumnChain chain, {bool moved = true}) {
+  ///
+  /// [ribbon] — двигать и ленту. Без неё — только вертикали: так зовёт
+  /// сообщение панели (`_onPanelChanged`), а лента после хода вбок считается
+  /// по раскладке новой цепочки, которой до кадра ещё нет.
+  void _reveal(ColumnChain chain, {bool moved = true, bool ribbon = true}) {
     if (_step <= 0 || _height <= 0) {
       return;
     }
@@ -225,6 +269,10 @@ class ColumnsViewState extends State<ColumnsView> {
       if (target != offset) {
         controller.jumpTo(target);
       }
+    }
+
+    if (!ribbon) {
+      return;
     }
 
     // Лента едет **только когда курсор сменил столбец** — вправо к детям, влево

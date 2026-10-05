@@ -104,9 +104,13 @@ class _IconsViewState extends State<IconsView> {
   int _lastTapIndex = -1;
   DateTime _lastTapTime = DateTime.fromMillisecondsSinceEpoch(0);
 
+  /// Курсор, к которому прокрутка уже подведена из сообщения панели.
+  int _followedCursor = -1;
+
   @override
   void initState() {
     super.initState();
+    widget.panel.addListener(_onPanelChanged);
     _askRows();
   }
 
@@ -114,8 +118,26 @@ class _IconsViewState extends State<IconsView> {
   void didUpdateWidget(IconsView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.panel != widget.panel) {
+      oldWidget.panel.removeListener(_onPanelChanged);
+      widget.panel.addListener(_onPanelChanged);
       _askRows();
     }
+  }
+
+  /// Курсор сдвинулся — прокрутка за ним **сразу**, в том же кадре.
+  ///
+  /// Из сообщения панели, а не из разметки: там прокручивать нельзя, а после
+  /// кадра поздно — у края новый курсор целый кадр лежал бы за краем, и он
+  /// мерцал бы (`docs/widgets.md`, раздел о списке). Числа раскладки — с
+  /// прошлого кадра; до первой раскладки их нет, и тогда ведёт проверка в
+  /// разметке.
+  void _onPanelChanged() {
+    final at = widget.panel.cursorIndex;
+    if (at == _followedCursor) {
+      return;
+    }
+    _followedCursor = at;
+    _revealCursor();
   }
 
   /// Строки, которые вид **просил**: содержимое каталога.
@@ -136,6 +158,7 @@ class _IconsViewState extends State<IconsView> {
 
   @override
   void dispose() {
+    widget.panel.removeListener(_onPanelChanged);
     _marking.dispose();
     _scroll.dispose();
     super.dispose();
@@ -426,8 +449,9 @@ class _IconsViewState extends State<IconsView> {
               }
 
               // Курсор мог уехать за край чужими руками — стрелкой, поиском,
-              // сменой каталога. Проверяется после разметки: до неё прокрутки
-              // ещё нет.
+              // сменой каталога. Стрелку прокрутка догоняет сразу
+              // ([_onPanelChanged]); здесь — проверка после разметки: до неё
+              // прокрутки ещё нет, а числа раскладки могли смениться.
               if (_lastCursorIndex != panel.cursorIndex) {
                 _lastCursorIndex = panel.cursorIndex;
                 WidgetsBinding.instance.addPostFrameCallback((_) => _revealCursor());

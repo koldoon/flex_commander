@@ -129,6 +129,7 @@ class TreeViewState extends State<TreeView> {
   @override
   void initState() {
     super.initState();
+    widget.panel.addListener(_onPanelChanged);
     // Вид говорит, что ему нужно; собирать строки — дело ядра
     // (`docs/spec/panel-node-list.md`, §3).
     unawaited(widget.panel.showRows(widget.rows));
@@ -155,7 +156,42 @@ class TreeViewState extends State<TreeView> {
   }
 
   @override
+  void didUpdateWidget(TreeView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.panel != widget.panel) {
+      oldWidget.panel.removeListener(_onPanelChanged);
+      widget.panel.addListener(_onPanelChanged);
+    }
+  }
+
+  /// Курсор ушёл на другую строку — прокрутка за ним **сразу**, в том же кадре.
+  ///
+  /// Из сообщения панели, а не после кадра: у края новый курсор целый кадр
+  /// лежал бы за краем, и он мерцал бы (`docs/widgets.md`, раздел о списке).
+  /// Только простой случай — строк столько же, а под курсором другая: это ход
+  /// стрелкой. Список, сменившийся сам, и восстановление при запуске остаются
+  /// проверке в сборке (`docs/spec/panel-view-tree.md`, §5).
+  void _onPanelChanged() {
+    if (!_restored) {
+      return;
+    }
+    final rows = _rows;
+    final at = widget.panel.cursorIndex;
+    if (at < 0 || at >= rows.length || rows.length != _shownCount) {
+      return;
+    }
+    final path = rows[at].path;
+    if (path == _shownPath) {
+      return;
+    }
+    _shownCursor = at;
+    _shownPath = path;
+    _revealCursor();
+  }
+
+  @override
   void dispose() {
+    widget.panel.removeListener(_onPanelChanged);
     _marking.dispose();
     _operations?.removeListener(_onOperations);
     _scroll.dispose();
