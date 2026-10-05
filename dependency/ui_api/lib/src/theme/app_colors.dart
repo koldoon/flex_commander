@@ -109,6 +109,12 @@ abstract class FcColors {
 
   Color get dialogTitleText;
 
+  /// Заголовок раздела в тексте — справка, настройки, документы.
+  ///
+  /// Своя роль, а не [dialogTitleText]: тот рассчитан на полосу заголовка окна,
+  /// а раздел стоит на фоне содержимого. По умолчанию они совпадают.
+  Color get headingText => dialogTitleText;
+
   /// Заливка кнопки полосы заголовка под указателем — акцент, как у кнопки
   /// подтверждения.
   Color get dialogTitleButtonHover => buttonPrimaryBackground;

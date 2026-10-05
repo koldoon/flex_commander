@@ -24,9 +24,9 @@ MarkdownStyleSheet fcMarkdownStyle(FcTheme theme) {
     p: theme.dialogTextStyle,
     // Заголовки разделов — тем же кеглем, что заголовки в справке: они
     // разделяют части рассказа, а не спорят с заголовком окна.
-    h1: theme.dialogTitleStyle.copyWith(fontSize: metrics.sectionHeadingFontSize),
-    h2: theme.dialogTitleStyle.copyWith(fontSize: metrics.sectionHeadingFontSize),
-    h3: theme.dialogTitleStyle,
+    h1: theme.headingStyle.copyWith(fontSize: metrics.sectionHeadingFontSize),
+    h2: theme.headingStyle.copyWith(fontSize: metrics.sectionHeadingFontSize),
+    h3: theme.headingStyle,
     strong: theme.dialogTextStyle.copyWith(fontWeight: FontWeight.bold, color: theme.colors.dialogLabel),
     em: theme.dialogTextStyle.copyWith(fontStyle: FontStyle.italic),
     code: code,

@@ -306,7 +306,7 @@ class FcKeyValueSection extends StatelessWidget {
   /// обводить там нечего.
   Widget _section(FcTheme theme, FcTableSection section, List<double> widths, int columns) {
     final metrics = theme.metrics;
-    final title = Text(section.title, style: theme.dialogTitleStyle.copyWith(fontSize: metrics.sectionHeadingFontSize));
+    final title = Text(section.title, style: theme.headingStyle.copyWith(fontSize: metrics.sectionHeadingFontSize));
 
     if (!divided) {
       return Column(

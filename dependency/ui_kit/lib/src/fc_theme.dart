@@ -114,8 +114,19 @@ class FcTheme extends ThemeExtension<FcTheme> {
 
   late final TextStyle pathStyle = uiStyle.copyWith(color: colors.pathText);
 
-  /// Заголовок окна команды: `styleName="white bold left h5"`.
-  late final TextStyle dialogTitleStyle = uiStyle.copyWith(color: colors.dialogTitleText, fontWeight: FontWeight.bold);
+  /// Заголовок окна команды: `styleName="white bold left h5"` в референсе, но
+  /// обычным начертанием — так решено 6 октября 2026.
+  late final TextStyle dialogTitleStyle = uiStyle.copyWith(
+    color: colors.dialogTitleText,
+    fontWeight: FontWeight.normal,
+  );
+
+  /// Заголовок раздела в тексте: справка, настройки, сведения, документы.
+  ///
+  /// Свой, а не [dialogTitleStyle]: раздел стоит в содержимом, а не в полосе
+  /// заголовка окна, и совпадали они только внешне. Кегль крупных заголовков —
+  /// [FcMetrics.sectionHeadingFontSize], его прибавляет тот, кто рисует.
+  late final TextStyle headingStyle = uiStyle.copyWith(color: colors.headingText, fontWeight: FontWeight.normal);
 
   /// Подпись поля в окне команды.
   late final TextStyle dialogLabelStyle = uiStyle.copyWith(color: colors.dialogLabel);
