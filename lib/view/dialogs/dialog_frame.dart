@@ -997,7 +997,14 @@ class _HelpSign extends CustomPainter {
     final top = unit * _CloseCross._inset;
     final bottom = unit * (1 - _CloseCross._inset);
     final height = bottom - top;
-    final radius = height * 0.3;
+    // Снизу вверх: точка, просвет, ножка, крючок. Просвет меряется штрихами, а
+    // не долей клетки: в кегле заголовка доля выходила меньше пикселя, и
+    // точка сливалась с ножкой.
+    final dot = width * 0.85;
+    final dotCentre = Offset(unit / 2, bottom - width * 0.5);
+    final stemEnd = dotCentre.dy - dot - width * 1.5 - width * 0.5;
+    // Крючок — что осталось над ножкой; дуга опускается почти на два радиуса.
+    final radius = math.min(height * 0.3, (stemEnd - top - height * 0.1) / 2);
     final centre = Offset(unit / 2, top + radius);
     final paint =
         Paint()
@@ -1011,10 +1018,10 @@ class _HelpSign extends CustomPainter {
     final hook =
         Path()
           ..addArc(Rect.fromCircle(center: centre, radius: radius), math.pi * 1.05, math.pi * 1.4)
-          ..lineTo(unit / 2, top + height * 0.75);
+          ..lineTo(unit / 2, stemEnd);
     canvas.drawPath(hook, paint);
-    // Точка — кружком в толщину штриха и чуть больше, иначе она теряется.
-    canvas.drawCircle(Offset(unit / 2, bottom - width * 0.5), width * 0.85, paint..style = PaintingStyle.fill);
+    // Точка — кружком чуть толще штриха, иначе она теряется.
+    canvas.drawCircle(dotCentre, dot, paint..style = PaintingStyle.fill);
   }
 
   @override
