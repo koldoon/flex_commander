@@ -7,6 +7,7 @@ export 'src/file_commands.dart';
 export 'src/file_ops_module.dart';
 export 'src/file_ops_settings.dart';
 export 'src/multi_rename_command.dart';
+export 'src/multi_rename_help.dart';
 export 'src/rename_batch.dart';
 export 'src/rename_plan.dart';
 export 'src/transfer_commands.dart';

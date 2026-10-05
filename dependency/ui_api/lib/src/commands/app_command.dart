@@ -538,6 +538,7 @@ class DialogSpec {
     this.hugsContent = false,
     this.onSubmit,
     this.onDismiss,
+    this.onHelp,
     this.parent,
   });
 
@@ -625,6 +626,13 @@ class DialogSpec {
 
   /// Что делает Esc; null — ничего.
   final VoidCallback? onDismiss;
+
+  /// Открыть справку окна: «?» в заголовке и `F1` внутри окна.
+  ///
+  /// Свойство рамы, а не одного окна: справка нужна там, где есть что
+  /// объяснять, — маски переименования, выражения поиска. null — знака нет
+  /// (`docs/spec/multi-rename.md`, §14).
+  final VoidCallback? onHelp;
 
   /// Окно, из-за которого поднято это; null — окно верхнего уровня.
   ///

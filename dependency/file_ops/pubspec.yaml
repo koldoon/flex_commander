@@ -24,6 +24,11 @@ dependencies:
   fc_ui_kit:
     path: ../ui_kit
 
+  # Справка по маскам переименования — свёрстанным документом, тем же
+  # отрисовщиком, что и просмотрщик `.md` (`docs/spec/multi-rename.md`, §14).
+  fc_markdown_kit:
+    path: ../markdown_kit
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

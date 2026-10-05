@@ -119,6 +119,7 @@ const Map<String, String> _russian = {
   'Name case': 'Регистр имени',
   'Extension case': 'Регистр расширения',
   'Counter': 'Счётчик',
+  'Rename mask help': 'Справка по маскам переименования',
   'Start at': 'с',
   'Step by': 'шаг',
   'Digits': 'разрядов',

@@ -70,6 +70,7 @@ class _CommandDialogLayerState extends State<CommandDialogLayer> {
                 resizable: dialog.spec.resizable,
                 onSubmit: dialog.spec.onSubmit ?? () {},
                 onDismiss: dialog.spec.onDismiss ?? () {},
+                onHelp: dialog.spec.onHelp,
                 // Крестик — только там, где `Esc` и правда закрывает: иначе он
                 // обещал бы то, чего окно не умеет.
                 closable: dialog.spec.onDismiss != null,

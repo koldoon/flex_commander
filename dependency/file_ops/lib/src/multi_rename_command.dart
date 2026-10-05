@@ -6,6 +6,7 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 
 import 'file_ops_settings.dart';
 import 'multi_rename_form.dart';
+import 'multi_rename_help.dart';
 import 'rename_batch.dart';
 import 'rename_plan.dart';
 
@@ -77,6 +78,9 @@ class MultiRenameCommand extends AppCommand {
           content: FcAsyncRunDialog(run: run, form: (_) => MultiRenameForm(run: run)),
           onSubmit: run.submit,
           onDismiss: run.dismiss,
+          // Маски записаны как в Total Commander — справка рядом, «?» в
+          // заголовке и `F1` (`docs/spec/multi-rename.md`, §14).
+          onHelp: () => showMultiRenameHelp(context.app, parent: dialogId),
         ),
       );
     }

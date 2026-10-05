@@ -26,6 +26,7 @@ class DialogFrame extends StatefulWidget {
     super.key,
     required this.onSubmit,
     required this.onDismiss,
+    this.onHelp,
     this.closable = true,
     required this.child,
     this.title,
@@ -54,6 +55,10 @@ class DialogFrame extends StatefulWidget {
   /// Enter и Esc соответственно.
   final VoidCallback onSubmit;
   final VoidCallback onDismiss;
+
+  /// Справка окна: «?» в заголовке и `F1`. null — знака нет
+  /// (`docs/spec/multi-rename.md`, §14.1).
+  final VoidCallback? onHelp;
 
   /// Есть ли в полосе заголовка крестик.
   ///
@@ -225,6 +230,12 @@ class _DialogFrameState extends State<DialogFrame> {
       widget.onDismiss();
       return KeyEventResult.handled;
     }
+    // `F1` в окне — его справка. Клавиши приложения, пока открыто окно,
+    // молчат, и без этого `F1` здесь не делал бы ничего.
+    if (combination == const KeyCombination('F1') && widget.onHelp != null) {
+      widget.onHelp!();
+      return KeyEventResult.handled;
+    }
     return KeyEventResult.ignored;
   }
 
@@ -289,8 +300,31 @@ class _DialogFrameState extends State<DialogFrame> {
                 ),
               ),
             ),
+            if (widget.onHelp != null) _help(theme, metrics),
             if (widget.closable) _close(theme, metrics),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// Знак справки — то же, что `F1` в окне, но мышью.
+  ///
+  /// Текстом в цвете и кегле заголовка, а не глифом значков: вопрос в шрифте
+  /// значков жирен, как и его крестик (см. [_close]), а знак текста стоит
+  /// рядом с крестиком на одной высоте.
+  Widget _help(FcTheme theme, FcMetrics metrics) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onHelp,
+        child: FcTooltip(
+          message: context.strings.tr('Help'),
+          child: Padding(
+            padding: EdgeInsets.only(left: metrics.dialogGap),
+            child: Text('?', style: theme.dialogTitleStyle),
+          ),
         ),
       ),
     );
