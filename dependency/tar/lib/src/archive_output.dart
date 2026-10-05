@@ -28,6 +28,7 @@ Future<void> deliverArchive(
   final length = await file.length();
   final sink = await (provider as FileContentReceiver).openWrite(destination, name, length: length);
 
+  var closed = false;
   try {
     progress.startSource(name);
     final item = progress.startItem(name, bytes: length);
@@ -38,10 +39,15 @@ Future<void> deliverArchive(
         return chunk;
       }),
     );
+    closed = true;
     await sink.close();
     progress.finishItem(item);
   } on Object {
-    await sink.close().catchError((Object _) {});
+    // Бросить, а не закрыть: многочастной загрузке «закрыть» значит «готово»
+    // (`AbortableSink`). Упал сам `close()` — убирает он сам.
+    if (!closed) {
+      await abandonSink(sink);
+    }
     rethrow;
   }
 }

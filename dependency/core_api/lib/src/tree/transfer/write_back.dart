@@ -125,6 +125,7 @@ abstract final class WriteBack {
 
     final sink = await receiver.openWrite(parent, temporary, length: size);
     var sent = 0;
+    var closed = false;
     try {
       await for (final chunk in bytes()) {
         op?.checkCanceled();
@@ -132,9 +133,14 @@ abstract final class WriteBack {
         sent += chunk.length;
         op?.report(itemName: host.name, bytesTransferred: sent, bytesTotal: size, itemBytesTransferred: sent);
       }
+      closed = true;
       await sink.close();
     } catch (_) {
-      await sink.close();
+      // Бросить, а не закрыть: многочастной загрузке «закрыть» значит
+      // «готово» (`AbortableSink`). Упал сам `close()` — убирает он сам.
+      if (!closed) {
+        await abandonSink(sink);
+      }
       await _removeLeftover(editor, parent, temporary);
       rethrow;
     }

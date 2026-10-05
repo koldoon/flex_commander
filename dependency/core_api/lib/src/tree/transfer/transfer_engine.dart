@@ -894,7 +894,10 @@ class TreeTransferEngine implements TreeEditor {
       await sink.close();
     } catch (error, stackTrace) {
       if (!closed) {
-        await _closeQuietly(sink);
+        // Бросить, а не закрыть: приёмнику, которому есть разница, «закрыть»
+        // значит «готово» — и многочастная загрузка S3 собрала бы обрубок в
+        // настоящий объект (`docs/spec/s3.md`, §11).
+        await abandonSink(sink);
       }
       // Половина файла под настоящим именем выглядит как целый файл — этого
       // нельзя оставлять ни после ошибки, ни после отмены.
@@ -908,14 +911,6 @@ class TreeTransferEngine implements TreeEditor {
       Error.throwWithStackTrace(FsError(node.pathString, FsErrorKind.io, error), stackTrace);
     }
     return true;
-  }
-
-  Future<void> _closeQuietly(StreamSink<List<int>> sink) async {
-    try {
-      await sink.close();
-    } catch (_) {
-      // Приёмник и так уже сломан: важна первая ошибка, а не эта.
-    }
   }
 
   /// Убирает недописанный файл. Не вышло — значит не вышло: рассказывать нужно
