@@ -76,11 +76,9 @@ void main() {
 
   FakeAudioPlayer playerOf(int index) => system.opened[index] as FakeAudioPlayer;
 
-  /// Дождаться опроса плеера: он ходит по таймеру.
-  Future<void> poll() async {
-    await Future<void>.delayed(AudioViewerScreen.pollEvery * 2);
-    await pumpEventQueue();
-  }
+  /// Дождаться, пока показ разберёт состояние плеера. Только очередь событий,
+  /// без таймера: состояние шлёт плеер, опроса нет (§7.5).
+  Future<void> settle() => pumpEventQueue();
 
   test('mp3 открывается звуковым показом с тегами и играет сразу', () async {
     await start();
@@ -99,7 +97,7 @@ void main() {
     final screen = shown();
 
     playerOf(0).ended = true;
-    await poll();
+    await settle();
 
     expect(screen.entry.name, '02 Song.mp3', reason: 'обложка и записки в альбом не входят');
     expect(playerOf(0).closed, isTrue, reason: 'звук прежнего трека играл бы поверх');
@@ -124,7 +122,7 @@ void main() {
     final screen = shown();
 
     playerOf(0).ended = true;
-    await poll();
+    await settle();
 
     expect(screen.entry.name, '05 Outro.mp3');
     expect(system.opened, hasLength(1));

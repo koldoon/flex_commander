@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui';
@@ -62,25 +63,47 @@ abstract class FakeMediaPlayer implements SystemMediaPlayer {
   bool playing = false;
   bool closed = false;
 
-  /// Доиграл — так его видит опрос.
-  bool ended = false;
+  /// Доиграл: поставить — значит и сообщить, как раннер по концу ролика.
+  bool get ended => _ended;
+  set ended(bool value) {
+    _ended = value;
+    push();
+  }
+
+  bool _ended = false;
+
+  final StreamController<SystemVideoState> _states = StreamController.broadcast();
+
+  @override
+  Stream<SystemVideoState> get states => _states.stream;
+
+  /// Сообщить, где плеер, — как раннер: на пуске, остановке, перемотке, по
+  /// ходу времени и по концу.
+  void push() {
+    if (!closed) {
+      _states.add(SystemVideoState(position: position, playing: playing, ended: ended));
+    }
+  }
 
   @override
   Future<void> play() async {
     calls.add('play');
     playing = true;
+    push();
   }
 
   @override
   Future<void> pause() async {
     calls.add('pause');
     playing = false;
+    push();
   }
 
   @override
   Future<void> seek(Duration position) async {
     calls.add('seek ${position.inMilliseconds}');
     this.position = position;
+    push();
   }
 
   @override
@@ -98,6 +121,7 @@ abstract class FakeMediaPlayer implements SystemMediaPlayer {
     calls.add('close');
     closed = true;
     playing = false;
+    unawaited(_states.close());
   }
 }
 

@@ -1513,6 +1513,20 @@ final class SystemVideo {
     }
   }
 
+  /// Завести ручку на плеер. Состояние плеер шлёт Dart сам — методом `state`
+  /// с ручкой, — опроса нет (`docs/spec/audio-viewer.md`, §7.5).
+  private func register(_ player: VideoPlayer) -> Int {
+    let handle = nextHandle
+    nextHandle += 1
+    players[handle] = player
+    player.report { [weak self] state in
+      var message = state
+      message["handle"] = handle
+      self?.channel.invokeMethod("state", arguments: message)
+    }
+    return handle
+  }
+
   private func open(_ path: String, _ result: @escaping FlutterResult) {
     let asset = AVURLAsset(url: URL(fileURLWithPath: path))
     Task {
@@ -1562,9 +1576,7 @@ final class SystemVideo {
       }
       await MainActor.run {
         let player = VideoPlayer(asset: asset, textures: self.textures)
-        let handle = self.nextHandle
-        self.nextHandle += 1
-        self.players[handle] = player
+        let handle = self.register(player)
         var opened = answer
         opened["handle"] = handle
         opened["texture"] = player.textureId
@@ -1614,9 +1626,7 @@ final class SystemVideo {
       let opened = answer
       await MainActor.run {
         let player = VideoPlayer(asset: asset, textures: nil, spectrumOf: track)
-        let handle = self.nextHandle
-        self.nextHandle += 1
-        self.players[handle] = player
+        let handle = self.register(player)
         var reply = opened
         reply["handle"] = handle
         result(reply)
@@ -1803,6 +1813,30 @@ final class VideoPlayer: NSObject, FlutterTexture {
     return Unmanaged.passRetained(frame)
   }
 
+  private var timeObserver: Any?
+  private var endObserver: NSObjectProtocol?
+
+  /// Слать состояние в [send]: раз в четверть секунды, пока идёт время, — система
+  /// зовёт и на пуске, остановке и перемотке, — и сразу по концу.
+  func report(_ send: @escaping ([String: Any]) -> Void) {
+    timeObserver = player.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 4), queue: .main) {
+      [weak self] _ in
+      guard let self = self else { return }
+      send(self.state())
+    }
+    endObserver = NotificationCenter.default.addObserver(
+      forName: AVPlayerItem.didPlayToEndTimeNotification, object: player.currentItem, queue: .main
+    ) { [weak self] _ in
+      guard let self = self else { return }
+      // Доиграл: плеер встаёт сам (`actionAtItemEnd = .pause`), но скорость
+      // в этот миг может быть ещё прежней.
+      var state = self.state()
+      state["ended"] = true
+      state["playing"] = false
+      send(state)
+    }
+  }
+
   /// Где плеер сейчас — для плашки времени.
   func state() -> [String: Any] {
     let position = player.currentTime().seconds
@@ -1817,6 +1851,14 @@ final class VideoPlayer: NSObject, FlutterTexture {
 
   /// Отпустить: звук смолкает, такт останавливается, текстура снимается.
   func close() {
+    if let observer = timeObserver {
+      player.removeTimeObserver(observer)
+      timeObserver = nil
+    }
+    if let observer = endObserver {
+      NotificationCenter.default.removeObserver(observer)
+      endObserver = nil
+    }
     player.pause()
     // Тап отпускается вместе с миксом: финализатор отдаст и его состояние.
     player.currentItem?.audioMix = nil

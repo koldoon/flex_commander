@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:fc_ui_api/fc_ui_api.dart';
@@ -29,11 +30,34 @@ class SystemVideoPlayback implements FcFrontendModule {
 
 /// Реализация [SystemVideo] поверх канала раннера.
 class ChannelSystemVideo implements SystemVideo {
-  ChannelSystemVideo({MethodChannel? channel}) : _channel = channel ?? const MethodChannel(channelName);
+  ChannelSystemVideo({MethodChannel? channel}) : _channel = channel ?? const MethodChannel(channelName) {
+    _channel.setMethodCallHandler(_onCall);
+  }
 
   static const String channelName = 'flex_commander/video';
 
   final MethodChannel _channel;
+
+  /// Открытые плееры по ручке — им раннер шлёт состояние.
+  final Map<int, _ChannelMediaPlayer> _players = {};
+
+  /// Раннер шлёт сам: `state` с ручкой (`docs/spec/audio-viewer.md`, §7.5).
+  Future<Object?> _onCall(MethodCall call) async {
+    final arguments = call.arguments;
+    if (call.method == 'state' && arguments is Map<Object?, Object?>) {
+      final handle = arguments['handle'];
+      if (handle is int) {
+        _players[handle]?._report(_stateOf(arguments));
+      }
+    }
+    return null;
+  }
+
+  static SystemVideoState _stateOf(Map<Object?, Object?> answer) => SystemVideoState(
+    position: _duration(answer['position']),
+    playing: answer['playing'] == true,
+    ended: answer['ended'] == true,
+  );
 
   @override
   Future<SystemVideoOpened?> open(String path) async {
@@ -123,8 +147,8 @@ class ChannelSystemVideo implements SystemVideo {
     }
   }
 
-  /// Жаловаться один раз за сеанс: состояние опрашивается часто, и жалоба на
-  /// каждый опрос превратила бы журнал в шум.
+  /// Жаловаться один раз за сеанс: вызовов по ручке много (громкость,
+  /// перемотка, пуск), и жалоба на каждый превратила бы журнал в шум.
   void _complainOnce(String message) {
     if (_complained) {
       return;
@@ -138,10 +162,23 @@ class ChannelSystemVideo implements SystemVideo {
 
 /// Общее у плееров видео и звука: ручка и вызовы по ней.
 abstract class _ChannelMediaPlayer implements SystemMediaPlayer {
-  _ChannelMediaPlayer(this._owner, this._handle, {required this.duration, required this.info});
+  _ChannelMediaPlayer(this._owner, this._handle, {required this.duration, required this.info}) {
+    _owner._players[_handle] = this;
+  }
 
   final ChannelSystemVideo _owner;
   final int _handle;
+
+  final StreamController<SystemVideoState> _states = StreamController.broadcast();
+
+  @override
+  Stream<SystemVideoState> get states => _states.stream;
+
+  void _report(SystemVideoState state) {
+    if (!_closed) {
+      _states.add(state);
+    }
+  }
 
   @override
   final Duration duration;
@@ -179,14 +216,7 @@ abstract class _ChannelMediaPlayer implements SystemMediaPlayer {
       return null;
     }
     final answer = await _owner._call<Map<Object?, Object?>>('state', {'handle': _handle});
-    if (answer == null) {
-      return null;
-    }
-    return SystemVideoState(
-      position: ChannelSystemVideo._duration(answer['position']),
-      playing: answer['playing'] == true,
-      ended: answer['ended'] == true,
-    );
+    return answer == null ? null : ChannelSystemVideo._stateOf(answer);
   }
 
   @override
@@ -197,6 +227,8 @@ abstract class _ChannelMediaPlayer implements SystemMediaPlayer {
     // Закрытым считается сразу: опрос, который придёт после, ручку уже не
     // тронет.
     _closed = true;
+    _owner._players.remove(_handle);
+    unawaited(_states.close());
     await _owner._call<Object?>('close', {'handle': _handle});
   }
 }

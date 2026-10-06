@@ -63,7 +63,12 @@ abstract interface class SystemMediaPlayer implements SystemVideoOpened {
 
   Future<void> setMuted(bool muted);
 
-  /// Где сейчас плеер. null — плеер уже закрыт.
+  /// Где плеер — по мере того, как меняется: раннер шлёт сам, раз в четверть
+  /// секунды, пока идёт время, и сразу на пуске, остановке, перемотке и конце
+  /// (`docs/spec/audio-viewer.md`, §7.5). Закрылся плеер — поток кончается.
+  Stream<SystemVideoState> get states;
+
+  /// Где сейчас плеер — разовым вопросом (шаг на кадр). null — плеер уже закрыт.
   Future<SystemVideoState?> state();
 
   /// Отпустить плеер: звук смолкает, текстура (у видео) снимается.

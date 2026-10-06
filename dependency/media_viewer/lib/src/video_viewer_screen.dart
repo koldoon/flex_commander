@@ -23,8 +23,9 @@ class VideoViewerScreen extends ChangeNotifier implements MediaScreen, ViewerUnw
     this.window,
     bool autoplay = true,
   }) : _entry = entry {
+    // Состояние шлёт плеер сам — опроса нет (`audio-viewer.md`, §7.5).
+    _states = player.states.listen(_onState);
     unawaited(_start(autoplay));
-    _poll = Timer.periodic(pollEvery, (_) => unawaited(_refresh()));
   }
 
   /// Имя в реестре просмотрщиков.
@@ -38,9 +39,6 @@ class VideoViewerScreen extends ChangeNotifier implements MediaScreen, ViewerUnw
 
   /// Через сколько покоя плашка прячется, пока ролик играет.
   static const Duration hideAfter = Duration(seconds: 2);
-
-  /// Как часто спрашивать плеер, где он: времени на плашке точнее не нужно.
-  static const Duration pollEvery = Duration(milliseconds: 250);
 
   final SystemVideoPlayer player;
   final MediaSource source;
@@ -67,11 +65,11 @@ class VideoViewerScreen extends ChangeNotifier implements MediaScreen, ViewerUnw
   FileEntry get entry => _entry;
   final FileEntry _entry;
 
-  late final Timer _poll;
+  late final StreamSubscription<SystemVideoState> _states;
   Timer? _hide;
 
   /// Где плеер. Пока ответ раннера не пришёл, — то, куда его послали: иначе
-  /// полоса перемотки отпрыгивала бы назад до следующего опроса.
+  /// полоса перемотки отпрыгивала бы назад до следующего состояния от плеера.
   Duration get position => _position.value;
 
   /// Позиция — отдельно от прочего: она сдвигается 4 раза в секунду, а будить
@@ -99,9 +97,8 @@ class VideoViewerScreen extends ChangeNotifier implements MediaScreen, ViewerUnw
     }
   }
 
-  Future<void> _refresh() async {
-    final state = await player.state();
-    if (state == null || _disposed) {
+  void _onState(SystemVideoState state) {
+    if (_disposed) {
       return;
     }
     final changed = state.playing != _playing || state.ended != _ended;
@@ -157,7 +154,11 @@ class VideoViewerScreen extends ChangeNotifier implements MediaScreen, ViewerUnw
     poke();
     notifyListeners();
     await player.step(frames);
-    await _refresh();
+    // Встал на кадр — где именно, спрашивается сразу.
+    final state = await player.state();
+    if (state != null) {
+      _onState(state);
+    }
   }
 
   Future<void> changeVolume(double delta) async {
@@ -272,7 +273,7 @@ class VideoViewerScreen extends ChangeNotifier implements MediaScreen, ViewerUnw
       return;
     }
     _disposed = true;
-    _poll.cancel();
+    unawaited(_states.cancel());
     _hide?.cancel();
     // Закрыли из полного экрана (курсор быстрого просмотра ушёл, F10) — окно
     // возвращается таким, каким было.

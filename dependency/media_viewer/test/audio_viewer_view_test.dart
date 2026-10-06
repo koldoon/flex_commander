@@ -83,8 +83,10 @@ void main() {
     var notified = 0;
     screen.addListener(() => notified++);
 
-    (screen.player as FakeAudioPlayer).position = const Duration(seconds: 7);
-    await tester.pump(AudioViewerScreen.pollEvery * 2);
+    (screen.player as FakeAudioPlayer)
+      ..position = const Duration(seconds: 7)
+      ..push();
+    await tester.pump();
     await tester.pump();
 
     expect(find.text('0:07'), findsOneWidget, reason: 'время на плашке идёт');
