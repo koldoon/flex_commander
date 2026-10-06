@@ -21,6 +21,7 @@ import 'package:fc_local_fs/fc_local_fs.dart';
 import 'package:fc_navigation/fc_navigation.dart';
 import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_pdf_viewer/fc_pdf_viewer.dart';
+import 'package:fc_video_viewer/fc_video_viewer.dart';
 import 'package:fc_places/fc_places.dart';
 import 'package:fc_s3/fc_s3.dart';
 import 'package:fc_search/fc_search.dart';
@@ -139,6 +140,7 @@ List<FcModule> featureModules() => [
   const TextViewer(),
   const ImageViewer(),
   const PdfViewer(),
+  const VideoViewer(),
   const MarkdownViewer(),
   // Диаграммы — не просмотрщик, а рисовальщик врезки внутри документа: он
   // объявляет себя в реестр из Г19 и о markdown больше ничего не знает.

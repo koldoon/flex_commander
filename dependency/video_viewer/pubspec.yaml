@@ -1,0 +1,40 @@
+name: fc_video_viewer
+description: "Просмотрщик видео: играет система, показ и управление — свои."
+publish_to: 'none'
+version: 1.0.0
+
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  fc_api:
+    path: ../api
+
+  fc_ui_api:
+    path: ../ui_api
+
+  fc_ui_kit:
+    path: ../ui_kit
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  fc_test_kit:
+    path: ../test_kit
+
+  fc_default_theme:
+    path: ../default_theme
+
+  flex_commander:
+    path: ../..
+
+  # Оболочка просмотра: без неё F3 некому обслужить, а тесты открывают файл
+  # так же, как это делает человек.
+  fc_viewer:
+    path: ../viewer

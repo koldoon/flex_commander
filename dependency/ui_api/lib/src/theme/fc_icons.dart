@@ -105,6 +105,20 @@ abstract class FcIcons {
 
   /// Справка окна — то же, что `F1` в нём.
   IconData get help;
+
+  // Проигрывание (`docs/spec/video-viewer.md`, §6).
+
+  /// Пуск.
+  IconData get play;
+
+  /// Пауза.
+  IconData get pause;
+
+  /// Звук включён.
+  IconData get soundOn;
+
+  /// Звук выключен.
+  IconData get soundOff;
 }
 
 /// Роль по имени — для правил, приехавших из файла настроек.
@@ -139,6 +153,10 @@ extension FcIconRoles on FcIcons {
     'archive' => archive,
     'close' => close,
     'help' => help,
+    'play' => play,
+    'pause' => pause,
+    'soundOn' => soundOn,
+    'soundOff' => soundOff,
     _ => null,
   };
 }

@@ -102,6 +102,22 @@ class DefaultIcons extends FcIcons {
   @override
   IconData get help => const IconData(0xe3e9, fontFamily: phosphorFamily, fontPackage: 'fc_default_theme');
 
+  /// `fa-play`.
+  @override
+  IconData get play => _icon(0xf04b);
+
+  /// `fa-pause`.
+  @override
+  IconData get pause => _icon(0xf04c);
+
+  /// `fa-volume-up`.
+  @override
+  IconData get soundOn => _icon(0xf028);
+
+  /// `fa-volume-off`.
+  @override
+  IconData get soundOff => _icon(0xf026);
+
   /// Семейство Phosphor Light в `pubspec.yaml` пакета.
   static const String phosphorFamily = 'PhosphorLight';
 

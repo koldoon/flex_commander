@@ -732,6 +732,7 @@ const Map<String, String> _russian = {
   'Text viewer': 'Просмотр',
   'Image viewer': 'Картинки',
   'PDF viewer': 'PDF',
+  'Video viewer': 'Видео',
   'Markdown viewer': 'Markdown',
   'Text editor': 'Редактор',
   'Command line': 'Командная строка',
