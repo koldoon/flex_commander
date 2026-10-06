@@ -1617,9 +1617,11 @@ final class SystemVideo {
         await MainActor.run { result(["refused": "unplayable"]) }
         return
       }
-      let opened = answer
+      // Неизменяемые копии: изменяемую переменную замыкание на главной нити
+      // захватывать не может (Swift 6).
+      let (opened, audio) = (answer, track)
       await MainActor.run {
-        let player = VideoPlayer(asset: asset, textures: nil, spectrumOf: track)
+        let player = VideoPlayer(asset: asset, textures: nil, spectrumOf: audio)
         let handle = self.register(player)
         var reply = opened
         reply["handle"] = handle
