@@ -78,6 +78,21 @@ void main() {
     screen.close();
   });
 
+  testWidgets('сдвиг позиции будит плашку, а не весь вид (§7.5)', (tester) async {
+    await pump(tester, const SystemAudioTags());
+    var notified = 0;
+    screen.addListener(() => notified++);
+
+    (screen.player as FakeAudioPlayer).position = const Duration(seconds: 7);
+    await tester.pump(AudioViewerScreen.pollEvery * 2);
+    await tester.pump();
+
+    expect(find.text('0:07'), findsOneWidget, reason: 'время на плашке идёт');
+    expect(notified, 0, reason: 'обложка, теги и спектр не перестраиваются');
+
+    screen.close();
+  });
+
   testWidgets('без тегов — имя файла', (tester) async {
     await pump(tester, const SystemAudioTags());
 

@@ -104,16 +104,21 @@ class _AudioViewerViewState extends State<AudioViewerView> {
                       ),
                       SizedBox(height: metrics.dialogGap),
                       // Плашка не прячется: смотреть, кроме неё, не на что (§1).
-                      MediaControls(
-                        playing: screen.playing,
-                        position: screen.position,
-                        duration: player.duration,
-                        muted: screen.settings.muted,
-                        volume: screen.settings.volume,
-                        onPlayPause: screen.togglePlay,
-                        onSeek: screen.seekTo,
-                        onToggleMute: screen.toggleMute,
-                        onVolume: screen.setVolume,
+                      // Позиция будит только плашку (§7.5).
+                      ValueListenableBuilder<Duration>(
+                        valueListenable: screen.positionListenable,
+                        builder:
+                            (context, position, _) => MediaControls(
+                              playing: screen.playing,
+                              position: position,
+                              duration: player.duration,
+                              muted: screen.settings.muted,
+                              volume: screen.settings.volume,
+                              onPlayPause: screen.togglePlay,
+                              onSeek: screen.seekTo,
+                              onToggleMute: screen.toggleMute,
+                              onVolume: screen.setVolume,
+                            ),
                       ),
                       const SizedBox(height: 16),
                     ],

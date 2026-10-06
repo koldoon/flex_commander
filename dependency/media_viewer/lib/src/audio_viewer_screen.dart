@@ -73,8 +73,12 @@ class AudioViewerScreen extends ChangeNotifier implements MediaScreen {
 
   late final Timer _poll;
 
-  Duration get position => _position;
-  Duration _position = Duration.zero;
+  Duration get position => _position.value;
+
+  /// Позиция — отдельно от прочего: она сдвигается 4 раза в секунду, а будить
+  /// ей нужно только плашку, а не весь вид (`audio-viewer.md`, §7.5).
+  ValueListenable<Duration> get positionListenable => _position;
+  final ValueNotifier<Duration> _position = ValueNotifier(Duration.zero);
 
   @override
   bool get playing => _playing;
@@ -112,8 +116,8 @@ class AudioViewerScreen extends ChangeNotifier implements MediaScreen {
       await next();
       return;
     }
-    final changed = state.position != _position || state.playing != _playing || state.ended != _ended;
-    _position = state.position;
+    final changed = state.playing != _playing || state.ended != _ended;
+    _position.value = state.position;
     _playing = state.playing;
     _ended = state.ended;
     if (changed) {
@@ -143,13 +147,13 @@ class AudioViewerScreen extends ChangeNotifier implements MediaScreen {
   Future<void> seekTo(Duration target) async {
     final duration = _player.duration;
     final clamped = target < Duration.zero ? Duration.zero : (target > duration ? duration : target);
-    _position = clamped;
+    _position.value = clamped;
     _ended = false;
     notifyListeners();
     await _player.seek(clamped);
   }
 
-  Future<void> seekBy(Duration delta) => seekTo(_position + delta);
+  Future<void> seekBy(Duration delta) => seekTo(_position.value + delta);
 
   Future<void> changeVolume(double delta) async {
     settings.volume = (settings.volume + delta).clamp(0.0, 1.0);
@@ -231,7 +235,7 @@ class AudioViewerScreen extends ChangeNotifier implements MediaScreen {
     _player = opened;
     _source = source;
     _entry = track;
-    _position = Duration.zero;
+    _position.value = Duration.zero;
     _ended = false;
     unawaited(oldPlayer.close().whenComplete(oldSource.dispose));
 
@@ -280,6 +284,7 @@ class AudioViewerScreen extends ChangeNotifier implements MediaScreen {
     _poll.cancel();
     // Закрыли показ — звук смолкает сразу, плеер отпускается, копия убирается.
     unawaited(_player.close().whenComplete(_source.dispose));
+    _position.dispose();
     super.dispose();
   }
 }

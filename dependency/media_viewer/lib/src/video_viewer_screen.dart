@@ -72,8 +72,12 @@ class VideoViewerScreen extends ChangeNotifier implements MediaScreen, ViewerUnw
 
   /// Где плеер. Пока ответ раннера не пришёл, — то, куда его послали: иначе
   /// полоса перемотки отпрыгивала бы назад до следующего опроса.
-  Duration get position => _position;
-  Duration _position = Duration.zero;
+  Duration get position => _position.value;
+
+  /// Позиция — отдельно от прочего: она сдвигается 4 раза в секунду, а будить
+  /// ей нужно только плашку, а не весь вид (`audio-viewer.md`, §7.5).
+  ValueListenable<Duration> get positionListenable => _position;
+  final ValueNotifier<Duration> _position = ValueNotifier(Duration.zero);
 
   @override
   bool get playing => _playing;
@@ -100,8 +104,8 @@ class VideoViewerScreen extends ChangeNotifier implements MediaScreen, ViewerUnw
     if (state == null || _disposed) {
       return;
     }
-    final changed = state.position != _position || state.playing != _playing || state.ended != _ended;
-    _position = state.position;
+    final changed = state.playing != _playing || state.ended != _ended;
+    _position.value = state.position;
     _ended = state.ended;
     if (state.playing != _playing) {
       _playing = state.playing;
@@ -138,14 +142,14 @@ class VideoViewerScreen extends ChangeNotifier implements MediaScreen, ViewerUnw
   Future<void> seekTo(Duration target) async {
     final duration = player.duration;
     final clamped = target < Duration.zero ? Duration.zero : (target > duration ? duration : target);
-    _position = clamped;
+    _position.value = clamped;
     _ended = false;
     poke();
     notifyListeners();
     await player.seek(clamped);
   }
 
-  Future<void> seekBy(Duration delta) => seekTo(_position + delta);
+  Future<void> seekBy(Duration delta) => seekTo(_position.value + delta);
 
   /// На кадр вперёд или назад — плеер встаёт на паузу.
   Future<void> step(int frames) async {
@@ -278,6 +282,7 @@ class VideoViewerScreen extends ChangeNotifier implements MediaScreen, ViewerUnw
     // Закрыли показ — звук смолкает сразу, плеер отпускается, копия убирается
     // (§4, §7).
     unawaited(player.close().whenComplete(source.dispose));
+    _position.dispose();
     super.dispose();
   }
 }
