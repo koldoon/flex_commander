@@ -47,7 +47,7 @@ workspace:
   - dependency/navigation
   - dependency/panels
   - dependency/pdf_viewer
-  - dependency/video_viewer
+  - dependency/media_viewer
   - dependency/places
   - dependency/platform
   # Своя копия re_editor: в ней две правки, без которых выделение в редакторе и
@@ -172,8 +172,8 @@ dependencies:
   fc_pdf_viewer:
     path: dependency/pdf_viewer
 
-  fc_video_viewer:
-    path: dependency/video_viewer
+  fc_media_viewer:
+    path: dependency/media_viewer
 
   fc_markdown_viewer:
     path: dependency/markdown_viewer

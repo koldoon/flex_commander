@@ -2,14 +2,17 @@ import 'dart:async';
 
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/foundation.dart';
 
-import 'video_source.dart';
+import 'media_screen.dart';
+import 'media_source.dart';
+import 'video_viewer_commands.dart';
 import 'video_viewer_settings.dart';
 
 /// Показ ролика: плеер в раннере, время, громкость и плашка управления
 /// (`docs/spec/video-viewer.md`).
-class VideoViewerScreen extends ChangeNotifier implements ViewerContent, ViewerUnwinds {
+class VideoViewerScreen extends ChangeNotifier implements MediaScreen, ViewerUnwinds {
   VideoViewerScreen({
     required FileEntry entry,
     required this.player,
@@ -40,7 +43,8 @@ class VideoViewerScreen extends ChangeNotifier implements ViewerContent, ViewerU
   static const Duration pollEvery = Duration(milliseconds: 250);
 
   final SystemVideoPlayer player;
-  final VideoSource source;
+  final MediaSource source;
+  @override
   final VideoViewerSettings settings;
   final void Function() onSettingsChanged;
 
@@ -71,6 +75,7 @@ class VideoViewerScreen extends ChangeNotifier implements ViewerContent, ViewerU
   Duration get position => _position;
   Duration _position = Duration.zero;
 
+  @override
   bool get playing => _playing;
   bool _playing = false;
 
@@ -127,6 +132,7 @@ class VideoViewerScreen extends ChangeNotifier implements ViewerContent, ViewerU
     await player.pause();
   }
 
+  @override
   Future<void> togglePlay() => _playing ? pause() : play();
 
   Future<void> seekTo(Duration target) async {
@@ -171,6 +177,7 @@ class VideoViewerScreen extends ChangeNotifier implements ViewerContent, ViewerU
     await player.setVolume(settings.volume);
   }
 
+  @override
   Future<void> toggleMute() async {
     settings.muted = !settings.muted;
     onSettingsChanged();
@@ -245,6 +252,9 @@ class VideoViewerScreen extends ChangeNotifier implements ViewerContent, ViewerU
   }
 
   @override
+  FcTableSection infoSection(Strings strings) => videoInfoSection(this, strings);
+
+  @override
   bool get takesKeyboard => true;
 
   @override
@@ -270,14 +280,4 @@ class VideoViewerScreen extends ChangeNotifier implements ViewerContent, ViewerU
     unawaited(player.close().whenComplete(source.dispose));
     super.dispose();
   }
-}
-
-/// Время как на плашке QuickTime: `0:12`, `3:45`, `1:02:03` — часы только
-/// когда они есть.
-String formatClock(Duration time) {
-  final seconds = time.inSeconds < 0 ? 0 : time.inSeconds;
-  final h = seconds ~/ 3600;
-  final m = (seconds % 3600) ~/ 60;
-  final s = (seconds % 60).toString().padLeft(2, '0');
-  return h > 0 ? '$h:${m.toString().padLeft(2, '0')}:$s' : '$m:$s';
 }

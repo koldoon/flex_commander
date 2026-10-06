@@ -1,5 +1,5 @@
-name: fc_video_viewer
-description: "Просмотрщик видео: играет система, показ и управление — свои."
+name: fc_media_viewer
+description: "Просмотрщики видео и звука: играет система, показ и управление — свои."
 publish_to: 'none'
 version: 1.0.0
 

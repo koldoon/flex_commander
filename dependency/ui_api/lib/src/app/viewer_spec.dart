@@ -27,7 +27,7 @@ class ViewerRequest {
     required this.place,
     required this.checkpoint,
     this.siblings = const [],
-    this.localPath,
+    this.onRealDisk = false,
     NodeSource Function(FileEntry entry)? sourceOf,
   }) : _sourceOf = sourceOf;
 
@@ -47,14 +47,21 @@ class ViewerRequest {
 
   final ViewerPlace place;
 
-  /// Путь к файлу на настоящей файловой системе; null — файл в архиве, на
+  /// Файл и его соседи лежат на настоящей файловой системе — а не в архиве, на
   /// сервере или ещё где-то, куда системе дороги нет.
   ///
-  /// Нужен тому, кто читает файл не потоком, а сам: проигрыватель видео
-  /// открывает ролик по пути, и копировать гигабайты, лежащие рядом, незачем
+  /// Нужен тому, кто читает файл не потоком, а сам: проигрыватель видео и звука
+  /// открывает файл по пути, и копировать гигабайты, лежащие рядом, незачем
   /// (`docs/spec/video-viewer.md`, §4). Признак тот же, по которому `Cmd-O`
   /// решает, есть ли что отдать системе.
-  final String? localPath;
+  final bool onRealDisk;
+
+  /// Путь к открываемому файлу на диске; null — дороги к нему у системы нет.
+  String? get localPath => localPathOf(entry);
+
+  /// Путь к соседу на диске — следующему треку альбома
+  /// (`docs/spec/audio-viewer.md`, §3); null — дороги к нему у системы нет.
+  String? localPathOf(FileEntry entry) => onRealDisk ? entry.path : null;
 
   /// Соседи по списку — то, что показано в панели рядом.
   ///

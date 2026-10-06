@@ -3,6 +3,7 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import 'media_controls.dart';
 import 'video_viewer_screen.dart';
 
 /// Показ ролика: та же рама и та же плашка пути, что у прочих показов, внутри —
@@ -14,14 +15,6 @@ class VideoViewerView extends StatefulWidget {
   const VideoViewerView({super.key, required this.screen});
 
   final VideoViewerScreen screen;
-
-  /// Цвета кадра и плашки — не из оформления: видео смотрят на чёрном в любом
-  /// оформлении, а плашка лежит на кадре, а не на окне, и обязана читаться на
-  /// любом кадре — тёмная полупрозрачная с белым, как в QuickTime.
-  static const Color backdrop = Color(0xFF000000);
-  static const Color plateColor = Color(0xA6202020);
-  static const Color ink = Color(0xFFFFFFFF);
-  static const Color track = Color(0x4DFFFFFF);
 
   @override
   State<VideoViewerView> createState() => _VideoViewerViewState();
@@ -162,7 +155,7 @@ class _VideoViewerViewState extends State<VideoViewerView> {
             onKeyEvent: _onKey,
             // В полном экране ролик — в накладке; здесь только чёрное место,
             // чтобы одна текстура не рисовалась дважды.
-            child: screen.fullScreen ? const ColoredBox(color: VideoViewerView.backdrop) : _stage(focusNode: _focus),
+            child: screen.fullScreen ? const ColoredBox(color: MediaColors.backdrop) : _stage(focusNode: _focus),
           ),
         );
       },
@@ -184,7 +177,7 @@ class _VideoViewerViewState extends State<VideoViewerView> {
           screen.poke();
         },
         child: ColoredBox(
-          color: VideoViewerView.backdrop,
+          color: MediaColors.backdrop,
           child: Stack(
             children: [
               Positioned.fill(
@@ -206,7 +199,21 @@ class _VideoViewerViewState extends State<VideoViewerView> {
                   child: AnimatedOpacity(
                     opacity: screen.controlsVisible ? 1 : 0,
                     duration: const Duration(milliseconds: 200),
-                    child: Center(child: _VideoControls(screen: screen)),
+                    child: Center(
+                      child: MediaControls(
+                        playing: screen.playing,
+                        position: screen.position,
+                        duration: screen.player.duration,
+                        muted: screen.settings.muted,
+                        volume: screen.settings.volume,
+                        onPlayPause: screen.togglePlay,
+                        onSeek: screen.seekTo,
+                        onToggleMute: screen.toggleMute,
+                        onVolume: screen.setVolume,
+                        fullScreen: screen.fullScreen,
+                        onFullScreen: screen.toggleFullScreen,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -268,166 +275,4 @@ class _VideoViewerViewState extends State<VideoViewerView> {
       _ => PanelOuterEdge.both,
     };
   }
-}
-
-/// Плашка управления: пуск, время, перемотка, громкость.
-class _VideoControls extends StatelessWidget {
-  const _VideoControls({required this.screen});
-
-  final VideoViewerScreen screen;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = FcTheme.of(context);
-    final icons = theme.icons;
-    final metrics = theme.metrics;
-    final text = theme.uiStyle.copyWith(color: VideoViewerView.ink, fontFeatures: const [FontFeature.tabularFigures()]);
-    final duration = screen.player.duration;
-    final played = duration.inMicroseconds <= 0 ? 0.0 : screen.position.inMicroseconds / duration.inMicroseconds;
-
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 560),
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: EdgeInsets.symmetric(horizontal: metrics.dialogPadding, vertical: metrics.dialogGap),
-      decoration: BoxDecoration(color: VideoViewerView.plateColor, borderRadius: BorderRadius.circular(10)),
-      child: Row(
-        children: [
-          _IconButton(
-            key: const ValueKey('video.playPause'),
-            icon: screen.playing ? icons.pause : icons.play,
-            onTap: screen.togglePlay,
-          ),
-          SizedBox(width: metrics.dialogGap),
-          Text(formatClock(screen.position), style: text),
-          SizedBox(width: metrics.dialogGap),
-          Expanded(
-            child: _Bar(
-              key: const ValueKey('video.scrub'),
-              value: played,
-              onChanged: (fraction) => screen.seekTo(duration * fraction),
-            ),
-          ),
-          SizedBox(width: metrics.dialogGap),
-          Text(formatClock(duration), style: text),
-          SizedBox(width: metrics.dialogGap * 2),
-          _IconButton(
-            key: const ValueKey('video.mute'),
-            icon: screen.settings.muted ? icons.soundOff : icons.soundOn,
-            onTap: screen.toggleMute,
-          ),
-          SizedBox(width: metrics.dialogGap),
-          SizedBox(
-            width: 72,
-            child: _Bar(
-              key: const ValueKey('video.volume'),
-              value: screen.settings.muted ? 0 : screen.settings.volume,
-              onChanged: screen.setVolume,
-            ),
-          ),
-          SizedBox(width: metrics.dialogGap * 2),
-          _IconButton(
-            key: const ValueKey('video.fullScreen'),
-            icon: screen.fullScreen ? icons.exitFullScreen : icons.enterFullScreen,
-            onTap: screen.toggleFullScreen,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Значок-кнопка на плашке.
-class _IconButton extends StatelessWidget {
-  const _IconButton({super.key, required this.icon, required this.onTap});
-
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final size = FcTheme.of(context).metrics.fontSize * 1.3;
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: SizedBox(
-          width: size + 8,
-          height: size + 8,
-          child: Center(child: Icon(icon, size: size, color: VideoViewerView.ink)),
-        ),
-      ),
-    );
-  }
-}
-
-/// Полоса с бегунком: перемотка и громкость. Щелчок переносит, протяжка ведёт.
-class _Bar extends StatelessWidget {
-  const _Bar({super.key, required this.value, required this.onChanged});
-
-  /// Где бегунок, от 0 до 1.
-  final double value;
-
-  final ValueChanged<double> onChanged;
-
-  static const double _height = 18;
-  static const double _thickness = 4;
-  static const double _knob = 6;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        // Полоса — внутри на радиус бегунка с обеих сторон: на краю бегунок
-        // иначе вылезал за неё половиной и упирался в край плашки.
-        final span = width - _knob * 2;
-        void report(double x) => onChanged(span <= 0 ? 0 : ((x - _knob) / span).clamp(0.0, 1.0));
-        return MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTapDown: (details) => report(details.localPosition.dx),
-            onHorizontalDragStart: (details) => report(details.localPosition.dx),
-            onHorizontalDragUpdate: (details) => report(details.localPosition.dx),
-            child: SizedBox(
-              height: _height,
-              width: width,
-              child: CustomPaint(painter: _BarPainter(value.clamp(0.0, 1.0))),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _BarPainter extends CustomPainter {
-  const _BarPainter(this.value);
-
-  final double value;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final y = size.height / 2;
-    const left = _Bar._knob;
-    final right = size.width - _Bar._knob;
-    final track = RRect.fromLTRBR(
-      left,
-      y - _Bar._thickness / 2,
-      right,
-      y + _Bar._thickness / 2,
-      const Radius.circular(_Bar._thickness / 2),
-    );
-    canvas.drawRRect(track, Paint()..color = VideoViewerView.track);
-    final x = left + (right - left) * value;
-    canvas.drawRRect(
-      RRect.fromLTRBR(left, track.top, x, track.bottom, const Radius.circular(_Bar._thickness / 2)),
-      Paint()..color = VideoViewerView.ink,
-    );
-    canvas.drawCircle(Offset(x, y), _Bar._knob, Paint()..color = VideoViewerView.ink);
-  }
-
-  @override
-  bool shouldRepaint(_BarPainter old) => old.value != value;
 }

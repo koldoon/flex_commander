@@ -5,23 +5,30 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 
 /// Подставной [SystemVideo]: всё, о чём просили, записано.
 class FakeSystemVideo implements SystemVideo {
-  FakeSystemVideo({this.refuse});
+  FakeSystemVideo({this.refuse, this.tagsOf});
 
   /// Чем отказать вместо плеера; null — играть.
   String? Function(String path)? refuse;
 
-  /// Плееры по порядку открытия.
-  final List<FakeVideoPlayer> opened = [];
+  /// Теги звукового файла по пути; null — тегов нет.
+  SystemAudioTags Function(String path)? tagsOf;
+
+  /// Плееры по порядку открытия — видео и звука вперемешку.
+  final List<FakeMediaPlayer> opened = [];
 
   /// Пути, которые просили открыть, — и что в них лежало в тот миг: копия
   /// после закрытия удаляется, а проверить её надо.
   final List<(String, List<int>?)> paths = [];
 
-  @override
-  Future<SystemVideoOpened?> open(String path) async {
+  String? _record(String path) {
     final file = File(path);
     paths.add((path, file.existsSync() ? file.readAsBytesSync() : null));
-    final refusal = refuse?.call(path);
+    return refuse?.call(path);
+  }
+
+  @override
+  Future<SystemVideoOpened?> open(String path) async {
+    final refusal = _record(path);
     if (refusal != null) {
       return SystemVideoRefused(refusal);
     }
@@ -29,26 +36,23 @@ class FakeSystemVideo implements SystemVideo {
     opened.add(player);
     return player;
   }
+
+  @override
+  Future<SystemVideoOpened?> openAudio(String path) async {
+    final refusal = _record(path);
+    if (refusal != null) {
+      return SystemVideoRefused(refusal);
+    }
+    final player = FakeAudioPlayer(path, tagsOf?.call(path) ?? const SystemAudioTags());
+    opened.add(player);
+    return player;
+  }
 }
 
-class FakeVideoPlayer implements SystemVideoPlayer {
-  FakeVideoPlayer(this.textureId);
-
-  @override
-  final int textureId;
-
-  @override
-  Size get size => const Size(1920, 1080);
-
-  @override
-  int get quarterTurns => 0;
-
+/// Общее подставных плееров: что звали и где стоят.
+abstract class FakeMediaPlayer implements SystemMediaPlayer {
   @override
   Duration get duration => const Duration(minutes: 1);
-
-  @override
-  SystemVideoInfo get info =>
-      const SystemVideoInfo(videoCodec: 'avc1', audioCodecs: ['aac'], frameRate: 30, bitRate: 4000000);
 
   /// Что звали, по порядку: `play`, `pause`, `seek 5000`, `step 1`, `volume 0.5`, `muted true`.
   final List<String> calls = [];
@@ -56,6 +60,9 @@ class FakeVideoPlayer implements SystemVideoPlayer {
   Duration position = Duration.zero;
   bool playing = false;
   bool closed = false;
+
+  /// Доиграл — так его видит опрос.
+  bool ended = false;
 
   @override
   Future<void> play() async {
@@ -76,12 +83,6 @@ class FakeVideoPlayer implements SystemVideoPlayer {
   }
 
   @override
-  Future<void> step(int frames) async {
-    calls.add('step $frames');
-    playing = false;
-  }
-
-  @override
   Future<void> setVolume(double volume) async => calls.add('volume ${volume.toStringAsFixed(1)}');
 
   @override
@@ -89,7 +90,7 @@ class FakeVideoPlayer implements SystemVideoPlayer {
 
   @override
   Future<SystemVideoState?> state() async =>
-      closed ? null : SystemVideoState(position: position, playing: playing, ended: false);
+      closed ? null : SystemVideoState(position: position, playing: playing, ended: ended);
 
   @override
   Future<void> close() async {
@@ -97,6 +98,43 @@ class FakeVideoPlayer implements SystemVideoPlayer {
     closed = true;
     playing = false;
   }
+}
+
+class FakeVideoPlayer extends FakeMediaPlayer implements SystemVideoPlayer {
+  FakeVideoPlayer(this.textureId);
+
+  @override
+  final int textureId;
+
+  @override
+  Size get size => const Size(1920, 1080);
+
+  @override
+  int get quarterTurns => 0;
+
+  @override
+  SystemVideoInfo get info =>
+      const SystemVideoInfo(videoCodec: 'avc1', audioCodecs: ['aac'], frameRate: 30, bitRate: 4000000);
+
+  @override
+  Future<void> step(int frames) async {
+    calls.add('step $frames');
+    playing = false;
+  }
+}
+
+class FakeAudioPlayer extends FakeMediaPlayer implements SystemAudioPlayer {
+  FakeAudioPlayer(this.path, this.tags);
+
+  /// Откуда открыт — тест узнаёт по нему трек.
+  final String path;
+
+  @override
+  final SystemAudioTags tags;
+
+  @override
+  SystemVideoInfo get info =>
+      const SystemVideoInfo(audioCodecs: ['.mp3'], bitRate: 320000, sampleRate: 44100, channels: 2);
 }
 
 class FakeSystemVideoModule implements FcFrontendModule {

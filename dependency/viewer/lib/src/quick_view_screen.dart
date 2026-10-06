@@ -127,7 +127,7 @@ class QuickViewHost extends ChangeNotifier implements ViewportHost {
         ViewerPlace.panel,
         siblings: panel.entries,
         sourceOf: panel.sourceOf,
-        localPath: panel.source.capabilities.realFileSystem ? entry.path : null,
+        onRealDisk: panel.source.capabilities.realFileSystem,
         // Курсор ушёл дальше — дочитывать незачем: просмотрщик спрашивает об
         // этом сам, по ходу чтения.
         checkpoint: () async {

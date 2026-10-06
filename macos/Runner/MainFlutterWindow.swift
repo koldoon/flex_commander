@@ -1446,6 +1446,15 @@ final class SystemVideo {
       return
     }
 
+    if call.method == "openAudio" {
+      guard let path = arguments["path"] as? String else {
+        result(nil)
+        return
+      }
+      openAudio(path, result)
+      return
+    }
+
     guard let handle = arguments["handle"] as? Int else {
       result(nil)
       return
@@ -1556,6 +1565,115 @@ final class SystemVideo {
     }
   }
 
+  /// Звуковой файл: тот же плеер, только без кадров, и теги
+  /// (`docs/spec/audio-viewer.md`, §2).
+  private func openAudio(_ path: String, _ result: @escaping FlutterResult) {
+    let asset = AVURLAsset(url: URL(fileURLWithPath: path))
+    Task {
+      var answer: [String: Any]
+      do {
+        let (playable, duration) = try await asset.load(.isPlayable, .duration)
+        let audio = try await asset.loadTracks(withMediaType: .audio).first
+        guard playable else {
+          await MainActor.run { result(["refused": "unplayable"]) }
+          return
+        }
+        guard let audio = audio else {
+          await MainActor.run { result(["refused": "noAudio"]) }
+          return
+        }
+        let (rate, formats) = try await audio.load(.estimatedDataRate, .formatDescriptions)
+        answer = [
+          "duration": duration.seconds.isFinite ? duration.seconds : 0,
+          "bitRate": Double(rate),
+        ]
+        if let format = formats.first {
+          answer["audioCodecs"] = [SystemVideo.fourCC(CMFormatDescriptionGetMediaSubType(format))]
+          if let basic = CMAudioFormatDescriptionGetStreamBasicDescription(format)?.pointee {
+            answer["sampleRate"] = basic.mSampleRate
+            answer["channels"] = Int(basic.mChannelsPerFrame)
+          }
+        }
+        for (key, value) in try await SystemVideo.tags(of: asset) {
+          answer[key] = value
+        }
+      } catch {
+        await MainActor.run { result(["refused": "unplayable"]) }
+        return
+      }
+      let opened = answer
+      await MainActor.run {
+        let player = VideoPlayer(asset: asset, textures: nil)
+        let handle = self.nextHandle
+        self.nextHandle += 1
+        self.players[handle] = player
+        var reply = opened
+        reply["handle"] = handle
+        result(reply)
+      }
+    }
+  }
+
+  /// Теги из `commonMetadata`: они общие для ID3 у mp3, атомов у m4a и
+  /// комментариев Vorbis у flac. Год — из даты создания, а нет её — из ID3 и
+  /// iTunes.
+  static func tags(of asset: AVAsset) async throws -> [String: Any] {
+    var tags: [String: Any] = [:]
+    let common = try await asset.load(.commonMetadata)
+    func string(_ identifier: AVMetadataIdentifier, in items: [AVMetadataItem]) async -> String? {
+      for item in AVMetadataItem.metadataItems(from: items, filteredByIdentifier: identifier) {
+        if let value = try? await item.load(.stringValue), !value.isEmpty {
+          return value
+        }
+      }
+      return nil
+    }
+    let all = try await asset.load(.metadata)
+    // Комментарии Vorbis у flac в общие теги не попадают — лежат в `metadata`
+    // ключами вида `vorb/TITLE` (проверено пробой на macOS 27). Чего нет в
+    // общих, ищем по имени ключа.
+    func byKey(_ names: [String]) async -> String? {
+      for item in all {
+        guard let key = item.identifier?.rawValue.split(separator: "/").last?.uppercased(), names.contains(key) else {
+          continue
+        }
+        if let value = try? await item.load(.stringValue), !value.isEmpty {
+          return value
+        }
+      }
+      return nil
+    }
+    func tag(_ identifier: AVMetadataIdentifier, _ name: String) async -> String? {
+      if let found = await string(identifier, in: common) {
+        return found
+      }
+      return await byKey([name])
+    }
+    if let title = await tag(.commonIdentifierTitle, "TITLE") { tags["title"] = title }
+    if let artist = await tag(.commonIdentifierArtist, "ARTIST") { tags["artist"] = artist }
+    if let album = await tag(.commonIdentifierAlbumName, "ALBUM") { tags["album"] = album }
+    var year = await string(.commonIdentifierCreationDate, in: common)
+    if year == nil {
+      for identifier in [AVMetadataIdentifier.id3MetadataYear, .id3MetadataRecordingTime, .iTunesMetadataReleaseDate] {
+        if let found = await string(identifier, in: all) {
+          year = found
+          break
+        }
+      }
+    }
+    if year == nil {
+      year = await byKey(["DATE", "YEAR"])
+    }
+    if let year = year { tags["year"] = year }
+    for item in AVMetadataItem.metadataItems(from: common, filteredByIdentifier: .commonIdentifierArtwork) {
+      if let data = try? await item.load(.dataValue), !data.isEmpty {
+        tags["artwork"] = FlutterStandardTypedData(bytes: data)
+        break
+      }
+    }
+    return tags
+  }
+
   /// Код кодека строкой: `avc1`, `hvc1`, `aac `.
   static func fourCC(_ code: FourCharCode) -> String {
     let bytes = [24, 16, 8, 0].map { UInt8((code >> $0) & 0xFF) }
@@ -1572,8 +1690,10 @@ final class VideoPlayer: NSObject, FlutterTexture {
   let player: AVPlayer
   private(set) var textureId: Int64 = 0
 
-  private let output: AVPlayerItemVideoOutput
-  private let textures: FlutterTextureRegistry
+  /// Вывод кадров и реестр текстур; у звука — nil: кадров нет, и ни текстуры,
+  /// ни такта экрана ему не нужно.
+  private let output: AVPlayerItemVideoOutput?
+  private let textures: FlutterTextureRegistry?
   private var displayLink: CVDisplayLink?
 
   /// Последний снятый кадр: его отдают, пока нового нет. Под замком — его
@@ -1581,21 +1701,28 @@ final class VideoPlayer: NSObject, FlutterTexture {
   private var latest: CVPixelBuffer?
   private let lock = NSLock()
 
-  init(asset: AVAsset, textures: FlutterTextureRegistry) {
+  init(asset: AVAsset, textures: FlutterTextureRegistry?) {
     self.textures = textures
-    output = AVPlayerItemVideoOutput(pixelBufferAttributes: [
-      kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-      kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any](),
-      kCVPixelBufferMetalCompatibilityKey as String: true,
-    ])
     let item = AVPlayerItem(asset: asset)
-    item.add(output)
+    if textures != nil {
+      let output = AVPlayerItemVideoOutput(pixelBufferAttributes: [
+        kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+        kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any](),
+        kCVPixelBufferMetalCompatibilityKey as String: true,
+      ])
+      item.add(output)
+      self.output = output
+    } else {
+      self.output = nil
+    }
     player = AVPlayer(playerItem: item)
     // Доиграл — стоит на последнем кадре, а не уходит в чёрное.
     player.actionAtItemEnd = .pause
     super.init()
-    textureId = textures.register(self)
-    startDisplayLink()
+    if let textures = textures {
+      textureId = textures.register(self)
+      startDisplayLink()
+    }
   }
 
   private func startDisplayLink() {
@@ -1619,17 +1746,23 @@ final class VideoPlayer: NSObject, FlutterTexture {
 
   /// Такт экрана: есть новый кадр — сказать движку.
   private func tick() {
+    guard let output = output else {
+      return
+    }
     let time = output.itemTime(forHostTime: CACurrentMediaTime())
     guard output.hasNewPixelBuffer(forItemTime: time) else {
       return
     }
     let id = textureId
     DispatchQueue.main.async { [weak self] in
-      self?.textures.textureFrameAvailable(id)
+      self?.textures?.textureFrameAvailable(id)
     }
   }
 
   func copyPixelBuffer() -> Unmanaged<CVPixelBuffer>? {
+    guard let output = output else {
+      return nil
+    }
     let time = output.itemTime(forHostTime: CACurrentMediaTime())
     lock.lock()
     defer { lock.unlock() }
@@ -1664,6 +1797,8 @@ final class VideoPlayer: NSObject, FlutterTexture {
       CVDisplayLinkStop(link)
     }
     displayLink = nil
-    textures.unregisterTexture(textureId)
+    if let textures = textures {
+      textures.unregisterTexture(textureId)
+    }
   }
 }

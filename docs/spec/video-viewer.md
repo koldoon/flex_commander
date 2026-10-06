@@ -185,7 +185,7 @@ abstract interface class SystemVideo {
   `flex_commander/video`.
 * `macos/Runner/MainFlutterWindow.swift` — `final class SystemVideo`: плееры
   под ручкой, текстуры, display link.
-* `dependency/video_viewer` (`fc_video_viewer`) — просмотрщик: модуль,
+* `dependency/media_viewer` (`fc_media_viewer`) — просмотрщик: модуль,
   документ (откуда играть), состояние, вид, команды, настройки.
 
 ## 12. Проверка
@@ -211,7 +211,7 @@ abstract interface class SystemVideo {
 ## 13. Отметки по ходу
 
 **Сделано**: контракт `SystemVideo`, канал `flex_commander/video`, плеер в раннере
-с кадрами в текстуру, `ViewerRequest.localPath`, пакет `fc_video_viewer`
+с кадрами в текстуру, `ViewerRequest.localPath`, пакет `fc_media_viewer`
 (источник, состояние, вид, команды, словарь), роли значков `play`, `pause`,
 `soundOn`, `soundOff`, контекст клавиш `videoViewer`.
 

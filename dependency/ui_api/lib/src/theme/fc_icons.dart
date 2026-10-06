@@ -125,6 +125,9 @@ abstract class FcIcons {
 
   /// Из полного экрана обратно.
   IconData get exitFullScreen;
+
+  /// Нота — звуковой файл без обложки (`docs/spec/audio-viewer.md`, §1).
+  IconData get music;
 }
 
 /// Роль по имени — для правил, приехавших из файла настроек.
@@ -165,6 +168,7 @@ extension FcIconRoles on FcIcons {
     'soundOff' => soundOff,
     'enterFullScreen' => enterFullScreen,
     'exitFullScreen' => exitFullScreen,
+    'music' => music,
     _ => null,
   };
 }

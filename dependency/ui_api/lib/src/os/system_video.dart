@@ -1,9 +1,11 @@
+import 'dart:typed_data';
 import 'dart:ui';
 
-/// Проигрывание видео силами системы.
+/// Проигрывание видео и звука силами системы.
 ///
-/// Плеер живёт **там**, где играет, — у Dart только ручка на него и номер
-/// текстуры, в которую раннер кладёт кадры (`docs/spec/video-viewer.md`, §3).
+/// Плеер живёт **там**, где играет, — у Dart только ручка на него, а у видео
+/// ещё и номер текстуры, в которую раннер кладёт кадры
+/// (`docs/spec/video-viewer.md`, §3; `docs/spec/audio-viewer.md`, §2).
 ///
 /// Службы нет — просмотрщик отказывает словами и предлагает открыть файл
 /// системой.
@@ -13,6 +15,10 @@ abstract interface class SystemVideo {
   /// **Путём, а не байтами**, в отличие от PDF: ролик бывает в гигабайтах, и
   /// держать его в памяти ради канала нельзя. null — канала нет.
   Future<SystemVideoOpened?> open(String path);
+
+  /// Открыть звуковой файл по пути на диске — тем же плеером, только без
+  /// кадров. null — канала нет.
+  Future<SystemVideoOpened?> openAudio(String path);
 }
 
 /// Что вышло из открытия: плеер или отказ системы словами.
@@ -20,12 +26,12 @@ sealed class SystemVideoOpened {
   const SystemVideoOpened();
 }
 
-/// Система ролик не играет — и вот почему.
+/// Система файл не играет — и вот почему.
 final class SystemVideoRefused extends SystemVideoOpened {
   const SystemVideoRefused(this.reason);
 
-  /// Почему: [unplayable] или [noVideo] — их переводит просмотрщик; прочее —
-  /// как сказала система.
+  /// Почему: [unplayable], [noVideo] или [noAudio] — их переводит
+  /// просмотрщик; прочее — как сказала система.
   final String reason;
 
   /// Формат системе не по силам.
@@ -33,10 +39,39 @@ final class SystemVideoRefused extends SystemVideoOpened {
 
   /// Видеодорожки нет: в контейнере только звук.
   static const String noVideo = 'noVideo';
+
+  /// Звуковой дорожки нет.
+  static const String noAudio = 'noAudio';
 }
 
-/// Открытый ролик — ручка на плеер.
-abstract interface class SystemVideoPlayer implements SystemVideoOpened {
+/// Открытый плеер — общее у видео и звука.
+abstract interface class SystemMediaPlayer implements SystemVideoOpened {
+  Duration get duration;
+
+  /// Что известно о файле — для окна сведений.
+  SystemVideoInfo get info;
+
+  Future<void> play();
+
+  Future<void> pause();
+
+  /// Перейти точно в [position]: без допуска, иначе шаг на кадр не работает.
+  Future<void> seek(Duration position);
+
+  /// Громкость от 0 до 1.
+  Future<void> setVolume(double volume);
+
+  Future<void> setMuted(bool muted);
+
+  /// Где сейчас плеер. null — плеер уже закрыт.
+  Future<SystemVideoState?> state();
+
+  /// Отпустить плеер: звук смолкает, текстура (у видео) снимается.
+  Future<void> close();
+}
+
+/// Открытый ролик — ручка на плеер и текстура с кадрами.
+abstract interface class SystemVideoPlayer implements SystemMediaPlayer {
   /// Текстура, в которую идут кадры, — для виджета `Texture`.
   int get textureId;
 
@@ -49,39 +84,47 @@ abstract interface class SystemVideoPlayer implements SystemVideoOpened {
   /// отдельно: снятое телефоном стоя записано лёжа.
   int get quarterTurns;
 
-  Duration get duration;
-
-  /// Что известно о ролике — для окна сведений.
-  SystemVideoInfo get info;
-
-  Future<void> play();
-
-  Future<void> pause();
-
-  /// Перейти точно в [position]: без допуска, иначе шаг на кадр не работает.
-  Future<void> seek(Duration position);
-
   /// Шаг на [frames] кадров вперёд (меньше нуля — назад); плеер встаёт на паузу.
   ///
   /// Силами системы, а не переходом на `1 / частота`: частота бывает
   /// переменной, и подсчёт промахивался бы мимо кадра.
   Future<void> step(int frames);
-
-  /// Громкость от 0 до 1.
-  Future<void> setVolume(double volume);
-
-  Future<void> setMuted(bool muted);
-
-  /// Где сейчас плеер. null — плеер уже закрыт.
-  Future<SystemVideoState?> state();
-
-  /// Отпустить плеер: звук смолкает, текстура снимается.
-  Future<void> close();
 }
 
-/// Сведения о ролике.
+/// Открытый звуковой файл — ручка на плеер и теги.
+abstract interface class SystemAudioPlayer implements SystemMediaPlayer {
+  /// Теги файла: название, исполнитель, альбом, год, обложка.
+  SystemAudioTags get tags;
+}
+
+/// Теги звукового файла — то, что о нём знает система (`commonMetadata`).
+class SystemAudioTags {
+  const SystemAudioTags({this.title = '', this.artist = '', this.album = '', this.year = '', this.artwork});
+
+  final String title;
+  final String artist;
+  final String album;
+
+  /// Год строкой: так он и лежит в тегах (`2019`, `2019-05-03`).
+  final String year;
+
+  /// Обложка — байтами картинки (`jpeg`, `png`); null — её нет.
+  final Uint8List? artwork;
+
+  /// Тегов нет вовсе — показывать нечего, кроме имени файла.
+  bool get isEmpty => title.isEmpty && artist.isEmpty && album.isEmpty && year.isEmpty;
+}
+
+/// Сведения о файле.
 class SystemVideoInfo {
-  const SystemVideoInfo({this.videoCodec = '', this.audioCodecs = const [], this.frameRate = 0, this.bitRate = 0});
+  const SystemVideoInfo({
+    this.videoCodec = '',
+    this.audioCodecs = const [],
+    this.frameRate = 0,
+    this.bitRate = 0,
+    this.sampleRate = 0,
+    this.channels = 0,
+  });
 
   /// Кодек видео — как его называет система (`avc1`, `hvc1`).
   final String videoCodec;
@@ -94,6 +137,12 @@ class SystemVideoInfo {
 
   /// Бит в секунду, по всем дорожкам; 0 — неизвестно.
   final int bitRate;
+
+  /// Частота дискретизации первой звуковой дорожки, Гц; 0 — неизвестно.
+  final double sampleRate;
+
+  /// Каналов в первой звуковой дорожке; 0 — неизвестно.
+  final int channels;
 }
 
 /// Где плеер сейчас.

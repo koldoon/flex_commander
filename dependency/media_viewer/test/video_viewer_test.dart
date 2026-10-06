@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
-import 'package:fc_video_viewer/fc_video_viewer.dart';
+import 'package:fc_media_viewer/fc_media_viewer.dart';
 import 'package:fc_viewer/fc_viewer.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
@@ -36,7 +36,7 @@ void main() {
     system = FakeSystemVideo();
     window = FakeWindowService();
     final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
-    settings.modules.scope(const VideoViewer().id).section(VideoViewerSettings.new).autoplayQuickView =
+    settings.modules.scope(const MediaViewer().id).section(VideoViewerSettings.new).autoplayQuickView =
         autoplayQuickView;
     runtime = await testApp(
       provider: provider,
@@ -266,7 +266,7 @@ void main() {
       },
     );
 
-    await expectLater(VideoSource.prepare(request, under: root), throwsA(isA<OperationCanceled>()));
+    await expectLater(MediaSource.prepare(request, under: root), throwsA(isA<OperationCanceled>()));
 
     expect(root.listSync(), isEmpty, reason: 'недокачанная копия осталась во временном каталоге');
     expect(system.paths, isEmpty);

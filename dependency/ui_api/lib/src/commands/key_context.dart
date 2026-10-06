@@ -18,6 +18,7 @@ enum KeyContext {
   imageViewer('Image viewer'),
   pdfViewer('PDF viewer'),
   videoViewer('Video viewer'),
+  audioViewer('Audio viewer'),
   markdownViewer('Markdown viewer'),
   editor('Text editor'),
   commandLine('Command line'),

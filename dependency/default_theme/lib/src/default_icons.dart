@@ -126,6 +126,10 @@ class DefaultIcons extends FcIcons {
   @override
   IconData get exitFullScreen => _icon(0xf066);
 
+  /// `fa-music`.
+  @override
+  IconData get music => _icon(0xf001);
+
   /// Семейство Phosphor Light в `pubspec.yaml` пакета.
   static const String phosphorFamily = 'PhosphorLight';
 

@@ -3,23 +3,31 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
 
+import 'media_controls.dart';
+import 'media_screen.dart';
 import 'video_viewer_screen.dart';
 
-/// Показ видео, которому сейчас принадлежит ввод.
+/// Показ, которому сейчас принадлежит ввод, — если он играет (видео или звук).
 ///
 /// Разворот до внутреннего: в области может стоять быстрый просмотр, а показан
 /// в нём — этот показ.
-VideoViewerScreen? videoViewerInFocus(Application? app) {
+MediaScreen? mediaInFocus(Application? app) {
   final view = app?.view;
   if (view == null) {
     return null;
   }
   final shown = view.contentAt(view.activeArea);
   final content = shown == null ? null : innermost(shown);
-  return content is VideoViewerScreen ? content : null;
+  return content is MediaScreen ? content : null;
 }
 
-/// Пуск и пауза (`docs/spec/video-viewer.md`, §7).
+/// Показ видео, которому сейчас принадлежит ввод.
+VideoViewerScreen? videoViewerInFocus(Application? app) {
+  final screen = mediaInFocus(app);
+  return screen is VideoViewerScreen ? screen : null;
+}
+
+/// Пуск и пауза — видео и звука (`docs/spec/video-viewer.md`, §7).
 class PlayPauseVideoCommand extends AppCommand {
   static const String commandId = 'videoViewer.playPause';
 
@@ -38,19 +46,19 @@ class PlayPauseVideoCommand extends AppCommand {
 
   /// Подпись говорит, что клавиша сделает **сейчас**.
   @override
-  String get label => videoViewerInFocus(_app)?.playing == true ? tr('Pause') : tr('Play');
+  String get label => mediaInFocus(_app)?.playing == true ? tr('Pause') : tr('Play');
 
   @override
-  Set<String> get keywords => const {'video', 'start', 'stop'};
+  Set<String> get keywords => const {'video', 'audio', 'music', 'start', 'stop'};
 
   @override
-  String get description => tr('Start or pause the video');
+  String get description => tr('Start or pause playback');
 
   @override
-  bool isExecutable(CommandContext context) => videoViewerInFocus(context.app) != null;
+  bool isExecutable(CommandContext context) => mediaInFocus(context.app) != null;
 
   @override
-  Future<void> execute(CommandContext context) async => videoViewerInFocus(context.app)?.togglePlay();
+  Future<void> execute(CommandContext context) async => mediaInFocus(context.app)?.togglePlay();
 }
 
 /// Без звука и со звуком.
@@ -69,22 +77,22 @@ class MuteVideoCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => videoViewerInFocus(_app)?.settings.muted == true ? tr('Unmute') : tr('Mute');
+  String get label => mediaInFocus(_app)?.settings.muted == true ? tr('Unmute') : tr('Mute');
 
   @override
-  Set<String> get keywords => const {'video', 'sound', 'volume', 'silent'};
+  Set<String> get keywords => const {'video', 'audio', 'sound', 'volume', 'silent'};
 
   @override
-  String get description => tr('Turn the sound of the video off or on');
+  String get description => tr('Turn the sound off or on');
 
   @override
-  bool isExecutable(CommandContext context) => videoViewerInFocus(context.app) != null;
+  bool isExecutable(CommandContext context) => mediaInFocus(context.app) != null;
 
   @override
-  Future<void> execute(CommandContext context) async => videoViewerInFocus(context.app)?.toggleMute();
+  Future<void> execute(CommandContext context) async => mediaInFocus(context.app)?.toggleMute();
 }
 
-/// Во весь экран и обратно (§6а).
+/// Во весь экран и обратно — только видео (§6а).
 class ToggleVideoFullScreenCommand extends AppCommand {
   static const String commandId = 'videoViewer.fullScreen';
 
@@ -115,7 +123,7 @@ class ToggleVideoFullScreenCommand extends AppCommand {
   Future<void> execute(CommandContext context) async => videoViewerInFocus(context.app)?.toggleFullScreen();
 }
 
-/// Сведения о ролике — окном, как `Cmd-I` в QuickTime (§6).
+/// Сведения о файле — окном, как `Cmd-I` в QuickTime (§6).
 class VideoInfoCommand extends AppCommand {
   static const String commandId = 'videoViewer.info';
 
@@ -123,26 +131,26 @@ class VideoInfoCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => tr('Video info');
+  String get label => tr('Info');
 
   @override
-  Set<String> get keywords => const {'codec', 'details', 'inspector'};
+  Set<String> get keywords => const {'codec', 'details', 'inspector', 'tags'};
 
   @override
-  String get description => tr('Show the size, length and codecs of the video');
+  String get description => tr('Show the length, codecs and tags of the file');
 
   @override
-  bool isExecutable(CommandContext context) => videoViewerInFocus(context.app) != null;
+  bool isExecutable(CommandContext context) => mediaInFocus(context.app) != null;
 
   @override
   Future<void> execute(CommandContext context) async {
-    final screen = videoViewerInFocus(context.app);
+    final screen = mediaInFocus(context.app);
     if (screen == null) {
       return;
     }
     // Окно сведений живёт под накладкой полного экрана — сперва выйти из него,
     // иначе окно открылось бы невидимым.
-    if (screen.fullScreen) {
+    if (screen is VideoViewerScreen && screen.fullScreen) {
       await screen.toggleFullScreen();
     }
     final view = context.app.view;
@@ -152,7 +160,7 @@ class VideoInfoCommand extends AppCommand {
       DialogSpec(
         title: screen.entry.name,
         takesFocus: true,
-        content: Builder(builder: (context) => FcKeyValueTable(sections: [videoInfoSection(screen, context.strings)])),
+        content: Builder(builder: (context) => FcKeyValueTable(sections: [screen.infoSection(context.strings)])),
         onSubmit: close,
         onDismiss: close,
       ),

@@ -1,7 +1,7 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
-import 'package:fc_video_viewer/fc_video_viewer.dart';
+import 'package:fc_media_viewer/fc_media_viewer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,7 +19,7 @@ void main() {
     screen = VideoViewerScreen(
       entry: const FileEntry(name: 'clip.mp4', kind: EntryKind.file, path: '/home/clip.mp4', size: 1000),
       player: player,
-      source: VideoSource.local('/home/clip.mp4'),
+      source: MediaSource.local('/home/clip.mp4'),
       settings: VideoViewerSettings(),
       onSettingsChanged: () {},
       autoplay: autoplay,
@@ -104,7 +104,7 @@ void main() {
   testWidgets('щелчок по полосе перемотки переносит туда', (tester) async {
     await pump(tester);
 
-    final bar = tester.getRect(find.byKey(const ValueKey('video.scrub')));
+    final bar = tester.getRect(find.byKey(const ValueKey('media.scrub')));
     await tester.tapAt(Offset(bar.left + bar.width / 2, bar.center.dy));
     await tester.pump();
 

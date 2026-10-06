@@ -55,14 +55,48 @@ class ChannelSystemVideo implements SystemVideo {
       size: Size(_double(answer['width']), _double(answer['height'])),
       quarterTurns: (answer['quarterTurns'] as num?)?.round() ?? 0,
       duration: _duration(answer['duration']),
-      info: SystemVideoInfo(
-        videoCodec: answer['videoCodec'] as String? ?? '',
-        audioCodecs: [for (final codec in answer['audioCodecs'] as List? ?? const []) '$codec'],
-        frameRate: _double(answer['frameRate']),
-        bitRate: (answer['bitRate'] as num?)?.round() ?? 0,
+      info: _infoOf(answer),
+    );
+  }
+
+  @override
+  Future<SystemVideoOpened?> openAudio(String path) async {
+    final answer = await _call<Map<Object?, Object?>>('openAudio', {'path': path});
+    if (answer == null) {
+      return null;
+    }
+    final refusal = answer['refused'];
+    if (refusal is String) {
+      return SystemVideoRefused(refusal);
+    }
+    final handle = answer['handle'];
+    if (handle is! int) {
+      return null;
+    }
+    final artwork = answer['artwork'];
+    return _ChannelAudioPlayer(
+      this,
+      handle,
+      duration: _duration(answer['duration']),
+      info: _infoOf(answer),
+      tags: SystemAudioTags(
+        title: answer['title'] as String? ?? '',
+        artist: answer['artist'] as String? ?? '',
+        album: answer['album'] as String? ?? '',
+        year: answer['year'] as String? ?? '',
+        artwork: artwork is Uint8List && artwork.isNotEmpty ? artwork : null,
       ),
     );
   }
+
+  static SystemVideoInfo _infoOf(Map<Object?, Object?> answer) => SystemVideoInfo(
+    videoCodec: answer['videoCodec'] as String? ?? '',
+    audioCodecs: [for (final codec in answer['audioCodecs'] as List? ?? const []) '$codec'],
+    frameRate: _double(answer['frameRate']),
+    bitRate: (answer['bitRate'] as num?)?.round() ?? 0,
+    sampleRate: _double(answer['sampleRate']),
+    channels: (answer['channels'] as num?)?.round() ?? 0,
+  );
 
   static double _double(Object? value) => value is num ? value.toDouble() : 0;
 
@@ -77,12 +111,12 @@ class ChannelSystemVideo implements SystemVideo {
       return await _channel.invokeMethod<T>(method, arguments);
     } on MissingPluginException {
       _complainOnce(
-        'Канала «$channelName» в этом приложении нет: видео показать нечем. '
+        'Канала «$channelName» в этом приложении нет: видео и звук играть нечем. '
         'Раннер собирается заново — горячей перезагрузки для него мало.',
       );
       return null;
     } on PlatformException catch (error) {
-      _complainOnce('Раннер отказал в работе с видео: ${error.message}');
+      _complainOnce('Раннер отказал в работе с видео и звуком: ${error.message}');
       return null;
     }
   }
@@ -100,28 +134,12 @@ class ChannelSystemVideo implements SystemVideo {
   bool _complained = false;
 }
 
-class _ChannelVideoPlayer implements SystemVideoPlayer {
-  _ChannelVideoPlayer(
-    this._owner,
-    this._handle, {
-    required this.textureId,
-    required this.size,
-    required this.quarterTurns,
-    required this.duration,
-    required this.info,
-  });
+/// Общее у плееров видео и звука: ручка и вызовы по ней.
+abstract class _ChannelMediaPlayer implements SystemMediaPlayer {
+  _ChannelMediaPlayer(this._owner, this._handle, {required this.duration, required this.info});
 
   final ChannelSystemVideo _owner;
   final int _handle;
-
-  @override
-  final int textureId;
-
-  @override
-  final Size size;
-
-  @override
-  final int quarterTurns;
 
   @override
   final Duration duration;
@@ -146,9 +164,6 @@ class _ChannelVideoPlayer implements SystemVideoPlayer {
 
   @override
   Future<void> seek(Duration position) => _send('seek', {'seconds': position.inMicroseconds / 1e6});
-
-  @override
-  Future<void> step(int frames) => _send('step', {'frames': frames});
 
   @override
   Future<void> setVolume(double volume) => _send('volume', {'volume': volume.clamp(0.0, 1.0)});
@@ -182,4 +197,35 @@ class _ChannelVideoPlayer implements SystemVideoPlayer {
     _closed = true;
     await _owner._call<Object?>('close', {'handle': _handle});
   }
+}
+
+class _ChannelVideoPlayer extends _ChannelMediaPlayer implements SystemVideoPlayer {
+  _ChannelVideoPlayer(
+    super._owner,
+    super._handle, {
+    required this.textureId,
+    required this.size,
+    required this.quarterTurns,
+    required super.duration,
+    required super.info,
+  });
+
+  @override
+  final int textureId;
+
+  @override
+  final Size size;
+
+  @override
+  final int quarterTurns;
+
+  @override
+  Future<void> step(int frames) => _send('step', {'frames': frames});
+}
+
+class _ChannelAudioPlayer extends _ChannelMediaPlayer implements SystemAudioPlayer {
+  _ChannelAudioPlayer(super._owner, super._handle, {required super.duration, required super.info, required this.tags});
+
+  @override
+  final SystemAudioTags tags;
 }

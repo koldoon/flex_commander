@@ -1,17 +1,18 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
-/// Откуда играть ролик (`docs/spec/video-viewer.md`, §4).
+/// Откуда играть ролик или трек (`docs/spec/video-viewer.md`, §4).
 ///
 /// Система открывает ролик **по пути**: читать гигабайты через канал нельзя.
 /// Файл на настоящем диске играет сам, прочий копируется во временный.
-class VideoSource {
-  VideoSource._(this.path, this._temporary);
+class MediaSource {
+  MediaSource._(this.path, this._temporary);
 
   /// Файл на диске — играет сам, убирать за ним нечего.
-  VideoSource.local(String path) : this._(path, null);
+  MediaSource.local(String path) : this._(path, null);
 
   /// Путь, который отдают системе.
   final String path;
@@ -27,20 +28,41 @@ class VideoSource {
   /// Копия читается кусками с точкой прерывания: курсор в быстром просмотре
   /// уходит дальше, и докачивать ролик, который уже не нужен, незачем. Отмена
   /// и сбой копию убирают.
-  static Future<VideoSource> prepare(ViewerRequest request, {Directory? under}) async {
-    final local = request.localPath;
-    if (local != null) {
-      return VideoSource._(local, null);
+  static Future<MediaSource> prepare(ViewerRequest request, {Directory? under}) => prepareFile(
+    request.entry,
+    request.content,
+    localPath: request.localPath,
+    checkpoint: request.checkpoint,
+    under: under,
+  );
+
+  /// То же для любого файла — следующего трека альбома
+  /// (`docs/spec/audio-viewer.md`, §3).
+  ///
+  /// [content] нужен только для копии: файл с диска ([localPath]) читает сама
+  /// система, и содержимое у источника тогда не спрашивают вовсе.
+  static Future<MediaSource> prepareFile(
+    FileEntry entry,
+    Content? content, {
+    String? localPath,
+    Future<void> Function()? checkpoint,
+    Directory? under,
+  }) async {
+    if (localPath != null) {
+      return MediaSource._(localPath, null);
+    }
+    if (content == null) {
+      throw ArgumentError('Не с диска — нужно содержимое для копии: ${entry.path}');
     }
 
-    final directory = await (under ?? Directory.systemTemp).createTemp('fc-video-');
+    final directory = await (under ?? Directory.systemTemp).createTemp('fc-media-');
     // Имя — с расширением: по нему система узнаёт формат. Косая черта в имени
     // из архива стала бы лишним каталогом.
-    final file = File('${directory.path}/${request.entry.name.replaceAll('/', '_')}');
+    final file = File('${directory.path}/${entry.name.replaceAll('/', '_')}');
     final sink = file.openWrite();
     try {
-      await for (final chunk in request.content.read()) {
-        await request.checkpoint();
+      await for (final chunk in content.read()) {
+        await checkpoint?.call();
         sink.add(chunk);
       }
       await sink.close();
@@ -49,7 +71,7 @@ class VideoSource {
       await _quietly(() => directory.delete(recursive: true));
       rethrow;
     }
-    return VideoSource._(file.path, directory);
+    return MediaSource._(file.path, directory);
   }
 
   /// Убрать копию; у файла с диска убирать нечего.
