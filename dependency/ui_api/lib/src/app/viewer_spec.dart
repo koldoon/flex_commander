@@ -27,7 +27,6 @@ class ViewerRequest {
     required this.place,
     required this.checkpoint,
     this.siblings = const [],
-    this.onRealDisk = false,
     NodeSource Function(FileEntry entry)? sourceOf,
   }) : _sourceOf = sourceOf;
 
@@ -47,21 +46,23 @@ class ViewerRequest {
 
   final ViewerPlace place;
 
-  /// Файл и его соседи лежат на настоящей файловой системе — а не в архиве, на
-  /// сервере или ещё где-то, куда системе дороги нет.
+  /// Путь к открываемому файлу на диске; null — дороги к нему у системы нет.
   ///
   /// Нужен тому, кто читает файл не потоком, а сам: проигрыватель видео и звука
   /// открывает файл по пути, и копировать гигабайты, лежащие рядом, незачем
-  /// (`docs/spec/video-viewer.md`, §4). Признак тот же, по которому `Cmd-O`
-  /// решает, есть ли что отдать системе.
-  final bool onRealDisk;
-
-  /// Путь к открываемому файлу на диске; null — дороги к нему у системы нет.
+  /// (`docs/spec/video-viewer.md`, §4).
   String? get localPath => localPathOf(entry);
 
-  /// Путь к соседу на диске — следующему треку альбома
-  /// (`docs/spec/audio-viewer.md`, §3); null — дороги к нему у системы нет.
-  String? localPathOf(FileEntry entry) => onRealDisk ? entry.path : null;
+  /// Путь к строке на диске — открытой или соседней (следующему треку
+  /// альбома, `docs/spec/audio-viewer.md`, §3); null — дороги к ней у системы
+  /// нет.
+  ///
+  /// **Спрашивается у строки** ([FileEntry.realPath]), а не у источника
+  /// панели: у находок поиска источник — не файловая система, а сами находки —
+  /// файлы на диске. Решай это источник, гигабайтный `flac` из находок ехал бы
+  /// копией через ядро, в одной очереди с идущим поиском (живой дефект
+  /// 6 октября 2026).
+  String? localPathOf(FileEntry entry) => entry.realPath.isEmpty ? null : entry.realPath;
 
   /// Соседи по списку — то, что показано в панели рядом.
   ///

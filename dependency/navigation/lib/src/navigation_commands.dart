@@ -317,17 +317,19 @@ class OpenWithSystemCommand extends AppCommand {
   /// Путь уходит внешней программе как есть, поэтому он должен быть настоящим:
   /// у архива и удалённой ФС таких путей не бывает (`OPIF_REALNAMES` в Far —
   /// про то же самое).
+  ///
+  /// Спрашивается **у строки** (`FileEntry.realPath`), а не у источника
+  /// панели: у находок поиска источник — не файловая система, а сами находки —
+  /// файлы на диске, и `Cmd-O` в них гас (`docs/spec/video-viewer.md`, §4).
   @override
-  bool isExecutable(CommandContext context) =>
-      context.entry != null && context.session.source.capabilities.realFileSystem;
+  bool isExecutable(CommandContext context) => context.entry?.realPath.isNotEmpty ?? false;
 
   @override
   Future<void> execute(CommandContext context) async {
-    if (!context.session.source.capabilities.realFileSystem) {
-      return;
-    }
     for (final entry in context.targets) {
-      await _open(entry.path);
+      if (entry.realPath.isNotEmpty) {
+        await _open(entry.realPath);
+      }
     }
   }
 }

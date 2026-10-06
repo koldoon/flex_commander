@@ -24,7 +24,7 @@ void main() {
   const right = ViewportPosition.right;
   final clip = List<int>.generate(4096, (i) => i % 251);
 
-  Future<void> start({bool withSystem = true, bool autoplayQuickView = false}) async {
+  Future<void> start({bool withSystem = true, bool autoplayQuickView = false, bool onDisk = true}) async {
     provider = InMemoryContentProvider([
       FakeEntry.directory('/home'),
       FakeEntry.file('/home/a.mp4', content: clip),
@@ -38,6 +38,11 @@ void main() {
     final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
     settings.modules.scope(const MediaViewer().id).section(VideoViewerSettings.new).autoplayQuickView =
         autoplayQuickView;
+    if (!onDisk) {
+      // Источник без настоящих путей — как архив или сервер. До запуска:
+      // настоящий путь строка получает при чтении каталога.
+      provider.capabilities = const ProviderCapabilities(canSeek: true);
+    }
     runtime = await testApp(
       provider: provider,
       modules: [...featureModules(), if (withSystem) FakeSystemVideoModule(system)],
@@ -72,9 +77,7 @@ void main() {
   });
 
   test('файл не с диска — копией с расширением, и копия убирается при закрытии', () async {
-    await start();
-    // Источник без настоящих путей — как архив или сервер.
-    provider.capabilities = const ProviderCapabilities(canSeek: true);
+    await start(onDisk: false);
 
     await view('a.mp4');
 
@@ -246,6 +249,30 @@ void main() {
 
     expect(shownFullscreen(), isNull);
     expect(window.fullScreen, isFalse);
+  });
+
+  /// Живой дефект: в находках поиска источник — не файловая система, и
+  /// большой файл ехал копией через ядро. Путь берётся у строки.
+  test('у строки есть настоящий путь — играет с места, даже если источник не диск', () async {
+    await start();
+    final request = ViewerRequest(
+      app: runtime.app,
+      entry: const FileEntry(
+        name: 'found.mp4',
+        kind: EntryKind.file,
+        path: 'search:/found.mp4',
+        realPath: '/disk/found.mp4',
+        size: 3 * 1024,
+      ),
+      content: _Chunks(3),
+      place: ViewerPlace.fullscreen,
+      checkpoint: () async {},
+    );
+
+    final source = await MediaSource.prepare(request);
+
+    expect(source.path, '/disk/found.mp4');
+    expect(source.copied, isFalse);
   });
 
   test('курсор ушёл посреди копии — копия убрана, плеер не открывался', () async {

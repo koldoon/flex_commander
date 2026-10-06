@@ -24,7 +24,7 @@ void main() {
   final song = List<int>.generate(2048, (i) => i % 251);
   final cover = Uint8List.fromList([1, 2, 3, 4]);
 
-  Future<void> start({bool autoplayQuickView = false}) async {
+  Future<void> start({bool autoplayQuickView = false, bool onDisk = true}) async {
     provider = InMemoryContentProvider([
       FakeEntry.directory('/music'),
       FakeEntry.file('/music/01 Intro.mp3', content: song),
@@ -47,6 +47,11 @@ void main() {
     final settings = AppSettings(left: PanelSettings.defaults('/music'), right: PanelSettings.defaults('/music'));
     settings.modules.scope(const MediaViewer().id).section(VideoViewerSettings.new).autoplayQuickView =
         autoplayQuickView;
+    if (!onDisk) {
+      // Источник без настоящих путей — как архив или сервер. До запуска:
+      // настоящий путь строка получает при чтении каталога.
+      provider.capabilities = const ProviderCapabilities(canSeek: true);
+    }
     runtime = await testApp(
       provider: provider,
       modules: [...featureModules(), FakeSystemVideoModule(system)],
@@ -190,8 +195,7 @@ void main() {
   });
 
   test('файл не с диска — копией, и копия прежнего трека убирается при смене', () async {
-    await start();
-    provider.capabilities = const ProviderCapabilities(canSeek: true);
+    await start(onDisk: false);
     await view('01 Intro.mp3');
     final screen = shown();
     final first = system.paths.single.$1;

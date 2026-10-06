@@ -46,8 +46,8 @@
 каком их видит человек в панели. Картинки, тексты, обложки `.jpg` рядом с
 альбомом пропускаются.
 
-Следующему треку нужен свой путь на диске: `ViewerRequest.localPathOf(entry)`
-по тому же признаку, что и `localPath` (`realFileSystem`). Не с диска —
+Следующему треку нужен свой путь на диске: `ViewerRequest.localPathOf(entry)` —
+настоящий путь **строки** (`FileEntry.realPath`), а не признак источника панели. Не с диска —
 копия, как у первого трека; прежняя копия убирается при смене трека.
 
 Смена трека — новый плеер: прежний закрывается, звук смолкает сразу. Плашка
@@ -105,7 +105,7 @@
 ## 11. Отметки по ходу
 
 **Сделано**: `openAudio` в раннере (плеер без кадров, теги), общий
-`SystemMediaPlayer`, `ViewerRequest.onRealDisk`/`localPathOf`, пакет
+`SystemMediaPlayer`, `ViewerRequest.localPathOf`, пакет
 `fc_media_viewer` (общие `MediaSource`, `MediaControls`, `MediaScreen`), модуль
 `MediaViewer`, звуковой показ, `KeyContext.audioViewer`, роль значка `music`.
 
