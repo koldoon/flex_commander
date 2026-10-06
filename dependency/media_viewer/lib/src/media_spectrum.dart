@@ -32,11 +32,15 @@ class SpectrumMotion {
   final Float64List _speed;
 
   /// Шаг на [elapsed]; [target] — что пришло от плеера (null — тишина: пауза).
-  void step(Duration elapsed, List<double>? target) {
+  ///
+  /// true — хоть одна полоса или пик сдвинулись, и кадр надо перерисовать.
+  bool step(Duration elapsed, List<double>? target) {
     final dt = elapsed.inMicroseconds / Duration.microsecondsPerSecond;
     final drop = dt * Duration.microsecondsPerSecond / fall.inMicroseconds;
+    var moved = false;
     for (var i = 0; i < levels.length; i++) {
-      final wanted = target == null || i >= target.length ? 0.0 : target[i].clamp(0.0, 1.0);
+      final (level, peak) = (levels[i], peaks[i]);
+      final wanted = target == null || i >= target.length ? 0.0 : target[i].clamp(0.0, 1.0).toDouble();
       levels[i] = wanted >= levels[i] ? wanted : math.max(wanted, levels[i] - drop);
       if (levels[i] >= peaks[i]) {
         peaks[i] = levels[i];
@@ -48,7 +52,9 @@ class SpectrumMotion {
         _speed[i] += gravity * dt;
         peaks[i] = math.max(levels[i], peaks[i] - _speed[i] * dt);
       }
+      moved = moved || levels[i] != level || peaks[i] != peak;
     }
+    return moved;
   }
 
   /// Всё опало — двигать нечего.
@@ -125,8 +131,10 @@ class _MediaSpectrumState extends State<MediaSpectrum> with SingleTickerProvider
         }
       });
     }
-    _motion.step(dt, widget.playing ? _target : null);
-    _frame.value++;
+    // Полосы стоят — кадр не перерисовывается.
+    if (_motion.step(dt, widget.playing ? _target : null)) {
+      _frame.value++;
+    }
     if (!widget.playing && _motion.resting) {
       _target = null;
       _ticker.stop();
@@ -140,18 +148,34 @@ class _MediaSpectrumState extends State<MediaSpectrum> with SingleTickerProvider
     super.dispose();
   }
 
+  /// Рисовальщик живёт, пока не сменится цвет: в нём шейдер и пути.
+  _SpectrumPainter? _painter;
+
   @override
   Widget build(BuildContext context) {
     final color = FcTheme.of(context).colors.spectrumBar;
-    return RepaintBoundary(child: CustomPaint(painter: _SpectrumPainter(_motion, color, _frame), size: Size.infinite));
+    final painter = _painter?.color == color ? _painter! : _painter = _SpectrumPainter(_motion, color, _frame);
+    return RepaintBoundary(child: CustomPaint(painter: painter, size: Size.infinite));
   }
 }
 
 class _SpectrumPainter extends CustomPainter {
-  _SpectrumPainter(this.motion, this.color, Listenable repaint) : super(repaint: repaint);
+  _SpectrumPainter(this.motion, this.color, Listenable repaint)
+    : _peak = Paint()..color = Color.lerp(color, const Color(0xFFFFFFFF), 0.2)!,
+      super(repaint: repaint);
 
   final SpectrumMotion motion;
   final Color color;
+
+  // Всё, что не меняется от кадра к кадру, — здесь, а не в [paint]: кадров
+  // 60–120 в секунду.
+  final Paint _bar = Paint();
+  final Paint _peak;
+  final Path _bars = Path();
+  final Path _peaks = Path();
+
+  /// Для какого размера построен шейдер полос.
+  Size? _shaderSize;
 
   /// Просвет между полосками.
   static const double gap = 2;
@@ -169,30 +193,36 @@ class _SpectrumPainter extends CustomPainter {
     if (width <= 0) {
       return;
     }
-    // К вершине светлее: один градиент на всю высоту — полоска светлеет по мере
-    // роста, как в Winamp.
-    final bar =
-        Paint()
-          ..shader = LinearGradient(
-            begin: Alignment.bottomCenter,
-            end: Alignment.topCenter,
-            colors: [color, Color.lerp(color, const Color(0xFFFFFFFF), 0.35)!],
-          ).createShader(Offset.zero & size);
-    final peak = Paint()..color = Color.lerp(color, const Color(0xFFFFFFFF), 0.2)!;
+    if (_shaderSize != size) {
+      // К вершине светлее: один градиент на всю высоту — полоска светлеет по
+      // мере роста, как в Winamp.
+      _bar.shader = LinearGradient(
+        begin: Alignment.bottomCenter,
+        end: Alignment.topCenter,
+        colors: [color, Color.lerp(color, const Color(0xFFFFFFFF), 0.35)!],
+      ).createShader(Offset.zero & size);
+      _shaderSize = size;
+    }
+    // Полосы — одним путём, пики — другим: два вызова рисования вместо 128.
+    _bars.reset();
+    _peaks.reset();
     final room = size.height - peakThickness;
     for (var i = 0; i < bands; i++) {
       final x = i * (width + gap);
       final level = motion.levels[i];
       if (level > 0) {
         final height = level * room;
-        canvas.drawRect(Rect.fromLTWH(x, size.height - height, width, height), bar);
+        _bars.addRect(Rect.fromLTWH(x, size.height - height, width, height));
       }
       final top = motion.peaks[i];
       if (top > 0.01) {
         final y = size.height - top * room - peakThickness;
-        canvas.drawRect(Rect.fromLTWH(x, y, width, peakThickness), peak);
+        _peaks.addRect(Rect.fromLTWH(x, y, width, peakThickness));
       }
     }
+    canvas
+      ..drawPath(_bars, _bar)
+      ..drawPath(_peaks, _peak);
   }
 
   @override

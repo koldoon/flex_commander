@@ -21,6 +21,15 @@ void main() {
       expect(motion.peaks, [0.8, 0.2]);
     });
 
+    test('стоят полосы — кадр не нужен (§7.5)', () {
+      final motion = SpectrumMotion(2);
+
+      expect(motion.step(frame, [0.5, 0.2]), isTrue);
+      expect(motion.step(frame, [0.5, 0.2]), isFalse, reason: 'тот же спектр — рисовать нечего');
+      expect(motion.step(frame, [0.6, 0.2]), isTrue);
+      expect(SpectrumMotion(1).step(frame, null), isFalse, reason: 'опавший на паузе не рисуется');
+    });
+
     test('опускается плавно: полная высота — за SpectrumMotion.fall', () {
       final motion = SpectrumMotion(1)..step(frame, [1]);
 
