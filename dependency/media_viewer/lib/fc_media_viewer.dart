@@ -7,6 +7,7 @@ export 'src/audio_viewer_view.dart';
 export 'src/media_controls.dart';
 export 'src/media_screen.dart';
 export 'src/media_source.dart';
+export 'src/media_spectrum.dart';
 export 'src/media_viewer_module.dart';
 export 'src/video_viewer_commands.dart';
 export 'src/video_viewer_screen.dart';

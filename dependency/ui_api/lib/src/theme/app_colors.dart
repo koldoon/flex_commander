@@ -115,6 +115,12 @@ abstract class FcColors {
   /// а раздел стоит на фоне содержимого. По умолчанию они совпадают.
   Color get headingText => dialogTitleText;
 
+  /// Полосы спектра в просмотре звука (`docs/spec/audio-viewer.md`, §7).
+  ///
+  /// Своя роль, хоть по умолчанию и акцент: так решено с пользователем, а
+  /// перекрасить спектр, не трогая кнопок, должно быть можно.
+  Color get spectrumBar => buttonPrimaryBackground;
+
   /// Заливка кнопки полосы заголовка под указателем — акцент, как у кнопки
   /// подтверждения.
   Color get dialogTitleButtonHover => buttonPrimaryBackground;

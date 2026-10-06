@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 
 import 'audio_viewer_screen.dart';
 import 'media_controls.dart';
+import 'media_spectrum.dart';
 
 /// Показ звукового файла: обложка и теги по центру, плашка управления внизу
 /// (`docs/spec/audio-viewer.md`, §1). Рама и плашка пути — как у всех показов.
@@ -92,6 +93,13 @@ class _AudioViewerViewState extends State<AudioViewerView> {
                         _line(tags.year, theme.dialogTextStyle.copyWith(color: theme.colors.secondaryText)),
                       ],
                       const Spacer(),
+                      // Спектр — над плашкой, по её ширине (§7).
+                      SizedBox(
+                        width: (constraints.maxWidth - 32).clamp(0.0, 560.0),
+                        height: (constraints.maxHeight * 0.15).clamp(40.0, 120.0),
+                        child: MediaSpectrum(player: player, playing: screen.playing),
+                      ),
+                      SizedBox(height: metrics.dialogGap),
                       // Плашка не прячется: смотреть, кроме неё, не на что (§1).
                       MediaControls(
                         playing: screen.playing,

@@ -149,6 +149,7 @@ final List<ColorRole> colorRoles = [
   ColorRole('dialogTitleBackground', 'Dialogs', (colors) => colors.dialogTitleBackground),
   ColorRole('dialogTitleText', 'Dialogs', (colors) => colors.dialogTitleText),
   ColorRole('headingText', 'Dialogs', (colors) => colors.headingText),
+  ColorRole('spectrumBar', 'Dialogs', (colors) => colors.spectrumBar),
   ColorRole('dialogTitleButtonHover', 'Dialogs', (colors) => colors.dialogTitleButtonHover),
   ColorRole('dialogTitleButtonHoverText', 'Dialogs', (colors) => colors.dialogTitleButtonHoverText),
   ColorRole('dialogLabel', 'Dialogs', (colors) => colors.dialogLabel),

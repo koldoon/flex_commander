@@ -1,6 +1,8 @@
 import AVFoundation
+import Accelerate
 import Cocoa
 import FlutterMacOS
+import MediaToolbox
 import PDFKit
 import QuickLookThumbnailing
 import UniformTypeIdentifiers
@@ -1500,6 +1502,13 @@ final class SystemVideo {
       result(nil)
     case "state":
       result(player.state())
+    case "spectrum":
+      guard let spectrum = player.spectrum else {
+        result(nil)
+        return
+      }
+      let levels = spectrum.current()
+      result(FlutterStandardTypedData(float32: levels.withUnsafeBufferPointer { Data(buffer: $0) }))
     default:
       result(FlutterMethodNotImplemented)
     }
@@ -1571,9 +1580,11 @@ final class SystemVideo {
     let asset = AVURLAsset(url: URL(fileURLWithPath: path))
     Task {
       var answer: [String: Any]
+      var track: AVAssetTrack?
       do {
         let (playable, duration) = try await asset.load(.isPlayable, .duration)
         let audio = try await asset.loadTracks(withMediaType: .audio).first
+        track = audio
         guard playable else {
           await MainActor.run { result(["refused": "unplayable"]) }
           return
@@ -1603,7 +1614,7 @@ final class SystemVideo {
       }
       let opened = answer
       await MainActor.run {
-        let player = VideoPlayer(asset: asset, textures: nil)
+        let player = VideoPlayer(asset: asset, textures: nil, spectrumOf: track)
         let handle = self.nextHandle
         self.nextHandle += 1
         self.players[handle] = player
@@ -1701,9 +1712,25 @@ final class VideoPlayer: NSObject, FlutterTexture {
   private var latest: CVPixelBuffer?
   private let lock = NSLock()
 
-  init(asset: AVAsset, textures: FlutterTextureRegistry?) {
+  /// Спектр того, что играет; nil — его не просили (видео) или тап не завёлся.
+  let spectrum: SpectrumTap?
+
+  init(asset: AVAsset, textures: FlutterTextureRegistry?, spectrumOf track: AVAssetTrack? = nil) {
     self.textures = textures
     let item = AVPlayerItem(asset: asset)
+    // Отвод звука — только у звука: видео спектра не показывает
+    // (`docs/spec/audio-viewer.md`, §7).
+    if let track = track {
+      let tap = SpectrumTap()
+      if let mix = tap.audioMix(for: track) {
+        item.audioMix = mix
+        spectrum = tap
+      } else {
+        spectrum = nil
+      }
+    } else {
+      spectrum = nil
+    }
     if textures != nil {
       let output = AVPlayerItemVideoOutput(pixelBufferAttributes: [
         kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
@@ -1792,6 +1819,8 @@ final class VideoPlayer: NSObject, FlutterTexture {
   /// Отпустить: звук смолкает, такт останавливается, текстура снимается.
   func close() {
     player.pause()
+    // Тап отпускается вместе с миксом: финализатор отдаст и его состояние.
+    player.currentItem?.audioMix = nil
     player.replaceCurrentItem(with: nil)
     if let link = displayLink {
       CVDisplayLinkStop(link)
@@ -1800,5 +1829,180 @@ final class VideoPlayer: NSObject, FlutterTexture {
     if let textures = textures {
       textures.unregisterTexture(textureId)
     }
+  }
+}
+
+/// Спектр того, что играет: отвод звука `MTAudioProcessingTap` и БПФ
+/// (`docs/spec/audio-viewer.md`, §7).
+///
+/// Тап видит те же сэмплы, что уходят в динамики, и звук не трогает. Работает
+/// на звуковой нити — последний набор полос лежит под замком.
+final class SpectrumTap {
+  static let bands = 64
+  static let size = 2048
+  static let hop = 1024
+  static let lowHz: Float = 40
+  static let highHz: Float = 16000
+  /// Пол и потолок шкалы, дБ относительно полной шкалы.
+  static let floorDb: Float = -80
+  static let ceilingDb: Float = 0
+
+  private let lock = NSLock()
+  private var levels = [Float](repeating: 0, count: SpectrumTap.bands)
+  private var history = [Float](repeating: 0, count: SpectrumTap.size)
+  private var pending: [Float] = []
+  private var sampleRate: Float = 44100
+  private var isFloat = true
+  private var interleaved = false
+  private var channels = 2
+
+  private let log2n = vDSP_Length(11)
+  private let setup: FFTSetup
+  private var window = [Float](repeating: 0, count: SpectrumTap.size)
+
+  init() {
+    setup = vDSP_create_fftsetup(log2n, FFTRadix(kFFTRadix2))!
+    vDSP_hann_window(&window, vDSP_Length(SpectrumTap.size), Int32(vDSP_HANN_NORM))
+  }
+
+  deinit {
+    vDSP_destroy_fftsetup(setup)
+  }
+
+  /// Последние полосы, 0…1.
+  func current() -> [Float] {
+    lock.lock()
+    defer { lock.unlock() }
+    return levels
+  }
+
+  /// Пауза: полосы — к нулю; опадание рисует Dart.
+  func reset() {
+    lock.lock()
+    levels = [Float](repeating: 0, count: SpectrumTap.bands)
+    lock.unlock()
+  }
+
+  /// Микс с тапом для звуковой дорожки; nil — тап не завёлся, и спектра не будет.
+  func audioMix(for track: AVAssetTrack) -> AVAudioMix? {
+    let client = Unmanaged.passRetained(self).toOpaque()
+    var callbacks = MTAudioProcessingTapCallbacks(
+      version: kMTAudioProcessingTapCallbacksVersion_0,
+      clientInfo: client,
+      init: { _, clientInfo, storageOut in
+        storageOut.pointee = clientInfo
+      },
+      finalize: { tap in
+        Unmanaged<SpectrumTap>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).release()
+      },
+      prepare: { tap, _, format in
+        Unmanaged<SpectrumTap>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).takeUnretainedValue()
+          .prepare(format.pointee)
+      },
+      unprepare: nil,
+      process: { tap, frames, _, bufferList, framesOut, flagsOut in
+        guard MTAudioProcessingTapGetSourceAudio(tap, frames, bufferList, flagsOut, nil, framesOut) == noErr else {
+          return
+        }
+        Unmanaged<SpectrumTap>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).takeUnretainedValue()
+          .consume(bufferList, frames: Int(framesOut.pointee))
+      }
+    )
+    var tap: MTAudioProcessingTap?
+    guard MTAudioProcessingTapCreate(kCFAllocatorDefault, &callbacks, kMTAudioProcessingTapCreationFlag_PostEffects, &tap)
+      == noErr, let made = tap
+    else {
+      Unmanaged<SpectrumTap>.fromOpaque(client).release()
+      return nil
+    }
+    let parameters = AVMutableAudioMixInputParameters(track: track)
+    parameters.audioTapProcessor = made
+    let mix = AVMutableAudioMix()
+    mix.inputParameters = [parameters]
+    return mix
+  }
+
+  private func prepare(_ format: AudioStreamBasicDescription) {
+    sampleRate = Float(format.mSampleRate)
+    isFloat = format.mFormatFlags & kAudioFormatFlagIsFloat != 0
+    interleaved = format.mFormatFlags & kAudioFormatFlagIsNonInterleaved == 0
+    channels = max(1, Int(format.mChannelsPerFrame))
+  }
+
+  /// Сэмплы — в моно, по готовому блоку — БПФ.
+  private func consume(_ list: UnsafeMutablePointer<AudioBufferList>, frames: Int) {
+    guard isFloat, frames > 0 else {
+      return
+    }
+    let buffers = UnsafeMutableAudioBufferListPointer(list)
+    var mono = [Float](repeating: 0, count: frames)
+    if interleaved, let data = buffers.first?.mData {
+      let samples = data.assumingMemoryBound(to: Float.self)
+      for frame in 0..<frames {
+        var sum: Float = 0
+        for channel in 0..<channels {
+          sum += samples[frame * channels + channel]
+        }
+        mono[frame] = sum / Float(channels)
+      }
+    } else {
+      let count = Float(buffers.count)
+      for buffer in buffers {
+        guard let data = buffer.mData else { continue }
+        let samples = data.assumingMemoryBound(to: Float.self)
+        for frame in 0..<frames {
+          mono[frame] += samples[frame] / count
+        }
+      }
+    }
+    pending.append(contentsOf: mono)
+    while pending.count >= SpectrumTap.hop {
+      history.removeFirst(SpectrumTap.hop)
+      history.append(contentsOf: pending.prefix(SpectrumTap.hop))
+      pending.removeFirst(SpectrumTap.hop)
+      analyze()
+    }
+  }
+
+  private func analyze() {
+    let n = SpectrumTap.size
+    var windowed = [Float](repeating: 0, count: n)
+    vDSP_vmul(history, 1, window, 1, &windowed, 1, vDSP_Length(n))
+    var real = [Float](repeating: 0, count: n / 2)
+    var imag = [Float](repeating: 0, count: n / 2)
+    var power = [Float](repeating: 0, count: n / 2)
+    real.withUnsafeMutableBufferPointer { realPointer in
+      imag.withUnsafeMutableBufferPointer { imagPointer in
+        var split = DSPSplitComplex(realp: realPointer.baseAddress!, imagp: imagPointer.baseAddress!)
+        windowed.withUnsafeBufferPointer { input in
+          input.baseAddress!.withMemoryRebound(to: DSPComplex.self, capacity: n / 2) {
+            vDSP_ctoz($0, 2, &split, 1, vDSP_Length(n / 2))
+          }
+        }
+        vDSP_fft_zrip(setup, &split, 1, log2n, FFTDirection(FFT_FORWARD))
+        vDSP_zvmags(&split, 1, &power, 1, vDSP_Length(n / 2))
+      }
+    }
+    // Масштаб: `zrip` даёт удвоенные значения, окно Ханна (нормированное)
+    // — ещё половину амплитуды. Синус полной шкалы ≈ 0 дБ.
+    let scale = 1 / Float(n * n / 4)
+    let binHz = sampleRate / Float(n)
+    let ratio = SpectrumTap.highHz / SpectrumTap.lowHz
+    var bands = [Float](repeating: 0, count: SpectrumTap.bands)
+    for band in 0..<SpectrumTap.bands {
+      let from = SpectrumTap.lowHz * pow(ratio, Float(band) / Float(SpectrumTap.bands))
+      let to = SpectrumTap.lowHz * pow(ratio, Float(band + 1) / Float(SpectrumTap.bands))
+      let first = max(1, Int(from / binHz))
+      let last = min(n / 2 - 1, max(first, Int(to / binHz)))
+      var peak: Float = 0
+      for bin in first...last {
+        peak = max(peak, power[bin])
+      }
+      let db = 10 * log10(max(peak * scale, 1e-12))
+      bands[band] = min(1, max(0, (db - SpectrumTap.floorDb) / (SpectrumTap.ceilingDb - SpectrumTap.floorDb)))
+    }
+    lock.lock()
+    levels = bands
+    lock.unlock()
   }
 }

@@ -95,7 +95,15 @@ abstract interface class SystemVideoPlayer implements SystemMediaPlayer {
 abstract interface class SystemAudioPlayer implements SystemMediaPlayer {
   /// Теги файла: название, исполнитель, альбом, год, обложка.
   SystemAudioTags get tags;
+
+  /// Спектр того, что звучит сейчас: [spectrumBands] полос по
+  /// логарифмической шкале 40 Гц … 16 кГц, каждая 0…1
+  /// (`docs/spec/audio-viewer.md`, §7). null — плеер закрыт или спектра нет.
+  Future<Float32List?> spectrum();
 }
+
+/// Сколько полос в спектре.
+const int spectrumBands = 64;
 
 /// Теги звукового файла — то, что о нём знает система (`commonMetadata`).
 class SystemAudioTags {

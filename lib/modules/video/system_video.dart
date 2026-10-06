@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flutter/services.dart';
 import 'package:logecom/logecom.dart';
@@ -228,4 +230,12 @@ class _ChannelAudioPlayer extends _ChannelMediaPlayer implements SystemAudioPlay
 
   @override
   final SystemAudioTags tags;
+
+  @override
+  Future<Float32List?> spectrum() async {
+    if (_closed) {
+      return null;
+    }
+    return _owner._call<Float32List>('spectrum', {'handle': _handle});
+  }
 }

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:fc_ui_api/fc_ui_api.dart';
@@ -135,6 +136,18 @@ class FakeAudioPlayer extends FakeMediaPlayer implements SystemAudioPlayer {
   @override
   SystemVideoInfo get info =>
       const SystemVideoInfo(audioCodecs: ['.mp3'], bitRate: 320000, sampleRate: 44100, channels: 2);
+
+  /// Что отдаёт спектр; null — спектра нет.
+  Float32List? levels;
+
+  /// Сколько раз спектр спрашивали.
+  int spectrumCalls = 0;
+
+  @override
+  Future<Float32List?> spectrum() async {
+    spectrumCalls++;
+    return closed ? null : levels;
+  }
 }
 
 class FakeSystemVideoModule implements FcFrontendModule {
