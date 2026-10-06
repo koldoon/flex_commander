@@ -20,6 +20,7 @@ void main() {
   late AppRuntime runtime;
   late InMemoryContentProvider provider;
   late FakeSystemVideo system;
+  late FakeWindowService window;
   const right = ViewportPosition.right;
   final clip = List<int>.generate(4096, (i) => i % 251);
 
@@ -33,6 +34,7 @@ void main() {
       FakeEntry.file('/home/app.ts', content: 'export const a = 1;'.codeUnits),
     ])..home = '/home';
     system = FakeSystemVideo();
+    window = FakeWindowService();
     final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
     settings.modules.scope(const VideoViewer().id).section(VideoViewerSettings.new).autoplayQuickView =
         autoplayQuickView;
@@ -40,6 +42,7 @@ void main() {
       provider: provider,
       modules: [...featureModules(), if (withSystem) FakeSystemVideoModule(system)],
       settings: settings,
+      window: window,
     );
     await runtime.app.start();
   }
@@ -192,6 +195,57 @@ void main() {
     final host = runtime.app.view.contentAt(right)! as QuickViewHost;
     expect(innermost(host), isA<VideoViewerScreen>());
     expect(system.opened.single.calls, contains('play'));
+  });
+
+  test('F — во весь экран и окно в полный экран; Esc выходит, второй Esc закрывает', () async {
+    await start();
+    await view('a.mp4');
+    final screen = shownFullscreen()! as VideoViewerScreen;
+
+    expect(runtime.commands.dispatch(KeyCombination.parse('F')), isTrue);
+    await pumpEventQueue();
+    expect(screen.fullScreen, isTrue);
+    expect(window.fullScreen, isTrue, reason: 'ролик во весь экран — и окно во весь экран');
+
+    expect(runtime.commands.dispatch(KeyCombination.parse('Esc')), isTrue);
+    await pumpEventQueue();
+    expect(screen.fullScreen, isFalse);
+    expect(window.fullScreen, isFalse, reason: 'окно возвращается каким было');
+    expect(shownFullscreen(), same(screen), reason: 'первый Esc снимает полный экран, а не закрывает показ');
+
+    expect(runtime.commands.dispatch(KeyCombination.parse('Esc')), isTrue);
+    await pumpEventQueue();
+    expect(shownFullscreen(), isNull);
+  });
+
+  test('окно было в полном экране и до — выход из полного экрана ролика его не трогает', () async {
+    await start();
+    window.fullScreen = true;
+    await view('a.mp4');
+    final screen = shownFullscreen()! as VideoViewerScreen;
+
+    await screen.toggleFullScreen();
+    await screen.toggleFullScreen();
+
+    expect(screen.fullScreen, isFalse);
+    expect(window.fullScreen, isTrue);
+  });
+
+  test('закрыли из полного экрана — окно вернулось', () async {
+    await start();
+    await view('a.mp4');
+    final screen = shownFullscreen()! as VideoViewerScreen;
+    await screen.toggleFullScreen();
+    expect(window.fullScreen, isTrue);
+
+    expect(runtime.commands.dispatch(KeyCombination.parse('F10')), isTrue);
+    await pumpEventQueue();
+    // F10 тоже сперва снимает полный экран — это та же команда закрытия.
+    expect(runtime.commands.dispatch(KeyCombination.parse('F10')), isTrue);
+    await pumpEventQueue();
+
+    expect(shownFullscreen(), isNull);
+    expect(window.fullScreen, isFalse);
   });
 
   test('курсор ушёл посреди копии — копия убрана, плеер не открывался', () async {

@@ -84,6 +84,7 @@ class VideoViewer implements FcFrontendModule {
     registry.command((context) => PlayPauseVideoCommand());
     registry.command((context) => MuteVideoCommand());
     registry.command((context) => VideoInfoCommand());
+    registry.command((context) => ToggleVideoFullScreenCommand());
 
     // `F2` — главное дело показа, как «вписать» у картинок и PDF; `F7` свободна.
     // `Cmd-I` — сведения, как в QuickTime (§7).
@@ -95,6 +96,14 @@ class VideoViewer implements FcFrontendModule {
     );
     registry.binding(
       KeyBinding.inState<VideoViewerScreen>('Cmd-I', VideoInfoCommand.commandId, context: KeyContext.videoViewer),
+    );
+    // `F` — во весь экран, как в QuickTime и в проигрывателях вообще (§6а).
+    registry.binding(
+      KeyBinding.inState<VideoViewerScreen>(
+        'F',
+        ToggleVideoFullScreenCommand.commandId,
+        context: KeyContext.videoViewer,
+      ),
     );
   }
 
@@ -151,6 +160,7 @@ class VideoViewer implements FcFrontendModule {
           settings: settings,
           onSettingsChanged: onSettingsChanged,
           place: request.place,
+          window: request.app.window,
           // Быстрый просмотр сам не играет, пока не попросили: ход курсора по
           // каталогу роликов включал бы звук на каждом шаге (§8).
           autoplay: request.place == ViewerPlace.fullscreen || settings.autoplayQuickView,
@@ -170,6 +180,9 @@ const Map<String, String> _russian = {
   'Unmute': 'Со звуком',
   'Turn the sound of the video off or on': 'Выключить или включить звук ролика',
   'Video info': 'Сведения о ролике',
+  'Full screen': 'Во весь экран',
+  'Exit full screen': 'Выйти из полного экрана',
+  'Show the video over the whole screen': 'Показать ролик на весь экран',
   'Show the size, length and codecs of the video': 'Показать размер, длительность и кодеки ролика',
   'Video': 'Видео',
   'Size': 'Размер',

@@ -36,6 +36,15 @@ class FakeWindowService implements WindowService {
   @override
   Future<void> toggleMaximized() async => maximized = !maximized;
 
+  /// Окно в системном полноэкранном режиме.
+  bool fullScreen = false;
+
+  @override
+  Future<bool> isFullScreen() async => fullScreen;
+
+  @override
+  Future<void> setFullScreen(bool value) async => fullScreen = value;
+
   /// Яркость рамы: тесту она нужна не для вида, а чтобы проверить, что
   /// оформление и рама не разъезжаются.
   Brightness? brightness;

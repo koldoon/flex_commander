@@ -26,6 +26,15 @@ abstract interface class WindowService {
   /// двойное нажатие на системной полосе.
   Future<void> toggleMaximized();
 
+  /// Окно в системном полноэкранном режиме — на своём «рабочем столе».
+  Future<bool> isFullScreen();
+
+  /// Перевести окно в системный полноэкранный режим или вернуть обратно.
+  ///
+  /// Зовёт показ видео (`docs/spec/video-viewer.md`, §6а): ролик закрывает
+  /// окно целиком, и окно — экран.
+  Future<void> setFullScreen(bool value);
+
   /// Светлая рама у окна или тёмная.
   ///
   /// Заголовок и кнопки окна рисует система по `NSAppearance`, а не наше
@@ -57,6 +66,12 @@ class NoopWindowService implements WindowService {
 
   @override
   Future<void> toggleMaximized() async {}
+
+  @override
+  Future<bool> isFullScreen() async => false;
+
+  @override
+  Future<void> setFullScreen(bool value) async {}
 
   @override
   Future<void> setBrightness(Brightness brightness) async {}

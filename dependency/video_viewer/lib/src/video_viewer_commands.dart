@@ -84,6 +84,37 @@ class MuteVideoCommand extends AppCommand {
   Future<void> execute(CommandContext context) async => videoViewerInFocus(context.app)?.toggleMute();
 }
 
+/// Во весь экран и обратно (§6а).
+class ToggleVideoFullScreenCommand extends AppCommand {
+  static const String commandId = 'videoViewer.fullScreen';
+
+  Application? _app;
+
+  @override
+  bool init(Application app) {
+    _app = app;
+    return true;
+  }
+
+  @override
+  String get id => commandId;
+
+  @override
+  String get label => videoViewerInFocus(_app)?.fullScreen == true ? tr('Exit full screen') : tr('Full screen');
+
+  @override
+  Set<String> get keywords => const {'video', 'expand', 'maximize'};
+
+  @override
+  String get description => tr('Show the video over the whole screen');
+
+  @override
+  bool isExecutable(CommandContext context) => videoViewerInFocus(context.app) != null;
+
+  @override
+  Future<void> execute(CommandContext context) async => videoViewerInFocus(context.app)?.toggleFullScreen();
+}
+
 /// Сведения о ролике — окном, как `Cmd-I` в QuickTime (§6).
 class VideoInfoCommand extends AppCommand {
   static const String commandId = 'videoViewer.info';
@@ -108,6 +139,11 @@ class VideoInfoCommand extends AppCommand {
     final screen = videoViewerInFocus(context.app);
     if (screen == null) {
       return;
+    }
+    // Окно сведений живёт под накладкой полного экрана — сперва выйти из него,
+    // иначе окно открылось бы невидимым.
+    if (screen.fullScreen) {
+      await screen.toggleFullScreen();
     }
     final view = context.app.view;
     late final String dialogId;

@@ -100,6 +100,12 @@ class PluginWindowService with WindowListener implements WindowService {
   Future<void> setBrightness(Brightness brightness) => windowManager.setBrightness(brightness);
 
   @override
+  Future<bool> isFullScreen() => windowManager.isFullScreen();
+
+  @override
+  Future<void> setFullScreen(bool value) => windowManager.setFullScreen(value);
+
+  @override
   Future<void> toggleMaximized() async {
     if (await windowManager.isMaximized()) {
       await windowManager.unmaximize();

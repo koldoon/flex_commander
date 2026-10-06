@@ -33,10 +33,83 @@ class _VideoViewerViewState extends State<VideoViewerView> {
   final FocusNode _focus = FocusNode(debugLabel: 'VideoViewerView');
   bool _focused = false;
 
+  /// Полный экран (§6а): ролик в корневой накладке, поверх всего окна.
+  OverlayEntry? _overlay;
+  final FocusNode _overlayFocus = FocusNode(debugLabel: 'VideoViewerView.fullScreen');
+
+  @override
+  void initState() {
+    super.initState();
+    screen.addListener(_syncOverlay);
+  }
+
+  @override
+  void didUpdateWidget(VideoViewerView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.screen != widget.screen) {
+      oldWidget.screen.removeListener(_syncOverlay);
+      widget.screen.addListener(_syncOverlay);
+      _syncOverlay();
+    }
+  }
+
   @override
   void dispose() {
+    screen.removeListener(_syncOverlay);
+    _removeOverlay();
+    _overlayFocus.dispose();
     _focus.dispose();
     super.dispose();
+  }
+
+  /// Накладка ходит за признаком полного экрана.
+  ///
+  /// В корневую накладку, а не в область: область — это место панели, а ролик
+  /// во весь экран обязан закрыть и вкладки, и ряд функциональных клавиш, и
+  /// командную строку. Ставится после кадра: посреди сборки дерево менять
+  /// нельзя.
+  void _syncOverlay() {
+    final want = screen.fullScreen;
+    if (want == (_overlay != null)) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || screen.fullScreen != want || want == (_overlay != null)) {
+        return;
+      }
+      if (want) {
+        final overlay = Overlay.of(context, rootOverlay: true);
+        _overlay = OverlayEntry(
+          builder:
+              (context) => ListenableBuilder(
+                listenable: screen,
+                // Накладка стоит вне `Scaffold`, и стиля текста по умолчанию
+                // здесь нет: без него подписи плашки выходили подчёркнутыми.
+                builder:
+                    (context, _) => DefaultTextStyle(
+                      style: FcTheme.of(context).uiStyle,
+                      child: Focus(
+                        focusNode: _overlayFocus,
+                        autofocus: true,
+                        onKeyEvent: _onKey,
+                        child: _stage(focusNode: _overlayFocus),
+                      ),
+                    ),
+              ),
+        );
+        overlay.insert(_overlay!);
+        _overlayFocus.requestFocus();
+      } else {
+        _removeOverlay();
+        _focus.requestFocus();
+      }
+    });
+  }
+
+  void _removeOverlay() {
+    _overlay?.remove();
+    _overlay?.dispose();
+    _overlay = null;
   }
 
   /// Фокус ходит за областью — как у показа PDF: вошли — он наш, ушли —
@@ -70,7 +143,10 @@ class _VideoViewerViewState extends State<VideoViewerView> {
       listenable: Listenable.merge([screen, if (app != null) app.view]),
       builder: (context, _) {
         final focused = app == null || app.view.takesKeys(screen);
-        _followFocus(focused);
+        // В полном экране фокус у накладки: отдавать его раме нельзя.
+        if (!screen.fullScreen) {
+          _followFocus(focused);
+        }
         final player = screen.player;
 
         return FcPanelFrame(
@@ -84,42 +160,60 @@ class _VideoViewerViewState extends State<VideoViewerView> {
           child: Focus(
             focusNode: _focus,
             onKeyEvent: _onKey,
-            child: MouseRegion(
-              // Плашка спрятана — спрятан и указатель: смотрят кадр.
-              cursor: screen.controlsVisible ? MouseCursor.defer : SystemMouseCursors.none,
-              onHover: (_) => screen.poke(),
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () {
-                  _focus.requestFocus();
-                  screen.poke();
-                },
-                child: ColoredBox(
-                  color: VideoViewerView.backdrop,
-                  child: Stack(
-                    children: [
-                      Positioned.fill(child: Center(child: _frame(player))),
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 16,
-                        child: IgnorePointer(
-                          ignoring: !screen.controlsVisible,
-                          child: AnimatedOpacity(
-                            opacity: screen.controlsVisible ? 1 : 0,
-                            duration: const Duration(milliseconds: 200),
-                            child: Center(child: _VideoControls(screen: screen)),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+            // В полном экране ролик — в накладке; здесь только чёрное место,
+            // чтобы одна текстура не рисовалась дважды.
+            child: screen.fullScreen ? const ColoredBox(color: VideoViewerView.backdrop) : _stage(focusNode: _focus),
           ),
         );
       },
+    );
+  }
+
+  /// Сцена: кадр на чёрном и плашка управления поверх. Одна на оба места —
+  /// в раме показа и во весь экран.
+  Widget _stage({required FocusNode focusNode}) {
+    final player = screen.player;
+    return MouseRegion(
+      // Плашка спрятана — спрятан и указатель: смотрят кадр.
+      cursor: screen.controlsVisible ? MouseCursor.defer : SystemMouseCursors.none,
+      onHover: (_) => screen.poke(),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          focusNode.requestFocus();
+          screen.poke();
+        },
+        child: ColoredBox(
+          color: VideoViewerView.backdrop,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                // Двойной щелчок по кадру — во весь экран и обратно, как в
+                // QuickTime. Только по кадру: на плашке ожидание второго
+                // щелчка задерживало бы каждое нажатие на полосу перемотки.
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onDoubleTap: screen.toggleFullScreen,
+                  child: Center(child: _frame(player)),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 16,
+                child: IgnorePointer(
+                  ignoring: !screen.controlsVisible,
+                  child: AnimatedOpacity(
+                    opacity: screen.controlsVisible ? 1 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Center(child: _VideoControls(screen: screen)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -229,6 +323,12 @@ class _VideoControls extends StatelessWidget {
               value: screen.settings.muted ? 0 : screen.settings.volume,
               onChanged: screen.setVolume,
             ),
+          ),
+          SizedBox(width: metrics.dialogGap * 2),
+          _IconButton(
+            key: const ValueKey('video.fullScreen'),
+            icon: screen.fullScreen ? icons.exitFullScreen : icons.enterFullScreen,
+            onTap: screen.toggleFullScreen,
           ),
         ],
       ),

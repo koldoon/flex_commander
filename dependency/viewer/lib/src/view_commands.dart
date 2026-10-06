@@ -117,6 +117,13 @@ class CloseViewerCommand extends AppCommand {
   @override
   Future<void> execute(CommandContext context) async {
     final view = context.app.view;
+    // Показу есть что снять — полный экран у видео: сперва оно, закрытие —
+    // следующим нажатием.
+    final shown = view.contentAt(view.activeArea);
+    final inner = shown == null ? null : innermost(shown);
+    if (inner case final ViewerUnwinds unwinds when unwinds.unwind()) {
+      return;
+    }
     view.popViewportContent(view.activeArea);
   }
 }

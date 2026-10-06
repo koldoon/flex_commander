@@ -114,6 +114,39 @@ void main() {
     screen.close();
   });
 
+  testWidgets('во весь экран ролик встаёт поверх всего, на месте показа — чёрное', (tester) async {
+    await pump(tester);
+    expect(find.byType(Texture), findsOneWidget);
+
+    await screen.toggleFullScreen();
+    await tester.pump();
+    await tester.pump();
+
+    // Текстура одна — в накладке, во весь экран; в раме показа её больше нет.
+    expect(find.byType(Texture), findsOneWidget);
+    final rect = tester.getRect(find.byType(Texture));
+    expect(rect.width, closeTo(800, 1), reason: 'кадр во всю ширину экрана, а не рамы');
+
+    // Накладка вне `Scaffold`: без своего стиля текста подписи выходили
+    // подчёркнутыми — так выглядит стиль-заглушка Flutter (живой дефект).
+    // Время на плашке — в полном экране оно только в накладке.
+    final clock = tester.widget<RichText>(
+      find.descendant(of: find.text('0:00'), matching: find.byType(RichText), matchRoot: true).first,
+    );
+    expect(clock.text.style?.decoration, isNot(TextDecoration.underline));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump();
+    expect(player.calls.last, 'play', reason: 'клавиши в полном экране доходят до показа');
+
+    await screen.toggleFullScreen();
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(Texture), findsOneWidget);
+
+    screen.close();
+  });
+
   test('время — как на плашке QuickTime', () {
     expect(formatClock(const Duration(seconds: 12)), '0:12');
     expect(formatClock(const Duration(minutes: 3, seconds: 45)), '3:45');

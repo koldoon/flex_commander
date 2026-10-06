@@ -9,7 +9,7 @@ import 'video_viewer_settings.dart';
 
 /// Показ ролика: плеер в раннере, время, громкость и плашка управления
 /// (`docs/spec/video-viewer.md`).
-class VideoViewerScreen extends ChangeNotifier implements ViewerContent {
+class VideoViewerScreen extends ChangeNotifier implements ViewerContent, ViewerUnwinds {
   VideoViewerScreen({
     required FileEntry entry,
     required this.player,
@@ -17,6 +17,7 @@ class VideoViewerScreen extends ChangeNotifier implements ViewerContent {
     required this.settings,
     required this.onSettingsChanged,
     this.place = ViewerPlace.fullscreen,
+    this.window,
     bool autoplay = true,
   }) : _entry = entry {
     unawaited(_start(autoplay));
@@ -45,6 +46,18 @@ class VideoViewerScreen extends ChangeNotifier implements ViewerContent {
 
   @override
   final ViewerPlace place;
+
+  /// Окно приложения: полный экран ролика — это и полный экран окна (§6а).
+  /// null — окна нет (тесты вида), и полный экран только внутри приложения.
+  final WindowService? window;
+
+  /// Ролик закрывает окно целиком (§6а).
+  bool get fullScreen => _fullScreen;
+  bool _fullScreen = false;
+
+  /// Окно перевели в полный экран **мы** — значит, мы и вернём. Было в нём и
+  /// до того — выходя, его не трогаем.
+  bool _windowMadeFull = false;
 
   @override
   FileEntry get entry => _entry;
@@ -194,6 +207,43 @@ class VideoViewerScreen extends ChangeNotifier implements ViewerContent {
     });
   }
 
+  /// Во весь экран или обратно: клавиша `F`, двойной щелчок по кадру, кнопка
+  /// на плашке.
+  Future<void> toggleFullScreen() => _fullScreen ? _leaveFullScreen() : _enterFullScreen();
+
+  Future<void> _enterFullScreen() async {
+    _fullScreen = true;
+    poke();
+    notifyListeners();
+    final window = this.window;
+    if (window != null && !await window.isFullScreen()) {
+      _windowMadeFull = true;
+      await window.setFullScreen(true);
+    }
+  }
+
+  Future<void> _leaveFullScreen() async {
+    _fullScreen = false;
+    poke();
+    if (!_disposed) {
+      notifyListeners();
+    }
+    if (_windowMadeFull) {
+      _windowMadeFull = false;
+      await window?.setFullScreen(false);
+    }
+  }
+
+  /// `Esc` в полном экране выходит из него, а не закрывает показ.
+  @override
+  bool unwind() {
+    if (!_fullScreen) {
+      return false;
+    }
+    unawaited(_leaveFullScreen());
+    return true;
+  }
+
   @override
   bool get takesKeyboard => true;
 
@@ -210,6 +260,11 @@ class VideoViewerScreen extends ChangeNotifier implements ViewerContent {
     _disposed = true;
     _poll.cancel();
     _hide?.cancel();
+    // Закрыли из полного экрана (курсор быстрого просмотра ушёл, F10) — окно
+    // возвращается таким, каким было.
+    if (_fullScreen) {
+      unawaited(_leaveFullScreen());
+    }
     // Закрыли показ — звук смолкает сразу, плеер отпускается, копия убирается
     // (§4, §7).
     unawaited(player.close().whenComplete(source.dispose));

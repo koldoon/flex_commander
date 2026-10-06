@@ -119,6 +119,12 @@ abstract class FcIcons {
 
   /// Звук выключен.
   IconData get soundOff;
+
+  /// Во весь экран.
+  IconData get enterFullScreen;
+
+  /// Из полного экрана обратно.
+  IconData get exitFullScreen;
 }
 
 /// Роль по имени — для правил, приехавших из файла настроек.
@@ -157,6 +163,8 @@ extension FcIconRoles on FcIcons {
     'pause' => pause,
     'soundOn' => soundOn,
     'soundOff' => soundOff,
+    'enterFullScreen' => enterFullScreen,
+    'exitFullScreen' => exitFullScreen,
     _ => null,
   };
 }
