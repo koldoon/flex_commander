@@ -53,6 +53,19 @@ class VideoViewer implements FcFrontendModule {
     final settings = registry.settings;
     VideoViewerSettings settingsOf() => settings.section(VideoViewerSettings.new);
 
+    registry.settingsSchema(() {
+      final strings = registry.services.resolve<Strings>();
+      return SettingsSchema([
+        SettingsField.flag(
+          'autoplayQuickView',
+          defaultValue: false,
+          title: strings.tr('Autoplay videos in quick preview'),
+          read: () => settingsOf().autoplayQuickView,
+          write: (value) => settingsOf().autoplayQuickView = value,
+        ),
+      ], save: settings.save);
+    });
+
     registry.viewer(
       ViewerSpec(
         id: VideoViewerScreen.viewerId,
@@ -138,9 +151,9 @@ class VideoViewer implements FcFrontendModule {
           settings: settings,
           onSettingsChanged: onSettingsChanged,
           place: request.place,
-          // Быстрый просмотр сам не играет: ход курсора по каталогу роликов
-          // включал бы звук на каждом шаге (§8).
-          autoplay: request.place == ViewerPlace.fullscreen,
+          // Быстрый просмотр сам не играет, пока не попросили: ход курсора по
+          // каталогу роликов включал бы звук на каждом шаге (§8).
+          autoplay: request.place == ViewerPlace.fullscreen || settings.autoplayQuickView,
         );
     }
   }
@@ -149,6 +162,7 @@ class VideoViewer implements FcFrontendModule {
 /// Русские строки просмотра видео.
 const Map<String, String> _russian = {
   'Video viewer': 'Видео',
+  'Autoplay videos in quick preview': 'Запускать ролики в быстром просмотре сразу',
   'Play': 'Пуск',
   'Pause': 'Пауза',
   'Start or pause the video': 'Запустить или остановить ролик',

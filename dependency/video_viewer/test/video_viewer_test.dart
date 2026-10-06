@@ -23,7 +23,7 @@ void main() {
   const right = ViewportPosition.right;
   final clip = List<int>.generate(4096, (i) => i % 251);
 
-  Future<void> start({bool withSystem = true}) async {
+  Future<void> start({bool withSystem = true, bool autoplayQuickView = false}) async {
     provider = InMemoryContentProvider([
       FakeEntry.directory('/home'),
       FakeEntry.file('/home/a.mp4', content: clip),
@@ -33,9 +33,13 @@ void main() {
       FakeEntry.file('/home/app.ts', content: 'export const a = 1;'.codeUnits),
     ])..home = '/home';
     system = FakeSystemVideo();
+    final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
+    settings.modules.scope(const VideoViewer().id).section(VideoViewerSettings.new).autoplayQuickView =
+        autoplayQuickView;
     runtime = await testApp(
       provider: provider,
       modules: [...featureModules(), if (withSystem) FakeSystemVideoModule(system)],
+      settings: settings,
     );
     await runtime.app.start();
   }
@@ -176,6 +180,18 @@ void main() {
     expect((innermost(host) as VideoViewerScreen).entry.name, 'b.mov');
     expect(system.opened.first.closed, isTrue, reason: 'иначе звук прежнего ролика играл бы дальше');
     expect(system.opened.last.closed, isFalse);
+  });
+
+  test('настройка «Autoplay videos in quick preview» — быстрый просмотр играет сразу', () async {
+    await start(autoplayQuickView: true);
+    runtime.app.left.setCursorToName('a.mp4');
+    expect(runtime.commands.dispatch(KeyCombination.parse('Shift-F3')), isTrue);
+    await Future<void>.delayed(QuickViewHost.defaultDelay * 2);
+    await pumpEventQueue();
+
+    final host = runtime.app.view.contentAt(right)! as QuickViewHost;
+    expect(innermost(host), isA<VideoViewerScreen>());
+    expect(system.opened.single.calls, contains('play'));
   });
 
   test('курсор ушёл посреди копии — копия убрана, плеер не открывался', () async {
