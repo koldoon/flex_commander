@@ -104,7 +104,7 @@
 
 ## 7. Спектр — как в Winamp
 
-**Состояние:** сделано, ждёт живой проверки (7 октября 2026). Тап —
+**Состояние:** сделано и проверено на живом (7 октября 2026). Тап —
 `SpectrumTap` в `macos/Runner/MainFlutterWindow.swift`, показ — `MediaSpectrum`
 и движение `SpectrumMotion` в `dependency/media_viewer/lib/src/media_spectrum.dart`.
 
