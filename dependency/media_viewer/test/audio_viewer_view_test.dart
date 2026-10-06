@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_media_viewer/fc_media_viewer.dart';
@@ -54,6 +56,24 @@ void main() {
     expect(find.text('2019'), findsOneWidget);
     expect(find.byIcon(const DefaultIcons().music), findsOneWidget);
     expect(find.byType(MediaControls), findsOneWidget);
+
+    screen.close();
+  });
+
+  testWidgets('обложка декодируется в наибольшем размере показа, а не целиком', (tester) async {
+    // PNG 1×1.
+    final png = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+    );
+    await pump(tester, SystemAudioTags(title: 'Song', artwork: png));
+
+    final image = tester.widget<Image>(find.byType(Image)).image;
+    expect(image, isA<ResizeImage>());
+    final resized = image as ResizeImage;
+    final pixels = (360 * tester.view.devicePixelRatio).round();
+    expect(resized.width, pixels);
+    expect(resized.height, pixels);
+    expect(resized.policy, ResizeImagePolicy.fit);
 
     screen.close();
   });

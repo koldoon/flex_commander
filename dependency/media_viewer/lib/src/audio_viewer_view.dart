@@ -19,6 +19,9 @@ class AudioViewerView extends StatefulWidget {
 }
 
 class _AudioViewerViewState extends State<AudioViewerView> {
+  /// Обложка не крупнее этого, в точках.
+  static const double _artMax = 360;
+
   AudioViewerScreen get screen => widget.screen;
 
   final FocusNode _focus = FocusNode(debugLabel: 'AudioViewerView');
@@ -74,7 +77,7 @@ class _AudioViewerViewState extends State<AudioViewerView> {
               onTap: _focus.requestFocus,
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  final art = (constraints.maxHeight * 0.4).clamp(64.0, 360.0);
+                  final art = (constraints.maxHeight * 0.4).clamp(64.0, _artMax);
                   return Column(
                     children: [
                       const Spacer(),
@@ -128,10 +131,14 @@ class _AudioViewerViewState extends State<AudioViewerView> {
   Widget _artwork(FcTheme theme, SystemAudioTags tags) {
     final bytes = tags.artwork;
     if (bytes != null) {
+      // Декодировать в размере показа, а не целиком: обложка 3000×3000 — это
+      // ~36 МБ (§7.4). Размер — наибольший, а не нынешний: иначе каждый шаг
+      // изменения окна менял бы ключ кэша и декодировал обложку заново.
+      final pixels = (_artMax * MediaQuery.devicePixelRatioOf(context)).round();
       return ClipRRect(
         borderRadius: BorderRadius.circular(8),
-        child: Image.memory(
-          bytes,
+        child: Image(
+          image: ResizeImage(MemoryImage(bytes), width: pixels, height: pixels, policy: ResizeImagePolicy.fit),
           fit: BoxFit.contain,
           // Испорченная обложка — нота, а не красный экран.
           errorBuilder: (context, error, stack) => _note(theme),
