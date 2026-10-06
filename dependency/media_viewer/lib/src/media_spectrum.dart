@@ -58,7 +58,7 @@ class SpectrumMotion {
 /// Спектр того, что играет, — как в Winamp: тонкие полоски с пиками
 /// (`docs/spec/audio-viewer.md`, §7).
 ///
-/// Спрашивает плеер по тикеру **только пока играет**, не чаще 30 раз в
+/// Спрашивает плеер по тикеру **только пока играет**, не чаще 60 раз в
 /// секунду, и не шлёт следующий запрос, пока не вернулся прежний. На паузе
 /// полосы опадают, и тикер встаёт.
 class MediaSpectrum extends StatefulWidget {
@@ -67,8 +67,9 @@ class MediaSpectrum extends StatefulWidget {
   final SystemAudioPlayer player;
   final bool playing;
 
-  /// Не чаще этого спрашивать плеер.
-  static const Duration pollEvery = Duration(milliseconds: 33);
+  /// Не чаще этого спрашивать плеер — 60 раз в секунду: раннер считает новый
+  /// спектр каждые 512 сэмплов, ~86 раз в секунду (`audio-viewer.md`, §7.1).
+  static const Duration pollEvery = Duration(milliseconds: 16);
 
   @override
   State<MediaSpectrum> createState() => _MediaSpectrumState();

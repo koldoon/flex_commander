@@ -1840,7 +1840,7 @@ final class VideoPlayer: NSObject, FlutterTexture {
 final class SpectrumTap {
   static let bands = 64
   static let size = 2048
-  static let hop = 1024
+  static let hop = 512
   static let lowHz: Float = 40
   static let highHz: Float = 16000
   /// Пол и потолок шкалы, дБ относительно полной шкалы.

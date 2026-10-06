@@ -88,15 +88,15 @@ void main() {
       expect(player.spectrumCalls, 0);
     });
 
-    testWidgets('играет — спрашивает не чаще 30 раз в секунду', (tester) async {
+    testWidgets('играет — спрашивает не чаще 60 раз в секунду', (tester) async {
       final player = await pump(tester, playing: true);
 
-      for (var i = 0; i < 60; i++) {
-        await tester.pump(const Duration(milliseconds: 16));
+      for (var i = 0; i < 120; i++) {
+        await tester.pump(const Duration(milliseconds: 8));
       }
 
-      // Секунда кадров по 16 мс — около 30 запросов, а не 60.
-      expect(player.spectrumCalls, inInclusiveRange(20, 32));
+      // Секунда кадров по 8 мс (120 Гц) — около 60 запросов, а не 120.
+      expect(player.spectrumCalls, inInclusiveRange(50, 62));
 
       // Встали — опадает и затихает: тикер не держит кадры.
       await pump(tester, playing: false, player: player);
