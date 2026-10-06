@@ -1507,8 +1507,7 @@ final class SystemVideo {
         result(nil)
         return
       }
-      let levels = spectrum.current()
-      result(FlutterStandardTypedData(float32: levels.withUnsafeBufferPointer { Data(buffer: $0) }))
+      result(FlutterStandardTypedData(float32: spectrum.current()))
     default:
       result(FlutterMethodNotImplemented)
     }
@@ -1835,52 +1834,131 @@ final class VideoPlayer: NSObject, FlutterTexture {
 /// Спектр того, что играет: отвод звука `MTAudioProcessingTap` и БПФ
 /// (`docs/spec/audio-viewer.md`, §7).
 ///
-/// Тап видит те же сэмплы, что уходят в динамики, и звук не трогает. Работает
-/// на звуковой нити — последний набор полос лежит под замком.
+/// Тап видит те же сэмплы, что уходят в динамики, и звук не трогает. На
+/// звуковой нити — только сведение в моно и запись в кольцо: ни выделений
+/// памяти, ни БПФ (§7.4). Спектр считает `current()` на главной нити — когда
+/// его спрашивают.
 final class SpectrumTap {
   static let bands = 64
   static let size = 2048
-  static let hop = 512
   static let lowHz: Float = 40
   static let highHz: Float = 16000
   /// Пол и потолок шкалы, дБ относительно полной шкалы.
   static let floorDb: Float = -80
   static let ceilingDb: Float = 0
 
-  private let lock = NSLock()
-  private var levels = [Float](repeating: 0, count: SpectrumTap.bands)
-  private var history = [Float](repeating: 0, count: SpectrumTap.size)
-  private var pending: [Float] = []
+  // Общее со звуковой нитью — под замком. `os_unfair_lock`, а не `NSLock`: он
+  // передаёт приоритет держателю, а главная нить держит его микросекунды.
+  private let lock: os_unfair_lock_t
+  /// Последние `size` сэмплов моно; `written` — куда ляжет следующий.
+  private let ring: UnsafeMutablePointer<Float>
+  private var written = 0
   private var sampleRate: Float = 44100
+
+  // Только звуковая нить — и `prepare` до неё.
+  private var scratch: UnsafeMutablePointer<Float>?
+  private var scratchCapacity = 0
   private var isFloat = true
   private var interleaved = false
   private var channels = 2
 
+  // Только главная нить: буферы БПФ выделены раз и навсегда.
   private let log2n = vDSP_Length(11)
   private let setup: FFTSetup
-  private var window = [Float](repeating: 0, count: SpectrumTap.size)
+  private let window: UnsafeMutablePointer<Float>
+  private let windowed: UnsafeMutablePointer<Float>
+  private let real: UnsafeMutablePointer<Float>
+  private let imag: UnsafeMutablePointer<Float>
+  private let power: UnsafeMutablePointer<Float>
+  private let levels: UnsafeMutablePointer<Float>
+  /// Бины каждой полосы; считаются заново только при смене частоты.
+  private var bins: [(first: Int, last: Int)] = []
+  private var binsRate: Float = 0
 
   init() {
+    let n = SpectrumTap.size
+    lock = .allocate(capacity: 1)
+    lock.initialize(to: os_unfair_lock())
+    ring = .allocate(capacity: n)
+    ring.initialize(repeating: 0, count: n)
     setup = vDSP_create_fftsetup(log2n, FFTRadix(kFFTRadix2))!
-    vDSP_hann_window(&window, vDSP_Length(SpectrumTap.size), Int32(vDSP_HANN_NORM))
+    window = .allocate(capacity: n)
+    vDSP_hann_window(window, vDSP_Length(n), Int32(vDSP_HANN_NORM))
+    windowed = .allocate(capacity: n)
+    real = .allocate(capacity: n / 2)
+    imag = .allocate(capacity: n / 2)
+    power = .allocate(capacity: n / 2)
+    levels = .allocate(capacity: SpectrumTap.bands)
   }
 
   deinit {
     vDSP_destroy_fftsetup(setup)
+    for buffer in [ring, window, windowed, real, imag, power, levels] {
+      buffer.deallocate()
+    }
+    scratch?.deallocate()
+    lock.deinitialize(count: 1)
+    lock.deallocate()
   }
 
-  /// Последние полосы, 0…1.
-  func current() -> [Float] {
-    lock.lock()
-    defer { lock.unlock() }
-    return levels
+  /// Полосы того, что звучит сейчас, 0…1: БПФ последних `size` сэмплов.
+  func current() -> Data {
+    let n = SpectrumTap.size
+    let floatSize = MemoryLayout<Float>.stride
+    os_unfair_lock_lock(lock)
+    // Кольцо — по порядку, от старого сэмпла к свежему.
+    memcpy(windowed, ring + written, (n - written) * floatSize)
+    memcpy(windowed + (n - written), ring, written * floatSize)
+    let rate = sampleRate
+    os_unfair_lock_unlock(lock)
+
+    if rate != binsRate {
+      bins = SpectrumTap.bins(sampleRate: rate)
+      binsRate = rate
+    }
+    vDSP_vmul(windowed, 1, window, 1, windowed, 1, vDSP_Length(n))
+    var split = DSPSplitComplex(realp: real, imagp: imag)
+    windowed.withMemoryRebound(to: DSPComplex.self, capacity: n / 2) {
+      vDSP_ctoz($0, 2, &split, 1, vDSP_Length(n / 2))
+    }
+    vDSP_fft_zrip(setup, &split, 1, log2n, FFTDirection(FFT_FORWARD))
+    vDSP_zvmags(&split, 1, power, 1, vDSP_Length(n / 2))
+    // В каждой полосе — наибольший модуль.
+    for (band, range) in bins.enumerated() {
+      vDSP_maxv(power + range.first, 1, levels + band, vDSP_Length(range.last - range.first + 1))
+    }
+    // Масштаб: `zrip` даёт удвоенные значения, окно Ханна (нормированное)
+    // — ещё половину амплитуды. Синус полной шкалы ≈ 0 дБ. Дальше децибелы
+    // мощности и шкала пол…потолок → 0…1.
+    let count = vDSP_Length(SpectrumTap.bands)
+    var scale = 1 / Float(n * n / 4)
+    vDSP_vsmul(levels, 1, &scale, levels, 1, count)
+    var tiny: Float = 1e-12
+    vDSP_vthr(levels, 1, &tiny, levels, 1, count)
+    var reference: Float = 1
+    vDSP_vdbcon(levels, 1, &reference, levels, 1, count, 0)
+    let span = SpectrumTap.ceilingDb - SpectrumTap.floorDb
+    var multiply = 1 / span
+    var add = -SpectrumTap.floorDb / span
+    vDSP_vsmsa(levels, 1, &multiply, &add, levels, 1, count)
+    var low: Float = 0
+    var high: Float = 1
+    vDSP_vclip(levels, 1, &low, &high, levels, 1, count)
+    return Data(bytes: levels, count: SpectrumTap.bands * floatSize)
   }
 
-  /// Пауза: полосы — к нулю; опадание рисует Dart.
-  func reset() {
-    lock.lock()
-    levels = [Float](repeating: 0, count: SpectrumTap.bands)
-    lock.unlock()
+  /// Бины БПФ каждой полосы: 40 Гц … 16 кГц по логарифмической шкале.
+  private static func bins(sampleRate: Float) -> [(first: Int, last: Int)] {
+    let top = size / 2 - 1
+    let binHz = max(sampleRate, 1) / Float(size)
+    let ratio = highHz / lowHz
+    return (0..<bands).map { band in
+      let from = lowHz * pow(ratio, Float(band) / Float(bands))
+      let to = lowHz * pow(ratio, Float(band + 1) / Float(bands))
+      let first = min(top, max(1, Int(from / binHz)))
+      let last = min(top, max(first, Int(to / binHz)))
+      return (first, last)
+    }
   }
 
   /// Микс с тапом для звуковой дорожки; nil — тап не завёлся, и спектра не будет.
@@ -1895,9 +1973,9 @@ final class SpectrumTap {
       finalize: { tap in
         Unmanaged<SpectrumTap>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).release()
       },
-      prepare: { tap, _, format in
+      prepare: { tap, maxFrames, format in
         Unmanaged<SpectrumTap>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).takeUnretainedValue()
-          .prepare(format.pointee)
+          .prepare(maxFrames: Int(maxFrames), format.pointee)
       },
       unprepare: nil,
       process: { tap, frames, _, bufferList, framesOut, flagsOut in
@@ -1922,87 +2000,68 @@ final class SpectrumTap {
     return mix
   }
 
-  private func prepare(_ format: AudioStreamBasicDescription) {
-    sampleRate = Float(format.mSampleRate)
+  /// До звуковой нити: формат и буфер под моно — на звуковой нити память не
+  /// выделяется.
+  private func prepare(maxFrames: Int, _ format: AudioStreamBasicDescription) {
+    scratch?.deallocate()
+    scratchCapacity = max(1, maxFrames)
+    scratch = .allocate(capacity: scratchCapacity)
     isFloat = format.mFormatFlags & kAudioFormatFlagIsFloat != 0
     interleaved = format.mFormatFlags & kAudioFormatFlagIsNonInterleaved == 0
     channels = max(1, Int(format.mChannelsPerFrame))
+    os_unfair_lock_lock(lock)
+    sampleRate = Float(format.mSampleRate)
+    os_unfair_lock_unlock(lock)
   }
 
-  /// Сэмплы — в моно, по готовому блоку — БПФ.
+  /// Звуковая нить: сэмплы — в моно, моно — в кольцо.
   private func consume(_ list: UnsafeMutablePointer<AudioBufferList>, frames: Int) {
-    guard isFloat, frames > 0 else {
+    guard isFloat, let mono = scratch else {
       return
     }
     let buffers = UnsafeMutableAudioBufferListPointer(list)
-    var mono = [Float](repeating: 0, count: frames)
-    if interleaved, let data = buffers.first?.mData {
+    let floatSize = MemoryLayout<Float>.stride
+    var count = min(frames, scratchCapacity)
+    // Не дальше, чем лежит в буферах.
+    for buffer in buffers {
+      count = min(count, Int(buffer.mDataByteSize) / (floatSize * (interleaved ? channels : 1)))
+    }
+    guard count > 0 else {
+      return
+    }
+    let length = vDSP_Length(count)
+    vDSP_vclr(mono, 1, length)
+    if interleaved {
+      guard let data = buffers.first?.mData else {
+        return
+      }
       let samples = data.assumingMemoryBound(to: Float.self)
-      for frame in 0..<frames {
-        var sum: Float = 0
-        for channel in 0..<channels {
-          sum += samples[frame * channels + channel]
-        }
-        mono[frame] = sum / Float(channels)
+      var share = 1 / Float(channels)
+      for channel in 0..<channels {
+        vDSP_vsma(samples + channel, vDSP_Stride(channels), &share, mono, 1, mono, 1, length)
       }
     } else {
-      let count = Float(buffers.count)
+      var share = 1 / Float(max(1, buffers.count))
       for buffer in buffers {
         guard let data = buffer.mData else { continue }
-        let samples = data.assumingMemoryBound(to: Float.self)
-        for frame in 0..<frames {
-          mono[frame] += samples[frame] / count
-        }
+        vDSP_vsma(data.assumingMemoryBound(to: Float.self), 1, &share, mono, 1, mono, 1, length)
       }
     }
-    pending.append(contentsOf: mono)
-    while pending.count >= SpectrumTap.hop {
-      history.removeFirst(SpectrumTap.hop)
-      history.append(contentsOf: pending.prefix(SpectrumTap.hop))
-      pending.removeFirst(SpectrumTap.hop)
-      analyze()
-    }
+    write(mono, count)
   }
 
-  private func analyze() {
+  /// Звуковая нить: блок — в кольцо, двумя копиями под замком.
+  private func write(_ samples: UnsafePointer<Float>, _ count: Int) {
     let n = SpectrumTap.size
-    var windowed = [Float](repeating: 0, count: n)
-    vDSP_vmul(history, 1, window, 1, &windowed, 1, vDSP_Length(n))
-    var real = [Float](repeating: 0, count: n / 2)
-    var imag = [Float](repeating: 0, count: n / 2)
-    var power = [Float](repeating: 0, count: n / 2)
-    real.withUnsafeMutableBufferPointer { realPointer in
-      imag.withUnsafeMutableBufferPointer { imagPointer in
-        var split = DSPSplitComplex(realp: realPointer.baseAddress!, imagp: imagPointer.baseAddress!)
-        windowed.withUnsafeBufferPointer { input in
-          input.baseAddress!.withMemoryRebound(to: DSPComplex.self, capacity: n / 2) {
-            vDSP_ctoz($0, 2, &split, 1, vDSP_Length(n / 2))
-          }
-        }
-        vDSP_fft_zrip(setup, &split, 1, log2n, FFTDirection(FFT_FORWARD))
-        vDSP_zvmags(&split, 1, &power, 1, vDSP_Length(n / 2))
-      }
-    }
-    // Масштаб: `zrip` даёт удвоенные значения, окно Ханна (нормированное)
-    // — ещё половину амплитуды. Синус полной шкалы ≈ 0 дБ.
-    let scale = 1 / Float(n * n / 4)
-    let binHz = sampleRate / Float(n)
-    let ratio = SpectrumTap.highHz / SpectrumTap.lowHz
-    var bands = [Float](repeating: 0, count: SpectrumTap.bands)
-    for band in 0..<SpectrumTap.bands {
-      let from = SpectrumTap.lowHz * pow(ratio, Float(band) / Float(SpectrumTap.bands))
-      let to = SpectrumTap.lowHz * pow(ratio, Float(band + 1) / Float(SpectrumTap.bands))
-      let first = max(1, Int(from / binHz))
-      let last = min(n / 2 - 1, max(first, Int(to / binHz)))
-      var peak: Float = 0
-      for bin in first...last {
-        peak = max(peak, power[bin])
-      }
-      let db = 10 * log10(max(peak * scale, 1e-12))
-      bands[band] = min(1, max(0, (db - SpectrumTap.floorDb) / (SpectrumTap.ceilingDb - SpectrumTap.floorDb)))
-    }
-    lock.lock()
-    levels = bands
-    lock.unlock()
+    let floatSize = MemoryLayout<Float>.stride
+    // Блок длиннее окна — нужен только хвост.
+    let length = min(count, n)
+    let source = samples + (count - length)
+    os_unfair_lock_lock(lock)
+    let head = min(length, n - written)
+    memcpy(ring + written, source, head * floatSize)
+    memcpy(ring, source + head, (length - head) * floatSize)
+    written = (written + length) % n
+    os_unfair_lock_unlock(lock)
   }
 }

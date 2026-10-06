@@ -67,8 +67,9 @@ class MediaSpectrum extends StatefulWidget {
   final SystemAudioPlayer player;
   final bool playing;
 
-  /// Не чаще этого спрашивать плеер — 60 раз в секунду: раннер считает новый
-  /// спектр каждые 512 сэмплов, ~86 раз в секунду (`audio-viewer.md`, §7.1).
+  /// Не чаще этого спрашивать плеер — 60 раз в секунду: раннер считает спектр
+  /// по запросу, из последних сэмплов, так что свежесть задаёт этот опрос
+  /// (`audio-viewer.md`, §7.1).
   static const Duration pollEvery = Duration(milliseconds: 16);
 
   @override
