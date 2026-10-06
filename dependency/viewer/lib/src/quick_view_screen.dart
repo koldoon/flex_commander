@@ -20,8 +20,10 @@ import 'open_viewer.dart';
 /// Живёт наложением на область панели: под ним цела и панель, и её курсор, и
 /// аренда источника. Сама панель о просмотре не знает — это он слушает её.
 class QuickViewHost extends ChangeNotifier implements ViewportHost {
-  QuickViewHost({required this.app, required this.panel, this.delay = defaultDelay}) {
-    panel.addListener(_onPanelChanged);
+  QuickViewHost({required this.app, required Session panel, required this.source, this.delay = defaultDelay})
+    : _panel = panel {
+    _panel.addListener(_onPanelChanged);
+    app.view.addListener(_onViewChanged);
     _onPanelChanged(immediately: true);
   }
 
@@ -36,8 +38,36 @@ class QuickViewHost extends ChangeNotifier implements ViewportHost {
 
   final Application app;
 
-  /// Панель, за курсором которой идёт просмотр.
-  final Session panel;
+  /// Область, за панелью которой идёт просмотр.
+  final ViewportPosition source;
+
+  /// Панель, за курсором которой идёт просмотр, — та, что показана в [source]
+  /// **сейчас**.
+  ///
+  /// Не та, что была при открытии: в ряду сверху меняют набор, и в области
+  /// оказывается другая сессия. Держись просмотр за прежнюю — показывал бы её
+  /// файл, а ход курсора в новой до него не доходил бы (живой дефект
+  /// 6 октября 2026).
+  Session get panel => _panel;
+  Session _panel;
+
+  /// В области показано другое — перейти на сессию, что теперь там.
+  ///
+  /// Не панель (просмотрщик во весь экран, поиск поверх) — держимся прежней:
+  /// когда это снимут, вернётся она же или другая, и тогда и перейдём.
+  void _onViewChanged() {
+    if (_disposed) {
+      return;
+    }
+    final shown = app.view.panelAt(source);
+    if (shown == null || identical(shown, _panel)) {
+      return;
+    }
+    _panel.removeListener(_onPanelChanged);
+    _panel = shown;
+    _panel.addListener(_onPanelChanged);
+    _onPanelChanged();
+  }
 
   final Duration delay;
 
@@ -194,7 +224,8 @@ class QuickViewHost extends ChangeNotifier implements ViewportHost {
   void dispose() {
     _disposed = true;
     _waiting?.cancel();
-    panel.removeListener(_onPanelChanged);
+    _panel.removeListener(_onPanelChanged);
+    app.view.removeListener(_onViewChanged);
     _inner?.close();
     _inner = null;
     super.dispose();

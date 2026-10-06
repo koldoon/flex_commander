@@ -169,6 +169,6 @@ class QuickViewCommand extends AppCommand {
       return;
     }
 
-    view.pushViewportContent(target, QuickViewHost(app: context.app, panel: panel));
+    view.pushViewportContent(target, QuickViewHost(app: context.app, panel: panel, source: view.sourceArea));
   }
 }

@@ -28,6 +28,9 @@ void main() {
         FakeEntry.file('/home/other.txt', content: utf8.encode('другое')),
         FakeEntry.file('/home/big.log', size: 200 * 1024 * 1024),
         FakeEntry.directory('/home/docs'),
+        FakeEntry.directory('/work'),
+        FakeEntry.file('/work/plan.txt', content: utf8.encode('план')),
+        FakeEntry.file('/work/todo.txt', content: utf8.encode('дела')),
       ])..home = '/home',
       modules: featureModules(),
     );
@@ -158,6 +161,29 @@ void main() {
 
       expect(quickView(), isNull);
       expect(runtime.app.view.panelAt(right), isNotNull, reason: 'под наложением была панель');
+    });
+  });
+
+  /// Живой дефект: сменили набор в ряду сверху — просмотр так и показывал
+  /// прежний файл, и ход курсора не помогал: он слушал сессию прежнего набора.
+  group('другой набор слева', () {
+    test('просмотр идёт за курсором набора, который теперь показан', () async {
+      await cursorTo('notes.txt');
+      await toggle();
+      await settle();
+      expect(shown()?.entry.name, 'notes.txt');
+
+      final other = await runtime.app.openPanel(left, show: false);
+      await other.session.openPath('/work');
+      other.session.setCursorToName('plan.txt');
+      runtime.app.showPanel(left, other);
+      await settle();
+
+      expect(shown()?.entry.name, 'plan.txt', reason: 'просмотр остался на файле прежнего набора');
+
+      runtime.app.left.setCursorToName('todo.txt');
+      await settle();
+      expect(shown()?.entry.name, 'todo.txt', reason: 'ход курсора в новом наборе до просмотра не доходит');
     });
   });
 
