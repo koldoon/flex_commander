@@ -104,7 +104,10 @@ abstract interface class SystemAudioPlayer implements SystemMediaPlayer {
   /// Спектр того, что звучит сейчас: [spectrumBands] полос по
   /// логарифмической шкале 40 Гц … 16 кГц, каждая 0…1
   /// (`docs/spec/audio-viewer.md`, §7). null — плеер закрыт или спектра нет.
-  Future<Float32List?> spectrum();
+  ///
+  /// Синхронно: спрашивают его каждый кадр, и раннер считает его по прямому
+  /// вызову, без канала (§7.5).
+  Float32List? spectrum();
 }
 
 /// Сколько полос в спектре.

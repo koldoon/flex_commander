@@ -65,8 +65,8 @@ class SpectrumMotion {
 /// (`docs/spec/audio-viewer.md`, §7).
 ///
 /// Спрашивает плеер по тикеру **только пока играет**, не чаще 60 раз в
-/// секунду, и не шлёт следующий запрос, пока не вернулся прежний. На паузе
-/// полосы опадают, и тикер встаёт.
+/// секунду, — синхронно, прямо в такте (§7.5). На паузе полосы опадают, и
+/// тикер встаёт.
 class MediaSpectrum extends StatefulWidget {
   const MediaSpectrum({super.key, required this.player, required this.playing});
 
@@ -89,7 +89,6 @@ class _MediaSpectrumState extends State<MediaSpectrum> with SingleTickerProvider
 
   Duration _last = Duration.zero;
   Duration _askedAt = -MediaSpectrum.pollEvery;
-  bool _asking = false;
   List<double>? _target;
 
   @override
@@ -120,16 +119,9 @@ class _MediaSpectrumState extends State<MediaSpectrum> with SingleTickerProvider
   void _tick(Duration elapsed) {
     final dt = elapsed - _last;
     _last = elapsed;
-    if (widget.playing && !_asking && elapsed - _askedAt >= MediaSpectrum.pollEvery) {
+    if (widget.playing && elapsed - _askedAt >= MediaSpectrum.pollEvery) {
       _askedAt = elapsed;
-      _asking = true;
-      final player = widget.player;
-      widget.player.spectrum().then((levels) {
-        _asking = false;
-        if (mounted && identical(player, widget.player)) {
-          _target = levels;
-        }
-      });
+      _target = widget.player.spectrum();
     }
     // Полосы стоят — кадр не перерисовывается.
     if (_motion.step(dt, widget.playing ? _target : null)) {

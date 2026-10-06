@@ -168,7 +168,7 @@ class FakeAudioPlayer extends FakeMediaPlayer implements SystemAudioPlayer {
   int spectrumCalls = 0;
 
   @override
-  Future<Float32List?> spectrum() async {
+  Float32List? spectrum() {
     spectrumCalls++;
     return closed ? null : levels;
   }

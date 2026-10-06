@@ -1502,12 +1502,6 @@ final class SystemVideo {
       result(nil)
     case "state":
       result(player.state())
-    case "spectrum":
-      guard let spectrum = player.spectrum else {
-        result(nil)
-        return
-      }
-      result(FlutterStandardTypedData(float32: spectrum.current()))
     default:
       result(FlutterMethodNotImplemented)
     }
@@ -1629,6 +1623,9 @@ final class SystemVideo {
         let handle = self.register(player)
         var reply = opened
         reply["handle"] = handle
+        if let spectrum = player.spectrum {
+          reply["spectrum"] = spectrum.native()
+        }
         result(reply)
       }
     }
@@ -1878,8 +1875,8 @@ final class VideoPlayer: NSObject, FlutterTexture {
 ///
 /// Тап видит те же сэмплы, что уходят в динамики, и звук не трогает. На
 /// звуковой нити — только сведение в моно и запись в кольцо: ни выделений
-/// памяти, ни БПФ (§7.4). Спектр считает `current()` на главной нити — когда
-/// его спрашивают.
+/// памяти, ни БПФ (§7.4). Спектр считает `compute()`, когда его спрашивают:
+/// Dart зовёт его напрямую, через `dart:ffi`, без канала (§7.5).
 final class SpectrumTap {
   static let bands = 64
   static let size = 2048
@@ -1904,7 +1901,8 @@ final class SpectrumTap {
   private var interleaved = false
   private var channels = 2
 
-  // Только главная нить: буферы БПФ выделены раз и навсегда.
+  // Только тот, кто зовёт `compute` (Dart, из одной нити): буферы БПФ
+  // выделены раз и навсегда.
   private let log2n = vDSP_Length(11)
   private let setup: FFTSetup
   private let window: UnsafeMutablePointer<Float>
@@ -1943,8 +1941,28 @@ final class SpectrumTap {
     lock.deallocate()
   }
 
-  /// Полосы того, что звучит сейчас, 0…1: БПФ последних `size` сэмплов.
-  func current() -> Data {
+  /// Для Dart через `dart:ffi`: адрес C-функции, адрес тапа и адрес буфера
+  /// полос. Адрес приходит ответом, а не поиском символа: вырезание символов в
+  /// выпускной сборке ему не мешает (`docs/spec/audio-viewer.md`, §7.5).
+  func native() -> [Int] {
+    [
+      unsafeBitCast(SpectrumTap.entry, to: Int.self),
+      Int(bitPattern: Unmanaged.passUnretained(self).toOpaque()),
+      Int(bitPattern: levels),
+    ]
+  }
+
+  /// Вход для Dart: посчитать спектр тапа в его буфер полос.
+  private static let entry: @convention(c) (UnsafeMutableRawPointer?) -> Void = { tap in
+    guard let tap = tap else {
+      return
+    }
+    Unmanaged<SpectrumTap>.fromOpaque(tap).takeUnretainedValue().compute()
+  }
+
+  /// Полосы того, что звучит сейчас, 0…1, — в `levels`: БПФ последних `size`
+  /// сэмплов.
+  func compute() {
     let n = SpectrumTap.size
     let floatSize = MemoryLayout<Float>.stride
     os_unfair_lock_lock(lock)
@@ -1986,7 +2004,6 @@ final class SpectrumTap {
     var low: Float = 0
     var high: Float = 1
     vDSP_vclip(levels, 1, &low, &high, levels, 1, count)
-    return Data(bytes: levels, count: SpectrumTap.bands * floatSize)
   }
 
   /// Бины БПФ каждой полосы: 40 Гц … 16 кГц по логарифмической шкале.

@@ -52,6 +52,15 @@ void main() {
     expect(calls, isNot(contains('state')), reason: 'Dart не спрашивает — раннер шлёт сам');
   });
 
+  test('раннер не дал адресов спектра — спектра нет, а не падение', () async {
+    // Так отвечает раннер, у которого тап не завёлся, — и прежний раннер без
+    // FFI: Dart новее раннера, пока тот не пересобран.
+    final player = await open(ChannelSystemVideo(), '/a.mp3');
+
+    expect(player.spectrum(), isNull);
+    expect(calls, isNot(contains('spectrum')), reason: 'спектр не ходит через канал (§7.5)');
+  });
+
   test('закрытый плеер поток кончает, и запоздавшее состояние никуда не идёт', () async {
     final system = ChannelSystemVideo();
     final player = await open(system, '/a.mp3');

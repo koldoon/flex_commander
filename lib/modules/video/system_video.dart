@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ffi' as ffi;
 import 'dart:typed_data';
 
 import 'package:fc_ui_api/fc_ui_api.dart';
@@ -100,6 +101,7 @@ class ChannelSystemVideo implements SystemVideo {
       return null;
     }
     final artwork = answer['artwork'];
+    final spectrum = answer['spectrum'];
     return _ChannelAudioPlayer(
       this,
       handle,
@@ -112,6 +114,10 @@ class ChannelSystemVideo implements SystemVideo {
         year: answer['year'] as String? ?? '',
         artwork: artwork is Uint8List && artwork.isNotEmpty ? artwork : null,
       ),
+      spectrum:
+          spectrum is List && spectrum.length == 3 && spectrum.every((address) => address is int && address != 0)
+              ? _NativeSpectrum(spectrum[0] as int, spectrum[1] as int, spectrum[2] as int)
+              : null,
     );
   }
 
@@ -258,16 +264,47 @@ class _ChannelVideoPlayer extends _ChannelMediaPlayer implements SystemVideoPlay
 }
 
 class _ChannelAudioPlayer extends _ChannelMediaPlayer implements SystemAudioPlayer {
-  _ChannelAudioPlayer(super._owner, super._handle, {required super.duration, required super.info, required this.tags});
+  _ChannelAudioPlayer(
+    super._owner,
+    super._handle, {
+    required super.duration,
+    required super.info,
+    required this.tags,
+    required _NativeSpectrum? spectrum,
+  }) : _spectrum = spectrum;
 
   @override
   final SystemAudioTags tags;
 
+  final _NativeSpectrum? _spectrum;
+
+  /// После [close] не зовётся: `_closed` ставится синхронно до отправки
+  /// `close`, а вызов синхронный — пока раннер отпускает тап, вызова в полёте
+  /// быть не может (`docs/spec/audio-viewer.md`, §7.5).
   @override
-  Future<Float32List?> spectrum() async {
-    if (_closed) {
-      return null;
-    }
-    return _owner._call<Float32List>('spectrum', {'handle': _handle});
+  Float32List? spectrum() => _closed ? null : _spectrum?.read();
+}
+
+/// Спектр напрямую из раннера, через `dart:ffi`: функция, тап и буфер полос —
+/// адресами из ответа `openAudio`, без поиска символов
+/// (`docs/spec/audio-viewer.md`, §7.5).
+class _NativeSpectrum {
+  _NativeSpectrum(int function, int tap, int levels)
+    : _compute = ffi.Pointer<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>.fromAddress(
+        function,
+      ).asFunction<void Function(ffi.Pointer<ffi.Void>)>(isLeaf: true),
+      _tap = ffi.Pointer<ffi.Void>.fromAddress(tap),
+      _levels = ffi.Pointer<ffi.Float>.fromAddress(levels).asTypedList(spectrumBands);
+
+  final void Function(ffi.Pointer<ffi.Void>) _compute;
+  final ffi.Pointer<ffi.Void> _tap;
+
+  /// Буфер раннера — его перезаписывает каждый вызов, а после закрытия он
+  /// освобождается. Наружу идёт копия.
+  final Float32List _levels;
+
+  Float32List read() {
+    _compute(_tap);
+    return Float32List.fromList(_levels);
   }
 }
