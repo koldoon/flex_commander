@@ -231,7 +231,7 @@ abstract interface class SystemPdfDocument {
 * `dependency/ui_api/lib/src/os/system_pdf.dart` — контракт `SystemPdf`;
 * `lib/modules/pdf/system_pdf.dart` — модуль `SystemPdfRendering`, канал
   `flex_commander/pdf`;
-* `macos/Runner/MainFlutterWindow.swift` — класс `SystemPdf`: документы по
+* `macos/Runner/SystemPdf.swift` — класс `SystemPdf`: документы по
   ручкам, очередь на документ;
 * `dependency/pdf_viewer` — модуль `fc_pdf_viewer`:
   * `pdf_document.dart` — чтение, отказы, раскладка страниц;

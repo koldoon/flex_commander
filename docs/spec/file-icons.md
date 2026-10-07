@@ -102,8 +102,8 @@ class EntryCondition {
 
 ## 5. Откуда берутся системные значки
 
-На macOS их отдаёт `NSWorkspace`. Нативная часть — в раннере, рядом с
-перетаскиванием (`macos/Runner/MainFlutterWindow.swift`), канал
+На macOS их отдаёт `NSWorkspace`. Нативная часть — в раннере
+(`macos/Runner/SystemIcons.swift`, по соседству с перетаскиванием), канал
 `flex_commander/icons`, два метода. Приём проверенный: `NSWorkspace.shared
 .icon(forFile:)` там уже вызывается — им рисуется значок под курсором, когда
 файлы тащат из окна.

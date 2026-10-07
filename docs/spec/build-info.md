@@ -30,7 +30,7 @@ Dart: 3.13.2 (stable) on "macos_arm64"
 меняться ему и вовсе не с чего.
 
 Читает его `BuildInfoChannel` (`fc_platform`) — канал `flex_commander/build`,
-который отвечает из раннера (`macos/Runner/MainFlutterWindow.swift`). Версия
+который отвечает из раннера (`macos/Runner/AppBuild.swift`). Версия
 лежит в `Info.plist`, путь знает сам бандл, архитектуру — собранный двоичный
 файл: из Flutter не видно ни одного из трёх, поэтому платформенное — за
 интерфейсом (сквозное правило 2).

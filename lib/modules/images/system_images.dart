@@ -4,7 +4,7 @@ import 'package:logecom/logecom.dart';
 
 /// Картинки, которых не умеет Flutter, — их читает система.
 ///
-/// Нативная часть живёт в раннере (`macos/Runner/MainFlutterWindow.swift`) и
+/// Нативная часть живёт в раннере (`macos/Runner/SystemImages.swift`) и
 /// делает ровно то, чего нельзя сделать из Flutter: разбирает `HEIC` и отдаёт
 /// сюда то, что показать уже можно (`docs/spec/image-viewer.md`, §12).
 ///

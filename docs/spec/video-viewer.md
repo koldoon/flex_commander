@@ -235,8 +235,9 @@ abstract interface class SystemVideo {
 * `dependency/ui_api/lib/src/os/system_video.dart` — контракт `SystemVideo`.
 * `lib/modules/video/system_video.dart` — модуль `SystemVideoPlayback`, канал
   `flex_commander/video`.
-* `macos/Runner/MainFlutterWindow.swift` — `final class SystemVideo`: плееры
-  под ручкой, текстуры, display link.
+* `macos/Runner/SystemVideo.swift` — `SystemVideo`: канал, плееры под ручкой;
+  `VideoPlayer.swift` — плеер: текстура, display link, состояние;
+  `SpectrumTap.swift` — спектр звука.
 * `dependency/media_viewer` (`fc_media_viewer`) — просмотрщик: модуль,
   документ (откуда играть), состояние, вид, команды, настройки.
 
