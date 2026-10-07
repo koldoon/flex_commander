@@ -17,6 +17,7 @@ export 'src/code_language.dart';
 export 'src/find_commands.dart';
 export 'src/syntax_theme.dart';
 export 'src/text_finder.dart';
+export 'src/text_encoding.dart';
 export 'src/text_place.dart';
 export 'src/text_shortcuts.dart';
 export 'src/text_style.dart';
