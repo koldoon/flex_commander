@@ -24,6 +24,10 @@ class EditorScreen extends ChangeNotifier implements ViewportState, FcSearchable
     this.onWrapChanged,
     this.onLineNumbersChanged,
   }) : _lineBreak = file.lineBreak,
+       _encoding = file.encoding,
+       _bom = file.bom,
+       _source = file.source,
+       _saveAs = file.encoding,
        _saved = file.text,
        _wordWrap = wordWrap,
        _showLineNumbers = showLineNumbers,
@@ -58,7 +62,72 @@ class EditorScreen extends ChangeNotifier implements ViewportState, FcSearchable
   /// Куда сообщить, что номера строк переключили.
   final void Function(bool showLineNumbers)? onLineNumbersChanged;
 
-  final LineBreak _lineBreak;
+  LineBreak _lineBreak;
+
+  /// В какой кодировке файл записан (`docs/spec/text-encodings.md`, §5).
+  TextEncoding get encoding => _encoding;
+  TextEncoding _encoding;
+
+  /// Была ли метка порядка байтов — запись вернёт её.
+  bool get bom => _bom;
+  bool _bom;
+
+  /// Байты файла, как они лежат на диске: другая кодировка перечитывает их.
+  List<int> _source;
+
+  /// В чём сохранять — выбирают в окне сохранения: исходная кодировка или
+  /// UTF-8 (§5). Вопрос задаётся только про файл не в юникоде.
+  TextEncoding get saveAs => _saveAs;
+  TextEncoding _saveAs;
+
+  set saveAs(TextEncoding value) {
+    if (value == _saveAs) {
+      return;
+    }
+    _saveAs = value;
+    notifyListeners();
+  }
+
+  /// Спрашивать ли при сохранении, в чём писать.
+  bool get asksEncoding => !_encoding.isUnicode;
+
+  /// Первый знак, который не поместится в [saveAs]; null — помещается всё.
+  ({String char, int line})? get unsavable {
+    final text = controller.text;
+    final at = saveAs.unencodable(text);
+    if (at == null) {
+      return null;
+    }
+    // Знак вне основной плоскости — два кода, и показать надо оба.
+    final unit = text.codeUnitAt(at);
+    final wide = unit >= 0xD800 && unit <= 0xDBFF && at + 1 < text.length;
+    return (char: text.substring(at, wide ? at + 2 : at + 1), line: lineOfIndex(text, at));
+  }
+
+  /// Метка в записи: у UTF-8, в который перевели, её нет.
+  bool get bomToSave => saveAs == _encoding && _bom;
+
+  /// Перечитать файл в другой кодировке (§4). false — в ней он строго не
+  /// читается, и текст не тронут. Правки при этом пропали бы, поэтому с
+  /// несохранённым не зовут.
+  bool reread(TextEncoding encoding) {
+    if (encoding == _encoding) {
+      return true;
+    }
+    final file = TextFile.decode(_source, as: encoding);
+    if (file == null) {
+      return false;
+    }
+    _encoding = encoding;
+    _bom = file.bom;
+    _saveAs = encoding;
+    _lineBreak = file.lineBreak;
+    _saved = file.text;
+    controller.text = file.text;
+    _modified = false;
+    notifyListeners();
+    return true;
+  }
 
   /// Текст, каким он лежит в файле. По нему видно, есть ли несохранённое.
   String _saved;
@@ -123,8 +192,12 @@ class EditorScreen extends ChangeNotifier implements ViewportState, FcSearchable
     return true;
   }
 
-  /// Записанное стало сохранённым.
+  /// Записанное стало сохранённым — в той кодировке, в которой записали.
   void markSaved() {
+    final bom = bomToSave;
+    _encoding = saveAs;
+    _bom = bom;
+    _source = EncodedText(textToSave, _encoding, bom: _bom).bytes;
     _saved = controller.text;
     _modified = false;
     notifyListeners();

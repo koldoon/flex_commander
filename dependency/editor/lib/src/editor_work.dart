@@ -15,4 +15,11 @@ abstract final class EditorWork {
   /// больше, чем помещается, — а такой сегодня один, сборка архивов, и она
   /// целиком по эту сторону границы.
   static const String textOption = 'text';
+
+  /// В какой кодировке записать — имя `TextEncoding`; нет — UTF-8
+  /// (`docs/spec/text-encodings.md`, §5).
+  static const String encodingOption = 'encoding';
+
+  /// Писать ли метку порядка байтов.
+  static const String bomOption = 'bom';
 }

@@ -76,6 +76,7 @@ class CommandDialogConfirm extends StatelessWidget {
     this.onAlternative,
     this.error,
     this.busy = false,
+    this.fields = const [],
   }) : assert((alternativeLabel == null) == (onAlternative == null), 'Вторая кнопка — это подпись и обработчик разом');
 
   final String message;
@@ -88,6 +89,10 @@ class CommandDialogConfirm extends StatelessWidget {
   final VoidCallback? onAlternative;
 
   final String? error;
+
+  /// Что уточнить вместе с ответом — поля под вопросом. Так окно сохранения
+  /// спрашивает, в какой кодировке писать (`docs/spec/text-encodings.md`, §5).
+  final List<CommandDialogField> fields;
 
   /// Ответ принят, и он оказался долгим: кнопки приглушены, пока идёт работа.
   ///
@@ -107,6 +112,7 @@ class CommandDialogConfirm extends StatelessWidget {
       ],
       children: [
         CommandDialogField.wide(child: Text(message, style: FcTheme.of(context).dialogTextStyle)),
+        ...fields,
         if (error != null) CommandDialogField.wide(child: FcErrorText(message: error!)),
       ],
     );

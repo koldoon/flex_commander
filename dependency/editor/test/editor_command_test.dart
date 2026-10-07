@@ -6,6 +6,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_editor/fc_editor.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
@@ -30,6 +31,7 @@ void main() {
     await File(p.join(root, 'notes.txt')).writeAsString('раз\nдва\n');
     await File(p.join(root, 'windows.txt')).writeAsString('раз\r\nдва\r\n');
     await File(p.join(root, 'binary.bin')).writeAsBytes([0xC3, 0x28, 0xFF, 0x00]);
+    await File(p.join(root, 'koi.txt')).writeAsBytes(TextEncoding.koi8r.encode('Привет, мир\n'));
 
     provider = LocalTreeProvider(homePath: root, readInIsolate: false);
     runtime = await testApp(
@@ -126,7 +128,7 @@ void main() {
       await edit('binary.bin');
 
       expect(openEditor(), isNull);
-      expect(runtime.app.toasts.current?.message, contains('UTF-8'));
+      expect(runtime.app.toasts.current?.message, contains('Not a text file'));
     });
   });
 
@@ -428,6 +430,82 @@ void main() {
 
       // И файла эта проверка не трогает: ни содержимого, ни длины.
       expect(fileText('notes.txt'), 'раз\nдва\n');
+    });
+  });
+
+  group('кодировки', () {
+    List<int> fileBytes(String name) => File(p.join(temp.path, name)).readAsBytesSync();
+
+    Future<void> type(String text) async {
+      openEditor()!.controller.text = text;
+      await pumpEventQueue();
+    }
+
+    test('KOI8-R открывается по-русски', () async {
+      await edit('koi.txt');
+
+      expect(openEditor()!.encoding, TextEncoding.koi8r);
+      expect(openEditor()!.controller.text, 'Привет, мир\n');
+    });
+
+    test('сохранение по умолчанию — в исходной кодировке', () async {
+      await edit('koi.txt');
+      await type('Пока, мир\n');
+      await save();
+
+      expect(fileBytes('koi.txt'), TextEncoding.koi8r.encode('Пока, мир\n'));
+    });
+
+    test('выбрали UTF-8 — пишет UTF-8, и дальше уже не спрашивает', () async {
+      await edit('koi.txt');
+      await type('Пока, мир\n');
+      openEditor()!.saveAs = TextEncoding.utf8;
+      await save();
+
+      expect(fileText('koi.txt'), 'Пока, мир\n');
+      expect(openEditor()!.encoding, TextEncoding.utf8);
+      expect(openEditor()!.asksEncoding, isFalse);
+    });
+
+    test('«€» в KOI8-R не помещается — тост, файл не тронут, окно открыто', () async {
+      await edit('koi.txt');
+      final before = fileBytes('koi.txt');
+      await type('цена 5 €\n');
+
+      await (runtime.commands.create(SaveFileCommand.commandId)!).executeWith();
+      await answer();
+
+      expect(runtime.app.toasts.current?.message, '“€” on line 1 does not fit in KOI8-R');
+      expect(runtime.app.view.dialogs, hasLength(1));
+      expect(fileBytes('koi.txt'), before);
+      expect(openEditor()!.modified, isTrue);
+    });
+
+    test('F8 с несохранёнными правками отказывает', () async {
+      await edit('koi.txt');
+      await type('правка\n');
+
+      expect(runtime.commands.dispatch(KeyCombination.parse('F8')), isTrue);
+      await pumpEventQueue();
+
+      expect(runtime.app.view.dialogs, isEmpty);
+      expect(runtime.app.toasts.current?.message, contains('before changing the encoding'));
+    });
+
+    test('F8 без правок перечитывает байты в выбранной', () async {
+      await edit('koi.txt');
+      final screen = openEditor()!;
+
+      expect(runtime.commands.dispatch(KeyCombination.parse('F8')), isTrue);
+      await pumpEventQueue();
+      expect(runtime.app.view.dialogs.single.title, 'Encoding');
+
+      expect(screen.reread(TextEncoding.windows1251), isTrue);
+      expect(screen.controller.text, isNot('Привет, мир\n'));
+      expect(screen.modified, isFalse, reason: 'перечитали файл, а не правили текст');
+      runtime.app.view.dialogs.single.onDismiss!();
+      expect(screen.encoding, TextEncoding.koi8r);
+      expect(screen.controller.text, 'Привет, мир\n');
     });
   });
 

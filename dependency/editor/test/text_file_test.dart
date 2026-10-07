@@ -4,6 +4,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_editor/fc_editor.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Чтение файла на правку: строго, потому что записывать обратно.
@@ -50,13 +51,22 @@ void main() {
   });
 
   group('не текст на правку не берётся', () {
-    test('битые байты — отказ, а не знаки замены', () async {
+    test('двоичное — отказ, а не знаки замены', () async {
       // Просмотрщик такое покажет со знаками замены, и это честно: он
       // показывает. Записать их обратно значило бы испортить файл молча.
       await expectLater(
-        () => read([0xC3, 0x28, 0x41, 0xFF]),
+        () => read([0xC3, 0x28, 0x41, 0xFF, 0x00]),
         throwsA(isA<FsError>().having((error) => error.kind, 'kind', FsErrorKind.notSupported)),
       );
+    });
+
+    test('не UTF-8, но текст — открывается однобайтовой и пишется теми же байтами', () async {
+      // До старых кодировок это был отказ (`docs/spec/text-encodings.md`, §5).
+      const bytes = [0xC3, 0x28, 0x41, 0xFF];
+      final file = await read(bytes);
+
+      expect(file.encoding.isUnicode, isFalse);
+      expect(EncodedText(file.text, file.encoding, bom: file.bom).bytes, bytes);
     });
 
     test('пустой файл — обычный текстовый', () async {

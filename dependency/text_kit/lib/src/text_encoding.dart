@@ -77,7 +77,9 @@ enum TextEncoding {
             out.writeCharCode(byte);
             continue;
           }
-          final char = upper.codeUnitAt(byte - 0x80);
+          // Не байт вовсе — так бывает, когда «байты» собраны из строки; для
+          // таблицы это та же дыра.
+          final char = byte > 0xFF ? 0xFFFF : upper.codeUnitAt(byte - 0x80);
           if (char == 0xFFFF) {
             if (strict) {
               throw FormatException('Byte 0x${byte.toRadixString(16)} is not defined in $label');
@@ -167,6 +169,11 @@ enum TextEncoding {
     if (_isUtf8(sample, truncated: bytes.length > sampleSize)) {
       return utf8;
     }
+    // Однобайтовая таблица прочтёт что угодно — и двоичное тоже. Нули и
+    // управляющие знаки — то же правило, что у службы типов (§6).
+    if (_looksBinary(sample)) {
+      return null;
+    }
 
     TextEncoding? best;
     var bestScore = 0.0;
@@ -195,6 +202,21 @@ enum TextEncoding {
     } on FormatException {
       return anyReads ? best : null;
     }
+  }
+
+  /// Нулевой байт или управляющих знаков больше процента.
+  static bool _looksBinary(List<int> bytes) {
+    var control = 0;
+    for (final byte in bytes) {
+      if (byte == 0) {
+        return true;
+      }
+      if ((byte < 0x20 && byte != 0x09 && byte != 0x0A && byte != 0x0C && byte != 0x0D && byte != 0x1B) ||
+          byte == 0x7F) {
+        control++;
+      }
+    }
+    return control * 100 > bytes.length;
   }
 
   /// Кодировка по метке порядка байтов; null — метки нет.

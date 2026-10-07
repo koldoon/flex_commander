@@ -112,9 +112,10 @@ class EditFileCommand extends AppCommand {
       return;
     } on FsError catch (error) {
       if (error.kind == FsErrorKind.notSupported) {
-        // Не текст в UTF-8: правка и сохранение записали бы знаки замены
-        // вместо исходных байтов, то есть испортили бы файл молча.
-        context.app.toasts.show(tr('Not a UTF-8 text file: {name}', args: {'name': entry.name}));
+        // Строго не читается ни в одной кодировке: правка и сохранение
+        // записали бы знаки замены вместо исходных байтов, то есть испортили
+        // бы файл молча (`docs/spec/text-encodings.md`, §5).
+        context.app.toasts.show(tr('Not a text file: {name}', args: {'name': entry.name}));
         return;
       }
       // Прочее говорится тостом, а не уходит в журнал: человек нажал `F4` и
@@ -284,7 +285,7 @@ class SaveFileCommand extends AppCommand {
     }
 
     Future<void> save() async {
-      if (state.busy) {
+      if (state.busy || !_fits(context, screen)) {
         return;
       }
       state.started();
@@ -293,7 +294,7 @@ class SaveFileCommand extends AppCommand {
           OperationSpec(
             kind: EditorWork.kind,
             targets: Targets.paths([screen.entry.path]),
-            options: {EditorWork.textOption: screen.textToSave},
+            options: _saveOptions(screen),
           ),
         );
         screen.markSaved();
@@ -315,9 +316,10 @@ class SaveFileCommand extends AppCommand {
       DialogSpec(
         title: dialogTitle,
         content: ListenableBuilder(
-          listenable: state,
+          listenable: Listenable.merge([state, screen]),
           builder:
               (context, _) => CommandDialogConfirm(
+                fields: _encodingFields(context, screen),
                 // Полный путь, а не одно имя: соглашаются на конкретный файл,
                 // и в системном каталоге это важнее всего.
                 message: tr('Save changes to {path}?', args: {'path': screen.entry.path}),
@@ -606,7 +608,7 @@ class CloseEditorCommand extends AppCommand {
     }
 
     Future<void> save() async {
-      if (state.busy) {
+      if (state.busy || !_fits(context, screen)) {
         return;
       }
       state.started();
@@ -617,7 +619,7 @@ class CloseEditorCommand extends AppCommand {
           OperationSpec(
             kind: EditorWork.kind,
             targets: Targets.paths([screen.entry.path]),
-            options: {EditorWork.textOption: screen.textToSave},
+            options: _saveOptions(screen),
           ),
         );
         screen.markSaved();
@@ -638,9 +640,10 @@ class CloseEditorCommand extends AppCommand {
       DialogSpec(
         title: dialogTitle,
         content: ListenableBuilder(
-          listenable: state,
+          listenable: Listenable.merge([state, screen]),
           builder:
               (context, _) => CommandDialogConfirm(
+                fields: _encodingFields(context, screen),
                 message: tr('{name} has unsaved changes.', args: {'name': screen.entry.name}),
                 confirmLabel: tr('Save'),
                 alternativeLabel: tr('Discard'),
@@ -656,6 +659,48 @@ class CloseEditorCommand extends AppCommand {
       ),
     );
   }
+}
+
+/// Что уходит ядру на запись: текст, кодировка и метка (§5).
+Map<String, Object?> _saveOptions(EditorScreen screen) => {
+  EditorWork.textOption: screen.textToSave,
+  EditorWork.encodingOption: screen.saveAs.name,
+  EditorWork.bomOption: screen.bomToSave,
+};
+
+/// Поле «в чём сохранять» — только у файла не в юникоде
+/// (`docs/spec/text-encodings.md`, §5): исходная кодировка или UTF-8.
+List<CommandDialogField> _encodingFields(BuildContext context, EditorScreen screen) {
+  if (!screen.asksEncoding) {
+    return const [];
+  }
+  return [
+    CommandDialogField(
+      label: context.strings.tr('Encoding'),
+      child: FcSelect<TextEncoding>(
+        options: {screen.encoding: screen.encoding.label, TextEncoding.utf8: TextEncoding.utf8.label},
+        value: screen.saveAs,
+        onChanged: (encoding) => screen.saveAs = encoding,
+      ),
+    ),
+  ];
+}
+
+/// Помещается ли текст в выбранную кодировку. Нет — тост с первым знаком и
+/// строкой, запись не идёт, окно остаётся: человек правит текст или выбирает
+/// UTF-8 (§5).
+bool _fits(CommandContext context, EditorScreen screen) {
+  final unsavable = screen.unsavable;
+  if (unsavable == null) {
+    return true;
+  }
+  context.app.toasts.show(
+    context.app.strings.tr(
+      '“{char}” on line {line} does not fit in {encoding}',
+      args: {'char': unsavable.char, 'line': '${unsavable.line}', 'encoding': screen.saveAs.label},
+    ),
+  );
+  return false;
 }
 
 /// Состояние окна, которое спросило про запись: идёт ли она и чем кончилась.
@@ -681,5 +726,59 @@ class _WriteState extends ChangeNotifier {
     busy = false;
     error = message;
     notifyListeners();
+  }
+}
+
+/// Другая кодировка — окном со списком (`docs/spec/text-encodings.md`, §4).
+///
+/// Перечитывает **байты файла**, поэтому с несохранёнными правками отказывает:
+/// они пропали бы.
+class ChooseEditorEncodingCommand extends AppCommand {
+  static const String commandId = 'editor.encoding';
+
+  @override
+  String get id => commandId;
+
+  @override
+  String get label => tr('Encoding');
+
+  @override
+  Set<String> get keywords => const {'charset', 'codepage', 'cp1251', 'koi8', 'utf'};
+
+  @override
+  String get description => tr('Read the file in another encoding');
+
+  static EditorScreen? _editorOf(Application app) {
+    final screen = app.view.contentAt(ViewportPosition.fullscreen);
+    return screen is EditorScreen ? screen : null;
+  }
+
+  @override
+  bool isExecutable(CommandContext context) => _editorOf(context.app) != null;
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    final screen = _editorOf(context.app);
+    if (screen == null) {
+      return;
+    }
+    if (screen.modified) {
+      context.app.toasts.show(tr('Save or discard the changes before changing the encoding'));
+      return;
+    }
+    showChoiceDialog<TextEncoding>(
+      view: context.app.view,
+      title: tr('Encoding'),
+      items: TextEncoding.values,
+      labelOf: (encoding) => encoding.label,
+      current: screen.encoding,
+      onChoose: (encoding) {
+        if (!screen.reread(encoding)) {
+          // В этой кодировке байты не читаются без потерь: править такое
+          // значило бы испортить файл. Текст остаётся прежним.
+          context.app.toasts.show(tr('The file cannot be read as {encoding}', args: {'encoding': encoding.label}));
+        }
+      },
+    );
   }
 }

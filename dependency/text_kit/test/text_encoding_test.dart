@@ -40,6 +40,12 @@ void main() {
       }
     });
 
+    test('значение больше байта — дыра, а не падение', () {
+      expect(() => TextEncoding.koi8r.decode([959], strict: true), throwsFormatException);
+      expect(TextEncoding.koi8r.decode([959]), '�');
+      expect(EncodedText.read('просто текст'.codeUnits)!.text, isNotEmpty);
+    });
+
     test('дыра в таблице: строго — отказ, мягко — знак замены', () {
       expect(() => TextEncoding.windows1251.decode([0x98], strict: true), throwsFormatException);
       expect(TextEncoding.windows1251.decode([0x98]), '�');
@@ -93,6 +99,11 @@ void main() {
     test('французский в Windows-1252 — не кириллица', () {
       final bytes = TextEncoding.windows1252.encode('Le café est très bon, à côté de la forêt.');
       expect(TextEncoding.detect(bytes), TextEncoding.windows1252);
+    });
+
+    test('двоичное — ни одна: однобайтовая таблица прочла бы и его', () {
+      expect(TextEncoding.detect([0xC3, 0x28, 0xFF, 0x00]), isNull);
+      expect(TextEncoding.detect([0xCF, 0x01, 0xF0, 0x02, 0xE8, 0x03]), isNull);
     });
 
     test('UTF-8, обрезанный посреди знака, — всё ещё UTF-8', () {

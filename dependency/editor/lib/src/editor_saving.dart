@@ -1,7 +1,6 @@
-import 'dart:convert';
-
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
+import 'package:fc_text_kit/fc_text_kit.dart';
 
 import 'editor_work.dart';
 
@@ -36,7 +35,15 @@ Future<void> _save(OperationInputs inputs) async {
     throw FsError(node.pathString, FsErrorKind.notSupported);
   }
 
-  final bytes = utf8.encode(inputs.option<String>(EditorWork.textOption) ?? '');
+  // Кодирует ядро — там, где пишет. Что всё помещается, экран проверил до
+  // заявки и сказал человеку; здесь — на случай, если не проверил
+  // (`docs/spec/text-encodings.md`, §5).
+  final text = inputs.option<String>(EditorWork.textOption) ?? '';
+  final encoding = TextEncoding.named(inputs.option<String>(EditorWork.encodingOption) ?? '') ?? TextEncoding.utf8;
+  if (encoding.unencodable(text) != null) {
+    throw FsError(node.pathString, FsErrorKind.notSupported);
+  }
+  final bytes = EncodedText(text, encoding, bom: inputs.option<bool>(EditorWork.bomOption) ?? false).bytes;
   final atomic = provider.capabilities.realFileSystem && provider is NodeEditor;
 
   if (!atomic) {

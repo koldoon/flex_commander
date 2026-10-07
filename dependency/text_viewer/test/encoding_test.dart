@@ -1,4 +1,3 @@
-import 'package:fc_api/fc_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:fc_text_viewer/fc_text_viewer.dart';

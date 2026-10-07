@@ -93,6 +93,7 @@ class TextEditor implements FcBackendModule, FcFrontendModule {
     registry.command((context) => CloseEditorCommand());
     registry.command((context) => ToggleEditorWrapCommand());
     registry.command((context) => ToggleEditorNumbersCommand());
+    registry.command((context) => ChooseEditorEncodingCommand());
     // Предел спрашивается у настроек в момент нажатия, а не при установке: его
     // могли только что поменять.
     registry.command((context) => FormatDocumentCommand(maxSize: () => settingsOf().maxFormatSize));
@@ -111,6 +112,10 @@ class TextEditor implements FcBackendModule, FcFrontendModule {
     );
     registry.binding(
       KeyBinding.inState<EditorScreen>('F9', ToggleEditorNumbersCommand.commandId, context: KeyContext.editor),
+    );
+    // `F8` — кодировка, как в просмотрщике (`docs/spec/text-encodings.md`, §4).
+    registry.binding(
+      KeyBinding.inState<EditorScreen>('F8', ChooseEditorEncodingCommand.commandId, context: KeyContext.editor),
     );
     registry.binding(
       KeyBinding.inState<EditorScreen>('Cmd-W', ToggleEditorWrapCommand.commandId, context: KeyContext.editor),
@@ -174,7 +179,13 @@ const Map<String, String> _russian = {
   'Reading {name}…': 'Чтение {name}…',
   'Checking {name}…': 'Проверка {name}…',
   'File is too large: {size}, limit is {limit}': 'Файл слишком велик: {size}, предел — {limit}',
-  'Not a UTF-8 text file: {name}': 'Это не текст в UTF-8: {name}',
+  'Not a text file: {name}': 'Это не текст: {name}',
+  'Encoding': 'Кодировка',
+  'Read the file in another encoding': 'Прочесть файл в другой кодировке',
+  'Save or discard the changes before changing the encoding':
+      'Сохраните или отбросьте правки, прежде чем менять кодировку',
+  'The file cannot be read as {encoding}': 'Файл не читается как {encoding}',
+  '“{char}” on line {line} does not fit in {encoding}': '«{char}» в строке {line} не помещается в {encoding}',
   'Read-only file': 'Файл только для чтения',
   '{path} cannot be written. Open it for reading?': 'В {path} нельзя записать. Открыть на чтение?',
   '{path} cannot be written.\nOpen it for reading, or edit it anyway and save as administrator?':
