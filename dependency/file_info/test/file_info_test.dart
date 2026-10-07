@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:fc_api/fc_api.dart';
@@ -42,6 +43,24 @@ class _SilentProvider implements NodeInfoProvider {
   Future<List<NodeInfoSection>> describe(FileEntry entry, NodeSource source) async => const [];
 }
 
+/// Провайдер медленного источника: отвечает, когда его отпустят.
+class _HeldProvider implements NodeInfoProvider {
+  /// Ответ, который проверка отпускает сама.
+  static Completer<List<NodeInfoSection>> answer = Completer();
+
+  @override
+  String get id => 'held';
+
+  @override
+  int get priority => 1;
+
+  @override
+  bool accepts(FileEntry entry, ContentType? type) => entry.name.endsWith('.held');
+
+  @override
+  Future<List<NodeInfoSection>> describe(FileEntry entry, NodeSource source) => answer.future;
+}
+
 /// Модуль, объявляющий обоих: так это делает любой чужой модуль.
 class _TestSources implements FcFrontendModule {
   const _TestSources();
@@ -56,6 +75,7 @@ class _TestSources implements FcFrontendModule {
   void installFrontend(FrontendRegistry registry) {
     registry.nodeInfo((context) => _BrokenProvider());
     registry.nodeInfo((context) => _SilentProvider());
+    registry.nodeInfo((context) => _HeldProvider());
   }
 }
 
@@ -63,6 +83,7 @@ void main() {
   late AppRuntime runtime;
 
   setUp(() async {
+    _HeldProvider.answer = Completer();
     runtime = await testApp(
       provider: InMemoryContentProvider([
         FakeEntry.directory('/home'),
@@ -71,6 +92,7 @@ void main() {
         FakeEntry.file('/home/notes.txt', content: utf8.encode('раз'), size: 3),
         FakeEntry.file('/home/data.bin', size: 1024),
         FakeEntry.file('/home/half.broken', size: 10),
+        FakeEntry.file('/home/late.held', size: 10),
       ])..home = '/home',
       modules: [...featureModules(), const _TestSources()],
     );
@@ -189,6 +211,17 @@ void main() {
       final screen = await infoOf('notes.txt');
 
       expect(screen.parts.map((part) => part.id), isNot(contains('broken')));
+    });
+
+    test('ответ, опоздавший к закрытому окну, молчит', () async {
+      // Так листают самбу в быстром просмотре: курсор ушёл дальше, окно
+      // закрылось, а провайдер ещё рассказывает.
+      final screen = await infoOf('late.held');
+      expect(screen.parts.map((part) => part.id), contains('held'));
+
+      screen.close();
+      _HeldProvider.answer.complete(const []);
+      await pumpEventQueue();
     });
 
     test('картинки добавляют своё, не трогая окна', () async {

@@ -96,7 +96,6 @@ class FileInfoScreen extends ChangeNotifier implements ViewerContent {
   bool get isSummary => _entries.length > 1;
 
   @override
-  @override
   FileEntry get entry => _entries.first;
 
   /// Разделы по провайдерам, сверху вниз.
@@ -120,6 +119,12 @@ class FileInfoScreen extends ChangeNotifier implements ViewerContent {
   bool get counting => _counting;
   bool _counting = false;
 
+  /// Окно закрыто, а ответы ещё в пути: провайдер на медленном источнике
+  /// (самба) рассказывает дольше, чем человек стоит на строке, — быстрый
+  /// просмотр закрывает сведения на каждом шаге курсора. Отменить рассказ
+  /// нечем, поэтому опоздавший просто молчит.
+  bool _disposed = false;
+
   /// Есть ли что считать: у каталога размер сам не берётся.
   bool get canCount => !isSummary && entry.isDirectory;
 
@@ -140,7 +145,7 @@ class FileInfoScreen extends ChangeNotifier implements ViewerContent {
     final operation = app.runOperation();
     void grow() {
       final status = operation.status;
-      if (status is MultipleTransferOperationStatus) {
+      if (status is MultipleTransferOperationStatus && !_disposed) {
         _directorySize = status.itemsTransferred;
         notifyListeners();
       }
@@ -155,7 +160,9 @@ class FileInfoScreen extends ChangeNotifier implements ViewerContent {
       operation.status.removeListener(grow);
       grow();
       _counting = false;
-      notifyListeners();
+      if (!_disposed) {
+        notifyListeners();
+      }
     }
   }
 
@@ -192,15 +199,19 @@ class FileInfoScreen extends ChangeNotifier implements ViewerContent {
       // Взялся и не смог. Это и есть сведение: провайдер объявил, что читает
       // такой формат, получил его и не разобрал.
       part.error = error is FsError ? error.message : '$error';
-    } finally {
-      part.loading = false;
-      // Раздел, которому нечего сказать, уходит совсем: пустой заголовок —
-      // обещание, которого не сдержали.
-      if (part.error == null && part.sections.isEmpty) {
-        _parts.remove(part);
-      }
-      notifyListeners();
     }
+    part.loading = false;
+    // Окно закрыли, или `adopt` уже спросил о другом объекте, — этот рассказ
+    // опоздал, и показывать его негде.
+    if (_disposed || !_parts.contains(part)) {
+      return;
+    }
+    // Раздел, которому нечего сказать, уходит совсем: пустой заголовок —
+    // обещание, которого не сдержали.
+    if (part.error == null && part.sections.isEmpty) {
+      _parts.remove(part);
+    }
+    notifyListeners();
   }
 
   @override
@@ -208,4 +219,10 @@ class FileInfoScreen extends ChangeNotifier implements ViewerContent {
 
   @override
   void close() => dispose();
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
 }
