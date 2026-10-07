@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
@@ -15,17 +17,30 @@ import 'package:flutter_test/flutter_test.dart';
 ///
 /// Домашний каталог у прогона настоящий, и трогать его нельзя: всё, что тут
 /// делается, — чтение.
+///
+/// **Файл настроек — свой, пустой, во временном каталоге**, а не настоящий
+/// файл человека. С настоящим тест зависел от того, где человек оставил
+/// панели: 7 октября 2026 левая панель стояла на находках поиска, и четыре
+/// проверки упали — у источника поиска нет ни `/etc`, ни списка каталога.
+/// С пустыми настройками панели встают в домашний каталог, всегда на диске.
 void main() {
   late AppRuntime runtime;
+  late Directory temp;
 
   setUp(() async {
+    temp = await Directory.systemTemp.createTemp('fc_app_on_isolate');
     // Окно подставное: настоящее живёт в плагине, которого у прогона нет.
     // Всё остальное — настоящее, и ядро в том числе.
-    runtime = await initIsolated(frontendModules(), overrides: AppOverrides(window: FakeWindowService()));
+    runtime = await initIsolated(
+      frontendModules(),
+      overrides: AppOverrides(window: FakeWindowService()),
+      settingsPath: '${temp.path}/settings.json',
+    );
   });
 
   tearDown(() async {
     await runtime.dispose();
+    await temp.delete(recursive: true);
   });
 
   test('ядро поднялось и поздоровалось', () async {
