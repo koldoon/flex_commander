@@ -50,6 +50,17 @@ void main() {
     screen.close();
   });
 
+  testWidgets('выбранное соотношение растягивает кадр', (tester) async {
+    await pump(tester);
+
+    screen.aspect = VideoAspect.all.firstWhere((aspect) => aspect.label == '4:3');
+    await tester.pump();
+
+    final rect = tester.getRect(find.byType(Texture));
+    expect(rect.width / rect.height, closeTo(4 / 3, 0.01));
+    screen.close();
+  });
+
   testWidgets('Space, стрелки и M делают своё', (tester) async {
     await pump(tester);
 

@@ -5,8 +5,10 @@ import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_media_viewer/fc_media_viewer.dart';
 import 'package:fc_viewer/fc_viewer.dart';
+import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fake_video.dart';
@@ -156,6 +158,63 @@ void main() {
     await pumpEventQueue();
     expect(player.calls.last, 'muted true');
     expect(screen.settings.muted, isTrue);
+  });
+
+  test('F5 — окно соотношений: выбор виден сразу, Esc возвращает прежнее', () async {
+    await start();
+    await view('a.mp4');
+    final screen = shownFullscreen()! as VideoViewerScreen;
+    expect(screen.aspect, VideoAspect.original);
+
+    expect(runtime.commands.dispatch(KeyCombination.parse('F5')), isTrue);
+    await pumpEventQueue();
+    final dialog = runtime.app.view.dialogs.single;
+    expect(dialog.title, 'Aspect ratio');
+
+    // То, чем окно ходит по списку: кадр меняется на каждом шаге.
+    final picker = VideoAspectPickerState(screen);
+    picker.index = VideoAspect.all.indexWhere((aspect) => aspect.label == '4:3');
+    expect(screen.aspect.ratio, 4 / 3);
+    picker.revert();
+    expect(screen.aspect, VideoAspect.original);
+
+    dialog.onDismiss!();
+    expect(runtime.app.view.dialogs, isEmpty);
+  });
+
+  testWidgets('окно соотношений: стрелка меняет кадр сразу, Esc возвращает', (tester) async {
+    await tester.runAsync(start);
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.runAsync(() => view('a.mp4'));
+    await tester.pumpAndSettle();
+    final screen = shownFullscreen()! as VideoViewerScreen;
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.f5);
+    await tester.pumpAndSettle();
+    expect(find.text('Aspect ratio'), findsOneWidget);
+    expect(find.text('16:9'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    expect(screen.aspect.label, '1:1', reason: 'выбранное видно сразу, без OK');
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(runtime.app.view.dialogs, isEmpty);
+    expect(screen.aspect, VideoAspect.original);
+    screen.close();
+    await tester.pumpAndSettle();
+  });
+
+  test('соотношение не запоминается: новый файл начинает с Original', () async {
+    await start();
+    await view('a.mp4');
+    (shownFullscreen()! as VideoViewerScreen).aspect = VideoAspect.all.last;
+
+    shownFullscreen()!.close();
+    await view('b.mov');
+
+    expect((shownFullscreen()! as VideoViewerScreen).aspect, VideoAspect.original);
   });
 
   test('Cmd-I показывает сведения окном', () async {

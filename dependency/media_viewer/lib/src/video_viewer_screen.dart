@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 
 import 'media_screen.dart';
 import 'media_source.dart';
+import 'video_aspect.dart';
 import 'video_viewer_commands.dart';
 import 'video_viewer_settings.dart';
 
@@ -98,6 +99,19 @@ class VideoViewerScreen extends ChangeNotifier implements MediaScreen, ViewerUnw
   /// Доиграл до конца: следующий пуск начнёт сначала.
   bool get ended => _ended;
   bool _ended = false;
+
+  /// Соотношение сторон кадра (§6б). Живёт в показе, а не в настройках:
+  /// каждый новый файл начинает с исходного.
+  VideoAspect get aspect => _aspect;
+  VideoAspect _aspect = VideoAspect.original;
+
+  set aspect(VideoAspect value) {
+    if (value == _aspect || _disposed) {
+      return;
+    }
+    _aspect = value;
+    notifyListeners();
+  }
 
   /// Видна ли плашка управления (§6).
   bool get controlsVisible => _controlsVisible;

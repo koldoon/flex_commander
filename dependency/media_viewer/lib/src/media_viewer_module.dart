@@ -128,6 +128,7 @@ class MediaViewer implements FcFrontendModule {
     registry.command((context) => MuteVideoCommand());
     registry.command((context) => VideoInfoCommand());
     registry.command((context) => ToggleVideoFullScreenCommand());
+    registry.command((context) => VideoAspectCommand());
 
     // `F2` — главное дело показа, как «вписать» у картинок и PDF; `F7` свободна.
     // `Cmd-I` — сведения, как в QuickTime (§7).
@@ -136,6 +137,10 @@ class MediaViewer implements FcFrontendModule {
     );
     registry.binding(
       KeyBinding.inState<VideoViewerScreen>('F7', MuteVideoCommand.commandId, context: KeyContext.videoViewer),
+    );
+    // `F5` — переключатель показа, как «Format / Raw» у текста и «Text» у PDF.
+    registry.binding(
+      KeyBinding.inState<VideoViewerScreen>('F5', VideoAspectCommand.commandId, context: KeyContext.videoViewer),
     );
     registry.binding(
       KeyBinding.inState<VideoViewerScreen>('Cmd-I', VideoInfoCommand.commandId, context: KeyContext.videoViewer),
@@ -304,6 +309,10 @@ const Map<String, String> _russian = {
   'Turn the sound off or on': 'Выключить или включить звук',
   'Info': 'Сведения',
   'Full screen': 'Во весь экран',
+  'Aspect': 'Пропорции',
+  'Aspect ratio': 'Соотношение сторон',
+  'Stretch the frame to another aspect ratio': 'Растянуть кадр под другое соотношение сторон',
+  'Original': 'Исходное',
   'Exit full screen': 'Выйти из полного экрана',
   'Show the video over the whole screen': 'Показать ролик на весь экран',
   'Show the length, codecs and tags of the file': 'Показать длительность, кодеки и теги файла',

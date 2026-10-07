@@ -229,14 +229,15 @@ class _VideoViewerViewState extends State<VideoViewerView> {
     );
   }
 
-  /// Кадр по пропорции; поворот — четвертями, как записан в ролике.
+  /// Кадр по пропорции — записанной или выбранной (§6б); поворот —
+  /// четвертями, как записан в ролике.
   Widget _frame(SystemVideoPlayer player) {
     final size = player.size;
     if (size.width <= 0 || size.height <= 0) {
       return const SizedBox.shrink();
     }
     return AspectRatio(
-      aspectRatio: size.width / size.height,
+      aspectRatio: screen.aspect.ratio ?? size.width / size.height,
       child: RotatedBox(quarterTurns: player.quarterTurns, child: Texture(textureId: player.textureId)),
     );
   }
