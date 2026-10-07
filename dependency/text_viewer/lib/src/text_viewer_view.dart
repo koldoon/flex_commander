@@ -69,10 +69,15 @@ class TextViewerView extends StatelessWidget {
             controller: screen.controller,
             finder: screen.finder,
             // Полный адрес, а не одно имя: файл может лежать в архиве или на
-            // сервере, и по имени этого не видно. Размер — припиской.
+            // сервере, и по имени этого не видно. Размер — припиской, и
+            // кодировка, если это не UTF-8: он подразумевается
+            // (`docs/spec/text-encodings.md`, §4).
             path: screen.entry.path,
             fileName: screen.entry.name,
-            trailing: formatBytesLong(screen.entry.size),
+            trailing: [
+              formatBytesLong(screen.entry.size),
+              if (screen.encoding != TextEncoding.utf8) screen.encoding.label,
+            ].join(' · '),
             readOnly: true,
             wordWrap: screen.wordWrap,
             showLineNumbers: screen.showLineNumbers,

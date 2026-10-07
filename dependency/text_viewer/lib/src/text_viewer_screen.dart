@@ -4,6 +4,8 @@ import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:flutter/widgets.dart';
 import 'package:re_editor/re_editor.dart';
 
+import 'text_document.dart';
+
 /// Показ текста: сам текст и то, как его сейчас показывают.
 ///
 /// Экран, а не окно команды: он занимает место панелей, оставляет ряд
@@ -22,7 +24,12 @@ class TextViewerScreen extends ChangeNotifier implements ViewerContent, FcSearch
     bool showLineNumbers = false,
     this.onWrapChanged,
     this.onLineNumbersChanged,
+    List<int>? bytes,
+    TextEncoding encoding = TextEncoding.utf8,
+    this.memory,
   }) : _raw = text,
+       _bytes = bytes,
+       _encoding = encoding,
        controller = CodeLineEditingController.fromText(text),
        _wordWrap = wordWrap,
        _showLineNumbers = showLineNumbers;
@@ -32,6 +39,10 @@ class TextViewerScreen extends ChangeNotifier implements ViewerContent, FcSearch
 
   /// Имя в реестре просмотрщиков.
   static const String viewerId = 'text';
+
+  /// Под каким ключом выбранная кодировка лежит в памяти показа
+  /// (`docs/spec/text-encodings.md`, §4).
+  static const String encodingKey = 'text.encoding';
 
   /// Что показываем: из узла берётся и заголовок, и размер.
   @override
@@ -61,9 +72,41 @@ class TextViewerScreen extends ChangeNotifier implements ViewerContent, FcSearch
   /// Куда сообщить, что номера строк переключили.
   final void Function(bool showLineNumbers)? onLineNumbersChanged;
 
-  /// Текст файла, как он прочитан. Его не меняет ничто: показ не умеет писать,
-  /// а отформатированное — копия (`docs/spec/formatters.md`, §4).
-  final String _raw;
+  /// Текст файла, как он прочитан. Меняет его только другая кодировка: показ
+  /// не умеет писать, а отформатированное — копия (`docs/spec/formatters.md`,
+  /// §4).
+  String _raw;
+
+  /// Байты файла: другая кодировка перечитывает их, а не показанный текст —
+  /// тот уже испорчен неверной. null — байтов нет, и выбирать нечего.
+  final List<int>? _bytes;
+
+  /// Память хозяина быстрого просмотра: выбранная руками кодировка помнится,
+  /// пока он открыт. null — открыт во весь экран.
+  final ViewerMemory? memory;
+
+  /// В какой кодировке прочитан текст.
+  TextEncoding get encoding => _encoding;
+  TextEncoding _encoding;
+
+  /// Можно ли выбрать другую кодировку.
+  bool get canChangeEncoding => _bytes != null;
+
+  /// Перечитать байты в другой кодировке (`docs/spec/text-encodings.md`, §4).
+  ///
+  /// Отформатированная копия выбрасывается: она считалась по прежнему тексту.
+  void setEncoding(TextEncoding encoding) {
+    final bytes = _bytes;
+    if (bytes == null || encoding == _encoding) {
+      return;
+    }
+    _encoding = encoding;
+    memory?.write(entry, encodingKey, encoding);
+    _raw = TextDocument.parse(EncodedText.read(bytes, as: encoding)!.text).text;
+    _formatted = null;
+    _showsFormatted = false;
+    _show(_raw);
+  }
 
   /// Отформатированная копия, если её уже считали. Считается один раз: вернуться
   /// к ней вторым нажатием ничего не стоит.

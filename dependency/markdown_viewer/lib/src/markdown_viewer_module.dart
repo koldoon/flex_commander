@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_markdown_kit/fc_markdown_kit.dart';
 import 'package:fc_text_kit/fc_text_kit.dart';
@@ -152,7 +150,9 @@ class MarkdownViewer implements FcFrontendModule {
     }
     await request.checkpoint();
 
-    final source = utf8.decode(bytes, allowMalformed: true);
+    // Кодировка — определённая по содержимому, без выбора руками: он у
+    // просмотрщика текста (`docs/spec/text-encodings.md`, §7).
+    final source = EncodedText.read(bytes)!.text;
     if (_isBinary(bytes)) {
       // Имя обещало разметку, а внутри двоичное: пусть покажет тот, кто умеет
       // рассказать о таком файле.

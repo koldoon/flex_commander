@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'dart:typed_data';
 
 import 'package:fc_api/fc_api.dart';
@@ -226,6 +224,7 @@ class TextViewer implements FcFrontendModule {
     // могли только что поменять.
     registry.command((context) => ToggleFormatCommand(maxSize: () => settingsOf().maxFormatSize));
     registry.command((context) => ToggleLineNumbersCommand());
+    registry.command((context) => ChooseTextEncodingCommand());
     registry.command((context) => CopySelectionCommand(registry.services.resolve<ClipboardService>()));
 
     // Поиск — общий с редактором: экран и идентификаторы приходят отсюда, а
@@ -246,6 +245,10 @@ class TextViewer implements FcFrontendModule {
     );
     registry.binding(
       KeyBinding.inState<TextViewerScreen>('F9', ToggleLineNumbersCommand.commandId, context: KeyContext.textViewer),
+    );
+    // `F8` — кодировка, как в Far (`docs/spec/text-encodings.md`, §4).
+    registry.binding(
+      KeyBinding.inState<TextViewerScreen>('F8', ChooseTextEncodingCommand.commandId, context: KeyContext.textViewer),
     );
     registry.binding(KeyBinding.inState<TextViewerScreen>('F7', findCommandId, context: KeyContext.textViewer));
     registry.binding(
@@ -313,10 +316,16 @@ class TextViewer implements FcFrontendModule {
       throw const ViewerDeclined();
     }
 
+    // Кодировка — выбранная руками, пока открыт быстрый просмотр, иначе
+    // определённая по содержимому (`docs/spec/text-encodings.md`, §3–4).
+    final read = EncodedText.read(bytes, as: request.memory?.read<TextEncoding>(entry, TextViewerScreen.encodingKey))!;
     return TextViewerScreen(
       entry: entry,
       place: request.place,
-      text: TextDocument.parse(utf8.decode(bytes, allowMalformed: true)).text,
+      text: TextDocument.parse(read.text).text,
+      bytes: bytes,
+      encoding: read.encoding,
+      memory: request.memory,
       wordWrap: settings.wordWrap,
       showLineNumbers: settings.showLineNumbers,
       onWrapChanged: (value) {
@@ -376,6 +385,8 @@ const Map<String, String> _russian = {
   'File is too large: {size}, limit is {limit}': 'Файл слишком велик: {size}, предел — {limit}',
   'text|Format': 'Красиво',
   'Raw': 'Исходник',
+  'Encoding': 'Кодировка',
+  'Read the text in another encoding': 'Прочесть текст в другой кодировке',
   'Show the text formatted': 'Показать текст в читаемом виде',
   'Too large to format: {size}, limit is {limit}': 'Слишком велик для форматирования: {size}, предел — {limit}',
   'Not valid {what}: {why}': 'Это не {what}: {why}',

@@ -1,6 +1,5 @@
-import 'dart:convert';
-
 import 'package:fc_core_api/fc_core_api.dart';
+import 'package:fc_text_kit/fc_text_kit.dart';
 
 /// Текст файла, готовый к показу.
 ///
@@ -25,15 +24,16 @@ class TextDocument {
   /// показывать надо и последнюю строку тоже — значит дочитать до конца
   /// придётся в любом случае.
   ///
-  /// Кодировка — UTF-8 с допуском ошибок: файл может оказаться и не текстом
-  /// вовсе, и падать на этом просмотрщик не должен — испорченные байты
-  /// становятся видимыми знаками замены.
+  /// Кодировка — определённая по содержимому (`docs/spec/text-encodings.md`,
+  /// §3), с допуском ошибок: файл может оказаться и не текстом вовсе, и
+  /// падать на этом просмотрщик не должен — испорченные байты становятся
+  /// видимыми знаками замены.
   static Future<TextDocument> read(FsNode node, FileContentProvider source) async {
     final bytes = <int>[];
     await for (final chunk in await source.openRead(node)) {
       bytes.addAll(chunk);
     }
-    return TextDocument.parse(utf8.decode(bytes, allowMalformed: true));
+    return TextDocument.parse(EncodedText.read(bytes)!.text);
   }
 
   final String text;

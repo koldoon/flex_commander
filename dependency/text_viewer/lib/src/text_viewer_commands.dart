@@ -1,6 +1,7 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 
 import 'text_viewer_screen.dart';
 
@@ -267,6 +268,42 @@ class ToggleFormatCommand extends AppCommand {
     return tr(
       'Not valid {what}: {why} at line {line}, column {column}',
       args: {'what': what, 'why': why, 'line': place.line, 'column': place.column},
+    );
+  }
+}
+
+/// Другая кодировка — окном со списком (`docs/spec/text-encodings.md`, §4).
+class ChooseTextEncodingCommand extends AppCommand {
+  static const String commandId = 'text.encoding';
+
+  @override
+  String get id => commandId;
+
+  @override
+  String get label => tr('Encoding');
+
+  @override
+  Set<String> get keywords => const {'charset', 'codepage', 'cp1251', 'koi8', 'utf'};
+
+  @override
+  String get description => tr('Read the text in another encoding');
+
+  @override
+  bool isExecutable(CommandContext context) => textViewerInFocus(context.app)?.canChangeEncoding == true;
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    final screen = textViewerInFocus(context.app);
+    if (screen == null || !screen.canChangeEncoding) {
+      return;
+    }
+    showChoiceDialog<TextEncoding>(
+      view: context.app.view,
+      title: tr('Encoding'),
+      items: TextEncoding.values,
+      labelOf: (encoding) => encoding.label,
+      current: screen.encoding,
+      onChoose: screen.setEncoding,
     );
   }
 }
