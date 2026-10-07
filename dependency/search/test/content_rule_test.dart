@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:fc_search/fc_search.dart';
+import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Сличение содержимого: байтовые образцы и чтение кусками
@@ -111,6 +112,34 @@ void main() {
 
       expect(scan(ContentRule.parse('файл', allCharsets: true), bytes), isTrue);
       expect(scan(ContentRule.parse('файл', allCharsets: true, caseSensitive: true), bytes), isFalse);
+    });
+
+    test('все кодировки просмотрщика: CP866, KOI8-U, Mac Cyrillic, ISO-8859-5', () {
+      for (final encoding in [
+        TextEncoding.cp866,
+        TextEncoding.koi8u,
+        TextEncoding.macCyrillic,
+        TextEncoding.iso88595,
+      ]) {
+        final bytes = encoding.encode('старый ФАЙЛ здесь');
+        expect(scan(ContentRule.parse('файл'), bytes), isFalse, reason: encoding.label);
+        expect(scan(ContentRule.parse('файл', allCharsets: true), bytes), isTrue, reason: encoding.label);
+      }
+    });
+
+    test('UTF-16 в обоих порядках — и кириллица, и латиница', () {
+      for (final encoding in [TextEncoding.utf16le, TextEncoding.utf16be]) {
+        final bytes = encoding.encode('открытый файл и TODO здесь');
+        expect(scan(ContentRule.parse('ФАЙЛ', allCharsets: true), bytes), isTrue, reason: encoding.label);
+        expect(scan(ContentRule.parse('todo', allCharsets: true), bytes), isTrue, reason: encoding.label);
+      }
+    });
+
+    test('слово целиком в UTF-16 — по соседним знакам, а не байтам', () {
+      final bytes = TextEncoding.utf16le.encode('TODOS и TODO');
+      final word = ContentRule.parse('todo', allCharsets: true, wholeWords: true);
+      expect(scan(word, bytes), isTrue);
+      expect(scan(word, TextEncoding.utf16le.encode('TODOS only')), isFalse);
     });
 
     test('латиница даёт один образец на все кодировки', () {

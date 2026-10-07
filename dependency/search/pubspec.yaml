@@ -29,6 +29,11 @@ dependencies:
   fc_ui_kit:
     path: ../ui_kit
 
+  # Кодировки «All charsets»: те же таблицы, что у просмотрщика и редактора
+  # (`docs/spec/text-encodings.md`).
+  fc_text_kit:
+    path: ../text_kit
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

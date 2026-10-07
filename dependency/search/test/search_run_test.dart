@@ -230,6 +230,20 @@ void main() {
       expect(names, ['mixed.txt']);
     });
 
+    test('UTF-16 с меткой не отсеивается как двоичное', () async {
+      // Половина байтов нулевая — по одному этому признаку файл отсеялся бы.
+      final unicode = [
+        0xFF,
+        0xFE,
+        for (final unit in 'нашлось\n'.codeUnits) ...[unit & 0xFF, unit >> 8],
+      ];
+      files.add(FakeEntry.file('/home/unicode.txt', content: unicode));
+
+      expect(await inside(const SearchQuery(mask: 'unicode.txt', content: 'нашлось', allCharsets: true)), [
+        'unicode.txt',
+      ]);
+    });
+
     test('слово целиком отсекает часть слова', () async {
       files.add(FakeEntry.file('/home/part.txt', content: utf8.encode('TODOS не то же самое\n')));
 

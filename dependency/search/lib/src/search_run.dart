@@ -379,7 +379,10 @@ class SearchRun {
       return false;
     }
     if (anyCharset) {
-      return head.contains(0);
+      // UTF-16 наполовину из нулей — узнаётся по метке, как и у службы типов
+      // (`content-types.md`, §9); без метки он двоичный и там.
+      final utf16 = head.length >= 2 && ((head[0] == 0xFF && head[1] == 0xFE) || (head[0] == 0xFE && head[1] == 0xFF));
+      return !utf16 && head.contains(0);
     }
     return textOrBinary(Uint8List.fromList(head)).group == ContentGroup.binary;
   }

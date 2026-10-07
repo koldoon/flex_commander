@@ -1,4 +1,4 @@
-import 'dart:convert';
+import 'package:fc_text_kit/fc_text_kit.dart';
 
 /// Что ищем **внутри** файла.
 ///
@@ -21,9 +21,11 @@ class ContentRule {
 
   /// Разобрать набранное.
   ///
-  /// [allCharsets] — искать не только в UTF-8: добавляются CP1251, KOI8-R и
-  /// Latin-1. Образцы, совпавшие побайтно (латиница везде одна и та же), в
-  /// набор не дублируются.
+  /// [allCharsets] — искать не только в UTF-8, а во всех кодировках, которые
+  /// знают просмотрщик и редактор (`TextEncoding`): UTF-16, Windows-1251,
+  /// KOI8-R, KOI8-U, CP866, Mac Cyrillic, ISO-8859-5, Windows-1252. Образцы,
+  /// совпавшие побайтно (латиница в однобайтовых одна и та же), в набор не
+  /// дублируются.
   factory ContentRule.parse(
     String text, {
     bool regexp = false,
@@ -45,11 +47,11 @@ class ContentRule {
       return ContentRule._(text, true, caseSensitive, wholeWords, false, const [], pattern);
     }
 
-    final encodings = allCharsets ? _Encoding.values : const [_Encoding.utf8];
+    final encodings = allCharsets ? TextEncoding.values : const [TextEncoding.utf8];
     final patterns = <_BytePattern>[];
     for (final encoding in encodings) {
       final pattern = _BytePattern.of(text, encoding, caseSensitive: caseSensitive);
-      // Кодировка, которой этот текст не записать (кириллица в Latin-1),
+      // Кодировка, которой этот текст не записать (кириллица в Windows-1252),
       // образца не даёт — и это не ошибка, а «здесь искать нечего».
       if (pattern == null || patterns.any((known) => known.sameAs(pattern))) {
         continue;
@@ -149,18 +151,15 @@ class ContentRule {
   }
 }
 
-/// Кодировки, в которых ищем.
-enum _Encoding { utf8, cp1251, koi8r, latin1 }
-
 /// Образец в байтах одной кодировки: знак за знаком.
 ///
 /// Каждый знак — набор допустимых байтовых форм: строчная и прописная. Длины
 /// форм внутри одной кодировки совпадают (латиница — байт, кириллица в UTF-8 —
 /// два), поэтому у образца есть общая длина, а сличение остаётся прямым.
 class _BytePattern {
-  _BytePattern(this._chars, this.length);
+  _BytePattern(this._chars, this.length, this._encoding);
 
-  static _BytePattern? of(String text, _Encoding encoding, {required bool caseSensitive}) {
+  static _BytePattern? of(String text, TextEncoding encoding, {required bool caseSensitive}) {
     final chars = <List<List<int>>>[];
     var length = 0;
     for (final rune in text.runes) {
@@ -180,13 +179,16 @@ class _BytePattern {
       chars.add(forms);
       length += forms.first.length;
     }
-    return chars.isEmpty ? null : _BytePattern(chars, length);
+    return chars.isEmpty ? null : _BytePattern(chars, length, encoding);
   }
 
   final List<List<List<int>>> _chars;
 
   /// Общая длина совпадения в байтах.
   final int length;
+
+  /// Кодировка образца: у UTF-16 соседний знак — два байта, а не один.
+  final TextEncoding _encoding;
 
   bool sameAs(_BytePattern other) {
     if (_chars.length != other._chars.length || length != other.length) {
@@ -239,9 +241,22 @@ class _BytePattern {
   }
 
   bool _standsAlone(List<int> bytes, int at) {
+    if (_encoding == TextEncoding.utf16le || _encoding == TextEncoding.utf16be) {
+      // Соседи — двухбайтовые знаки: байт рядом с латинской буквой в UTF-16 —
+      // это ноль, половина того же знака, и побайтная проверка ошиблась бы.
+      return !ContentRule._isWordChar(_unitAt(bytes, at - 2)) && !ContentRule._isWordChar(_unitAt(bytes, at + length));
+    }
     final before = at == 0 ? null : bytes[at - 1];
     final after = at + length >= bytes.length ? null : bytes[at + length];
     return !_isWordByte(before) && !_isWordByte(after);
+  }
+
+  /// Знак UTF-16 с байта [at]; null — за краем.
+  int? _unitAt(List<int> bytes, int at) {
+    if (at < 0 || at + 1 >= bytes.length) {
+      return null;
+    }
+    return _encoding == TextEncoding.utf16le ? bytes[at] | (bytes[at + 1] << 8) : (bytes[at] << 8) | bytes[at + 1];
   }
 
   static bool _isWordByte(int? byte) {
@@ -293,43 +308,10 @@ Iterable<int> _variantsOf(int rune, {required bool caseSensitive}) {
 }
 
 /// Байты одного знака в этой кодировке; null — знак в ней не записывается.
-List<int>? _encode(int rune, _Encoding encoding) {
-  switch (encoding) {
-    case _Encoding.utf8:
-      return utf8.encode(String.fromCharCode(rune));
-    case _Encoding.latin1:
-      return rune <= 0xff ? [rune] : null;
-    case _Encoding.cp1251:
-      return _singleByte(rune, _cp1251);
-    case _Encoding.koi8r:
-      return _singleByte(rune, _koi8r);
+List<int>? _encode(int rune, TextEncoding encoding) {
+  try {
+    return encoding.encode(String.fromCharCode(rune));
+  } on FormatException {
+    return null;
   }
 }
-
-List<int>? _singleByte(int rune, Map<int, int> table) {
-  if (rune < 0x80) {
-    return [rune];
-  }
-  final byte = table[rune];
-  return byte == null ? null : [byte];
-}
-
-/// Кириллица в CP1251: две сплошные полосы и две отдельные буквы.
-final Map<int, int> _cp1251 = {
-  for (var at = 0; at < 32; at++) 0x410 + at: 0xc0 + at,
-  for (var at = 0; at < 32; at++) 0x430 + at: 0xe0 + at,
-  0x401: 0xa8,
-  0x451: 0xb8,
-};
-
-/// Кириллица в KOI8-R: порядок букв свой, поэтому таблица выписана целиком.
-final Map<int, int> _koi8r = () {
-  const lower = 'юабцдефгхийклмнопярстужвьызшэщчъ';
-  const upper = 'ЮАБЦДЕФГХИЙКЛМНОПЯРСТУЖВЬЫЗШЭЩЧЪ';
-  return <int, int>{
-    for (var at = 0; at < lower.length; at++) lower.codeUnitAt(at): 0xc0 + at,
-    for (var at = 0; at < upper.length; at++) upper.codeUnitAt(at): 0xe0 + at,
-    0x451: 0xa3,
-    0x401: 0xb3,
-  };
-}();
