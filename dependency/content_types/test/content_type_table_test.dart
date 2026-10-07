@@ -376,6 +376,23 @@ void main() {
       expect(ContentTypeTable.of(Uint8List(0)), ContentTypeTable.binary);
     });
 
+    test('кириллица в Windows-1251 и KOI8-R — текст, а не двоичное', () {
+      // «Привет, мир» в обеих: правильным UTF-8 это не является.
+      for (final bytes in [
+        [0xCF, 0xF0, 0xE8, 0xE2, 0xE5, 0xF2, 0x2C, 0x20, 0xEC, 0xE8, 0xF0, 0x0A],
+        [0xF0, 0xD2, 0xC9, 0xD7, 0xC5, 0xD4, 0x2C, 0x20, 0xCD, 0xC9, 0xD2, 0x0A],
+      ]) {
+        expect(ContentTypeTable.of(Uint8List.fromList(bytes)), ContentTypeTable.text);
+      }
+    });
+
+    test('не UTF-8 и с управляющими знаками — двоичное', () {
+      expect(
+        ContentTypeTable.of(Uint8List.fromList([0xCF, 0x01, 0xF0, 0x02, 0xE8, 0x03, 0xE2, 0x04, 0xE5, 0x05])),
+        ContentTypeTable.binary,
+      );
+    });
+
     test('случайные байты — двоичное', () {
       expect(
         ContentTypeTable.of(

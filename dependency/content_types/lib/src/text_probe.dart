@@ -9,7 +9,8 @@ import 'content_type_table.dart';
 ///
 /// Правила и их причины — в `docs/spec/content-types.md` §9. Коротко: BOM
 /// решает сразу, нулевой байт означает двоичное, остальное пробуется разобрать
-/// как UTF-8.
+/// как UTF-8, а не разобралось — текст в однобайтовой кодировке, если
+/// управляющих знаков почти нет.
 ContentType textOrBinary(Uint8List head) {
   // UTF-16 узнаётся только по метке и дальше не разбирается: разбирать его
   // здесь нечем, а ответ «текст» уже полный.
@@ -25,7 +26,7 @@ ContentType textOrBinary(Uint8List head) {
 
   final text = _utf8OrNull(head);
   if (text == null) {
-    return ContentTypeTable.binary;
+    return _singleByteText(head) ? ContentTypeTable.text : ContentTypeTable.binary;
   }
   // Картинка, записанная текстом, — всё-таки картинка: по ней и правило иконки
   // пишется как по картинке. Дальше этого разбор текста не идёт: «на каком
@@ -81,6 +82,22 @@ String? _utf8OrNull(Uint8List head) {
   } on FormatException {
     return null;
   }
+}
+
+/// Текст в однобайтовой кодировке — Windows-1251, KOI8-R и прочих
+/// (`docs/spec/text-encodings.md`, §6).
+///
+/// Какой именно, здесь не решается: службе типов хватает ответа «текст».
+/// Признак — управляющих знаков не больше процента. Табуляция, переводы строк,
+/// перевод страницы и `ESC` законны; нулевой байт сюда не доходит.
+bool _singleByteText(Uint8List head) {
+  var control = 0;
+  for (final byte in head) {
+    if ((byte < 0x20 && byte != 0x09 && byte != 0x0A && byte != 0x0C && byte != 0x0D && byte != 0x1B) || byte == 0x7F) {
+      control++;
+    }
+  }
+  return control * 100 <= head.length;
 }
 
 bool _looksLikeSvg(String text) {
