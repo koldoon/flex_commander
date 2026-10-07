@@ -101,6 +101,25 @@ void main() {
     screen.close();
   });
 
+  testWidgets('пока мышью водят, плашка видна; затихли — прячется вовремя', (tester) async {
+    await pump(tester, autoplay: true);
+
+    // Три секунды движения — дольше, чем hideAfter: плашка не прячется.
+    for (var i = 0; i < 30; i++) {
+      screen.poke();
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(screen.controlsVisible, isTrue);
+
+    // Затихли: до hideAfter ещё видна, к hideAfter и такту — уже нет.
+    await tester.pump(VideoViewerScreen.hideAfter - VideoViewerScreen.hideTick);
+    expect(screen.controlsVisible, isTrue);
+    await tester.pump(VideoViewerScreen.hideTick * 2);
+    expect(screen.controlsVisible, isFalse);
+
+    screen.close();
+  });
+
   testWidgets('щелчок по полосе перемотки переносит туда', (tester) async {
     await pump(tester);
 

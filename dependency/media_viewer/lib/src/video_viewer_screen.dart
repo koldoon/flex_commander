@@ -40,6 +40,10 @@ class VideoViewerScreen extends ChangeNotifier implements MediaScreen, ViewerUnw
   /// Через сколько покоя плашка прячется, пока ролик играет.
   static const Duration hideAfter = Duration(seconds: 2);
 
+  /// Такт, которым считается покой: плашка прячется не раньше [hideAfter] и
+  /// не позже [hideAfter] и одного такта после последнего движения.
+  static const Duration hideTick = Duration(milliseconds: 250);
+
   final SystemVideoPlayer player;
   final MediaSource source;
   @override
@@ -66,7 +70,17 @@ class VideoViewerScreen extends ChangeNotifier implements MediaScreen, ViewerUnw
   final FileEntry _entry;
 
   late final StreamSubscription<SystemVideoState> _states;
+
+  /// Такт покоя — один на всё время, пока ролик играет и плашка видна. Не
+  /// таймер на каждое движение: мышь шлёт до 120 событий в секунду, и столько
+  /// же таймеров создавалось бы и выбрасывалось.
   Timer? _hide;
+
+  /// Шевелили с прошлого такта.
+  bool _moved = false;
+
+  /// Сколько тактов подряд без движения.
+  int _quietTicks = 0;
 
   /// Где плеер. Пока ответ раннера не пришёл, — то, куда его послали: иначе
   /// полоса перемотки отпрыгивала бы назад до следующего состояния от плеера.
@@ -192,31 +206,55 @@ class VideoViewerScreen extends ChangeNotifier implements MediaScreen, ViewerUnw
   }
 
   /// Показать плашку: шевельнули мышью или нажали клавишу (§6).
+  ///
+  /// Зовётся на каждое событие мыши, поэтому дёшево: только отметка, а такт
+  /// заводится, лишь когда его нет.
   void poke() {
     if (!_controlsVisible) {
       _controlsVisible = true;
       notifyListeners();
     }
+    _moved = true;
     _scheduleHide();
   }
 
   /// Спрятать плашку через [hideAfter] покоя — если ролик играет. На паузе она
   /// видна всегда.
   void _scheduleHide() {
-    _hide?.cancel();
     if (!_playing) {
+      _hide?.cancel();
+      _hide = null;
       if (!_controlsVisible) {
         _controlsVisible = true;
         notifyListeners();
       }
       return;
     }
-    _hide = Timer(hideAfter, () {
-      if (_playing && !_disposed) {
-        _controlsVisible = false;
-        notifyListeners();
-      }
-    });
+    if (_hide != null) {
+      // Такт уже идёт — движение он заметит сам.
+      return;
+    }
+    _moved = false;
+    _quietTicks = 0;
+    _hide = Timer.periodic(hideTick, (_) => _tickHide());
+  }
+
+  void _tickHide() {
+    if (_moved) {
+      _moved = false;
+      _quietTicks = 0;
+      return;
+    }
+    _quietTicks++;
+    if (hideTick * _quietTicks < hideAfter) {
+      return;
+    }
+    _hide?.cancel();
+    _hide = null;
+    if (_playing && !_disposed) {
+      _controlsVisible = false;
+      notifyListeners();
+    }
   }
 
   /// Во весь экран или обратно: клавиша `F`, двойной щелчок по кадру, кнопка
