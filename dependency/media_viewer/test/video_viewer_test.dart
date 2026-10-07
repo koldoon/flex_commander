@@ -217,6 +217,30 @@ void main() {
     expect((shownFullscreen()! as VideoViewerScreen).aspect, VideoAspect.original);
   });
 
+  test('в быстром просмотре соотношение помнится, пока он открыт', () async {
+    await start();
+    Future<VideoViewerScreen> quick(String name) async {
+      runtime.app.left.setCursorToName(name);
+      await Future<void>.delayed(QuickViewHost.defaultDelay * 2);
+      await pumpEventQueue();
+      return innermost(runtime.app.view.contentAt(right)!)! as VideoViewerScreen;
+    }
+
+    runtime.app.left.setCursorToName('a.mp4');
+    expect(runtime.commands.dispatch(KeyCombination.parse('Shift-F3')), isTrue);
+    final fourThirds = VideoAspect.all.firstWhere((aspect) => aspect.label == '4:3');
+    (await quick('a.mp4')).aspect = fourThirds;
+
+    expect((await quick('b.mov')).aspect, VideoAspect.original, reason: 'у соседа своё');
+    expect((await quick('a.mp4')).aspect, fourThirds, reason: 'вернулись — как оставили');
+
+    // Закрыли просмотр — забыто.
+    expect(runtime.commands.dispatch(KeyCombination.parse('Shift-F3')), isTrue);
+    await pumpEventQueue();
+    expect(runtime.commands.dispatch(KeyCombination.parse('Shift-F3')), isTrue);
+    expect((await quick('a.mp4')).aspect, VideoAspect.original);
+  });
+
   test('Cmd-I показывает сведения окном', () async {
     await start();
     await view('a.mp4');

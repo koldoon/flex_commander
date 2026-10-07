@@ -71,6 +71,11 @@ class QuickViewHost extends ChangeNotifier implements ViewportHost {
 
   final Duration delay;
 
+  /// Что показы помнят о файлах, пока открыт просмотр: ушёл курсор и
+  /// вернулся — файл показан так, как его оставили
+  /// (`docs/spec/quick-view.md`, §3.2).
+  final ViewerMemory memory = ViewerMemory();
+
   /// Что показано внутри; null — показывать нечего.
   @override
   ViewportState? get inner => _inner;
@@ -157,6 +162,7 @@ class QuickViewHost extends ChangeNotifier implements ViewportHost {
         ViewerPlace.panel,
         siblings: panel.entries,
         sourceOf: panel.sourceOf,
+        memory: memory,
         // Курсор ушёл дальше — дочитывать незачем: просмотрщик спрашивает об
         // этом сам, по ходу чтения.
         checkpoint: () async {

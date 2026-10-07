@@ -215,6 +215,7 @@ class MediaViewer implements FcFrontendModule {
           onSettingsChanged: onSettingsChanged,
           place: request.place,
           window: request.app.window,
+          memory: request.memory,
           // Быстрый просмотр сам не играет, пока не попросили: ход курсора по
           // каталогу роликов включал бы звук на каждом шаге (§8).
           autoplay: request.place == ViewerPlace.fullscreen || settings.autoplayQuickView,

@@ -28,6 +28,7 @@ class ViewerRequest {
     required this.checkpoint,
     this.siblings = const [],
     NodeSource Function(FileEntry entry)? sourceOf,
+    this.memory,
   }) : _sourceOf = sourceOf;
 
   /// Приложение: показу бывает нужно спросить у него объявленное другими.
@@ -92,6 +93,36 @@ class ViewerRequest {
   /// Пауза и отмена: открытие может идти долго — файл читается с сервера или из
   /// архива, — а курсор в быстром просмотре к тому времени уже ушёл дальше.
   final Future<void> Function() checkpoint;
+
+  /// Что помнят о файлах, пока открыт хозяин показа; null — помнить негде:
+  /// показ открыт на одном файле, и вернуться к файлу в нём нельзя
+  /// (`docs/spec/quick-view.md`, §3.2).
+  final ViewerMemory? memory;
+}
+
+/// Память показа: что просмотрщик помнит о файле, пока открыт хозяин.
+///
+/// Показ в быстром просмотре закрывается на каждом шаге курсора, а хозяин
+/// живёт, пока открыт просмотр, — поэтому помнит он. Содержимого он не знает:
+/// запись — по пути файла и ключу, который выбирает просмотрщик
+/// (`docs/spec/quick-view.md`, §3.2).
+class ViewerMemory {
+  final Map<String, Map<String, Object>> _byPath = {};
+
+  /// Запомненное о [entry] под [key]; null — ничего или другого типа.
+  T? read<T extends Object>(FileEntry entry, String key) {
+    final value = _byPath[entry.path]?[key];
+    return value is T ? value : null;
+  }
+
+  /// Запомнить; null — забыть.
+  void write(FileEntry entry, String key, Object? value) {
+    if (value == null) {
+      _byPath[entry.path]?.remove(key);
+      return;
+    }
+    (_byPath[entry.path] ??= {})[key] = value;
+  }
 }
 
 /// Показ одного файла: то, что просмотрщик ставит в область.

@@ -22,8 +22,10 @@ class VideoViewerScreen extends ChangeNotifier implements MediaScreen, ViewerUnw
     required this.onSettingsChanged,
     this.place = ViewerPlace.fullscreen,
     this.window,
+    this.memory,
     bool autoplay = true,
-  }) : _entry = entry {
+  }) : _entry = entry,
+       _aspect = memory?.read<VideoAspect>(entry, aspectKey) ?? VideoAspect.original {
     // Состояние шлёт плеер сам — опроса нет (`audio-viewer.md`, §7.5).
     _states = player.states.listen(_onState);
     unawaited(_start(autoplay));
@@ -31,6 +33,9 @@ class VideoViewerScreen extends ChangeNotifier implements MediaScreen, ViewerUnw
 
   /// Имя в реестре просмотрщиков.
   static const String viewerId = 'video';
+
+  /// Под каким ключом соотношение лежит в памяти показа (§6б).
+  static const String aspectKey = 'video.aspect';
 
   /// Шаг перемотки стрелкой.
   static const Duration seekStep = Duration(seconds: 5);
@@ -57,6 +62,10 @@ class VideoViewerScreen extends ChangeNotifier implements MediaScreen, ViewerUnw
   /// Окно приложения: полный экран ролика — это и полный экран окна (§6а).
   /// null — окна нет (тесты вида), и полный экран только внутри приложения.
   final WindowService? window;
+
+  /// Память хозяина: соотношение помнится, пока открыт быстрый просмотр
+  /// (§6б). null — открыт во весь экран, и помнить незачем.
+  final ViewerMemory? memory;
 
   /// Ролик закрывает окно целиком (§6а).
   bool get fullScreen => _fullScreen;
@@ -100,16 +109,17 @@ class VideoViewerScreen extends ChangeNotifier implements MediaScreen, ViewerUnw
   bool get ended => _ended;
   bool _ended = false;
 
-  /// Соотношение сторон кадра (§6б). Живёт в показе, а не в настройках:
-  /// каждый новый файл начинает с исходного.
+  /// Соотношение сторон кадра (§6б). Не настройка: новый файл начинает с
+  /// исходного, а помнит его только хозяин, пока открыт ([memory]).
   VideoAspect get aspect => _aspect;
-  VideoAspect _aspect = VideoAspect.original;
+  VideoAspect _aspect;
 
   set aspect(VideoAspect value) {
     if (value == _aspect || _disposed) {
       return;
     }
     _aspect = value;
+    memory?.write(entry, aspectKey, value == VideoAspect.original ? null : value);
     notifyListeners();
   }
 
