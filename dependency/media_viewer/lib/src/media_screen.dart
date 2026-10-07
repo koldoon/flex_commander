@@ -9,7 +9,8 @@ import 'video_viewer_settings.dart';
 /// Общее у них — то, что делают команды в ряду функциональных клавиш: пуск и
 /// пауза, звук, сведения. Команды одни на оба показа, а не по копии на каждый
 /// (`docs/spec/audio-viewer.md`, §4).
-abstract interface class MediaScreen implements ViewerContent {
+abstract interface class MediaScreen implements ViewerContent, ViewerPlays {
+  @override
   bool get playing;
 
   /// Громкость и «без звука» — общие у видео и звука.

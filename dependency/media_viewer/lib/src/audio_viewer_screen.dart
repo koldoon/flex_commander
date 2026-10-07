@@ -136,6 +136,7 @@ class AudioViewerScreen extends ChangeNotifier implements MediaScreen {
     await _player.play();
   }
 
+  @override
   Future<void> pause() async {
     _playing = false;
     notifyListeners();

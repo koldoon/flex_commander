@@ -192,6 +192,21 @@ void main() {
     }
   });
 
+  test('F3 из быстрого просмотра: музыка в нём встаёт на паузу', () async {
+    await start(autoplayQuickView: true);
+    runtime.app.left.setCursorToName('01 Intro.mp3');
+    expect(runtime.commands.dispatch(KeyCombination.parse('Shift-F3')), isTrue);
+    await Future<void>.delayed(QuickViewHost.defaultDelay * 2);
+    await pumpEventQueue();
+    final quick = innermost(runtime.app.view.contentAt(right)!) as AudioViewerScreen;
+    expect(quick.playing, isTrue);
+
+    await view('02 Song.mp3');
+
+    expect(quick.playing, isFalse, reason: 'иначе играли бы обе');
+    expect(playerOf(0).calls.last, 'pause');
+  });
+
   test('файл не с диска — копией, и копия прежнего трека убирается при смене', () async {
     await start(onDisk: false);
     await view('01 Intro.mp3');

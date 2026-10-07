@@ -164,6 +164,7 @@ class VideoViewerScreen extends ChangeNotifier implements MediaScreen, ViewerUnw
     await player.play();
   }
 
+  @override
   Future<void> pause() async {
     _playing = false;
     _scheduleHide();

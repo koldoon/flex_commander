@@ -59,6 +59,7 @@ class QuickViewHost extends ChangeNotifier implements ViewportHost {
     if (_disposed) {
       return;
     }
+    _hushWhenCovered();
     final shown = app.view.panelAt(source);
     if (shown == null || identical(shown, _panel)) {
       return;
@@ -67,6 +68,22 @@ class QuickViewHost extends ChangeNotifier implements ViewportHost {
     _panel = shown;
     _panel.addListener(_onPanelChanged);
     _onPanelChanged();
+  }
+
+  /// Во весь экран стоит показ — с прошлого сообщения области.
+  bool _covered = false;
+
+  /// Во весь экран встал показ — свой играющий ставим на паузу: он под ним не
+  /// виден, а звучали бы оба (`docs/spec/quick-view.md`, §3.3). Пауза, а не
+  /// закрытие: вернулись — ролик там, где его оставили.
+  void _hushWhenCovered() {
+    final covered = app.view.contentAt(ViewportPosition.fullscreen) != null;
+    if (covered && !_covered) {
+      if (_inner case final ViewerPlays plays when plays.playing) {
+        unawaited(plays.pause());
+      }
+    }
+    _covered = covered;
   }
 
   final Duration delay;

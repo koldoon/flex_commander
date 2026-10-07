@@ -223,7 +223,7 @@ void main() {
       runtime.app.left.setCursorToName(name);
       await Future<void>.delayed(QuickViewHost.defaultDelay * 2);
       await pumpEventQueue();
-      return innermost(runtime.app.view.contentAt(right)!)! as VideoViewerScreen;
+      return innermost(runtime.app.view.contentAt(right)!) as VideoViewerScreen;
     }
 
     runtime.app.left.setCursorToName('a.mp4');
@@ -281,6 +281,24 @@ void main() {
     final host = runtime.app.view.contentAt(right)! as QuickViewHost;
     expect(innermost(host), isA<VideoViewerScreen>());
     expect(system.opened.single.calls, contains('play'));
+  });
+
+  test('F3 из быстрого просмотра: тот встаёт на паузу, а не звучит вместе с полным', () async {
+    await start(autoplayQuickView: true);
+    runtime.app.left.setCursorToName('a.mp4');
+    expect(runtime.commands.dispatch(KeyCombination.parse('Shift-F3')), isTrue);
+    await Future<void>.delayed(QuickViewHost.defaultDelay * 2);
+    await pumpEventQueue();
+    final quick = innermost(runtime.app.view.contentAt(right)!) as VideoViewerScreen;
+    expect(quick.playing, isTrue);
+
+    runtime.app.left.setCursorToName('b.mov');
+    await view('b.mov');
+
+    expect(shownFullscreen(), isA<VideoViewerScreen>());
+    expect((shownFullscreen()! as VideoViewerScreen).playing, isTrue);
+    expect(quick.playing, isFalse, reason: 'иначе играли бы оба');
+    expect(system.opened.first.calls.last, 'pause');
   });
 
   test('F — во весь экран и окно в полный экран; Esc выходит, второй Esc закрывает', () async {
