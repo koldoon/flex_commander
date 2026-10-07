@@ -171,15 +171,11 @@ void main() {
     final dialog = runtime.app.view.dialogs.single;
     expect(dialog.title, 'Aspect ratio');
 
-    // То, чем окно ходит по списку: кадр меняется на каждом шаге.
-    final picker = VideoAspectPickerState(screen);
-    picker.index = VideoAspect.all.indexWhere((aspect) => aspect.label == '4:3');
-    expect(screen.aspect.ratio, 4 / 3);
-    picker.revert();
-    expect(screen.aspect, VideoAspect.original);
-
+    // Выбрали без окна — `Esc` всё равно возвращает то, что было до него.
+    screen.aspect = VideoAspect.all.last;
     dialog.onDismiss!();
     expect(runtime.app.view.dialogs, isEmpty);
+    expect(screen.aspect, VideoAspect.original);
   });
 
   testWidgets('окно соотношений: стрелка меняет кадр сразу, Esc возвращает', (tester) async {

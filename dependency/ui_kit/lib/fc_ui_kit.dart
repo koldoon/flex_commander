@@ -37,5 +37,6 @@ export 'src/settled_scroll_physics.dart';
 export 'src/split_view.dart';
 export 'src/text_trim.dart';
 export 'src/chain_name.dart';
+export 'src/choice_dialog.dart';
 export 'src/file_type_icon.dart';
 export 'src/trimmed_text.dart';
