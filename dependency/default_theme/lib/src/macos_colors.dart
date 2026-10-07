@@ -1,4 +1,5 @@
 import 'package:fc_ui_api/fc_ui_api.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
 import 'macos_palette.dart';
@@ -288,6 +289,11 @@ class MacOsColors extends FcColors {
 
   @override
   Color get progress => _accent;
+
+  /// Сняты с `NSProgressIndicator`: чёрный 5% в светлой, белый 10% в тёмной
+  /// (`spec/progress-bar.md`, §2).
+  @override
+  Color get progressTrack => tones.brightness == Brightness.dark ? const Color(0x1AFFFFFF) : const Color(0x0D000000);
 
   @override
   Color get error => tones.systemRed;

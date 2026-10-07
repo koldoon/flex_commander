@@ -460,11 +460,13 @@ abstract class FcMetrics {
   /// кто-нибудь подставит сюда другое число.
   double get commandLineHeight => inputHeight;
 
-  // --- полоса хода работы (ProgressBar.mxml) ---
+  // --- полоса хода работы ---
+  //
+  // Как `NSProgressIndicator` (`spec/progress-bar.md`).
 
-  /// `height="30"`, скругление в половину высоты, заливка с отступом `4`.
+  /// Высота дорожки; скругление — в половину её, заливка во всю высоту, как у
+  /// `NSProgressIndicator`.
   double get progressHeight;
-  double get progressInset;
 
   // --- общее ---
 

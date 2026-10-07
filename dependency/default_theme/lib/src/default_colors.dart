@@ -267,6 +267,10 @@ class DefaultColors extends FcColors {
   @override
   Color get progress => FcPalette.blue0;
 
+  /// Белый 10% — как дорожка macOS в тёмной внешности: фон здесь тёмно-синий.
+  @override
+  Color get progressTrack => FcPalette.white.withValues(alpha: 0.10);
+
   @override
   Color get error => FcPalette.red;
   // --- подсветка синтаксиса ---

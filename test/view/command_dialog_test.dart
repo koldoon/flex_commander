@@ -83,32 +83,16 @@ void main() {
     expect(find.text('3 of 10…'), findsOneWidget);
   });
 
-  /// Закрашенная часть полосы: `DecoratedBox`, залитый цветом хода работы.
-  /// Внешняя рамка полосы — тоже `DecoratedBox`, но она без заливки.
-  Finder progressFill() => find.byWidgetPredicate(
-    (widget) => widget is DecoratedBox && (widget.decoration as BoxDecoration).color == const DefaultColors().progress,
-  );
-
-  testWidgets('закрашенная часть видна и занимает свою долю', (tester) async {
+  // Как рисуется сама полоса — `ui_kit/test/progress_bar_test.dart` и эталоны;
+  // здесь — что окно отдаёт ей свою долю и не ломает её высоту, меряя себя
+  // по содержимому.
+  testWidgets('полоса получает долю и стоит своей высоты', (tester) async {
     await pumpProgress(tester, processed: 1, total: 2, progress: 0.5);
 
-    const metrics = DefaultMetrics();
-    final bar = tester.getSize(find.byType(FcProgressBar));
-    final fill = tester.getSize(progressFill());
-    // Заливка лежит внутри обводки и отступа.
-    final inset = 2 * (metrics.strokeWidth + metrics.progressInset);
-
-    // Полоса заливается на всю свою высоту: у пустого `DecoratedBox` своей
-    // высоты нет, и без растяжения от заливки осталась бы нулевая полоска.
-    expect(fill.height, greaterThan(0));
-    expect(fill.height, closeTo(bar.height - inset, 0.01));
-    expect(fill.width, closeTo((bar.width - inset) / 2, 1));
-  });
-
-  testWidgets('при неизвестной доле полоса пуста', (tester) async {
-    await pumpProgress(tester);
-
-    expect(progressFill(), findsNothing);
+    final bar = find.byType(FcProgressBar);
+    expect(tester.widget<FcProgressBar>(bar).value, 0.5);
+    expect(tester.getSize(bar).height, const DefaultMetrics().progressHeight);
+    expect(tester.getSize(bar).width, greaterThan(0));
   });
 
   testWidgets('пока ничего не посчитано, счётчика нет, а полоса неопределённая', (tester) async {

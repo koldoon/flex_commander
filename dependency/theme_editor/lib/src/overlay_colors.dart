@@ -234,5 +234,8 @@ class OverlayColors implements FcColors {
   Color get progress => overrides['progress'] ?? base.progress;
 
   @override
+  Color get progressTrack => overrides['progressTrack'] ?? base.progressTrack;
+
+  @override
   Color get error => overrides['error'] ?? base.error;
 }

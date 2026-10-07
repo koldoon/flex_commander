@@ -1131,55 +1131,144 @@ class _FcTextFieldState extends State<FcTextField> {
   }
 }
 
-/// Полоса хода работы — `ProgressBar.mxml`: обводка и заливка одного цвета,
-/// заливка вписана внутрь с небольшим отступом.
-class FcProgressBar extends StatelessWidget {
+/// Полоса хода работы — как `NSProgressIndicator` (`docs/spec/progress-bar.md`):
+/// дорожка и заливка цвета акцента, без обводки; без доли по дорожке бежит
+/// отрезок.
+class FcProgressBar extends StatefulWidget {
   const FcProgressBar({super.key, this.value});
 
-  /// 0…1; null — доля неизвестна, полоса пуста.
+  /// 0…1; null — доля неизвестна, по дорожке бежит отрезок.
   final double? value;
+
+  /// Сколько отрезок идёт от края до края.
+  static const Duration sweep = Duration(milliseconds: 1200);
+
+  /// Отрезок стоит в начале дорожки, а не бежит.
+  ///
+  /// Бег — это кадр за кадром без конца, и `pumpAndSettle` его не дождался бы.
+  /// Свойство прогона, а не показа, как `FcCursorBlink.debugDeterministicCursor`:
+  /// выключает его `testApp`, один раз за всех.
+  static bool debugStill = false;
+
+  @override
+  State<FcProgressBar> createState() => _FcProgressBarState();
+}
+
+class _FcProgressBarState extends State<FcProgressBar> with SingleTickerProviderStateMixin {
+  late final AnimationController _sweep = AnimationController(vsync: this, duration: FcProgressBar.sweep);
+
+  @override
+  void initState() {
+    super.initState();
+    _run();
+  }
+
+  @override
+  void didUpdateWidget(FcProgressBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _run();
+  }
+
+  /// Бежит только без доли: с долей кадров на каждом тике не нужно.
+  void _run() {
+    final wanted = widget.value == null && !FcProgressBar.debugStill;
+    if (wanted && !_sweep.isAnimating) {
+      _sweep.repeat();
+    } else if (!wanted && _sweep.isAnimating) {
+      _sweep
+        ..stop()
+        ..value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _sweep.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
-    final metrics = theme.metrics;
-
-    return Container(
-      height: metrics.progressHeight,
-      decoration: BoxDecoration(
-        border: Border.all(color: theme.colors.progress, width: metrics.strokeWidth),
-        borderRadius: BorderRadius.circular(metrics.progressHeight / 2),
-      ),
-      padding: EdgeInsets.all(metrics.progressInset),
-      // Заполненная часть отмеряется долями `Row`, а не шириной по замеру
-      // родителя: окно команды меряет себя по содержимому (`IntrinsicWidth`),
-      // а `LayoutBuilder` такого измерения не переживает вовсе, у
-      // `FractionallySizedBox` же при нулевой доле внутренняя ширина
-      // обращается в бесконечность.
-      // Заливка тянется на всю высоту полосы: у пустого `DecoratedBox` своей
-      // высоты нет, и по умолчанию `Row` оставил бы от него нулевую полоску.
-      child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: _parts(theme, metrics)),
-    );
-  }
-
-  List<Widget> _parts(FcTheme theme, FcMetrics metrics) {
-    const total = 1000;
-    final filled = ((value ?? 0).clamp(0.0, 1.0) * total).round();
-
-    return [
-      if (filled > 0)
-        Expanded(
-          flex: filled,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: theme.colors.progress,
-              borderRadius: BorderRadius.circular(metrics.progressHeight / 2 - metrics.progressInset),
+    // Ширину знает художник в момент рисования: `LayoutBuilder` не пережил бы
+    // измерения окна по содержимому (`IntrinsicWidth`). `Row` с `Expanded`
+    // занимает всю отведённую ширину и в окне, и в строке списка работ.
+    return SizedBox(
+      height: theme.metrics.progressHeight,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: CustomPaint(
+              painter: _ProgressPainter(
+                value: widget.value,
+                sweep: _sweep,
+                still: FcProgressBar.debugStill,
+                track: theme.colors.progressTrack,
+                fill: theme.colors.progress,
+              ),
             ),
           ),
-        ),
-      if (filled < total) Expanded(flex: total - filled, child: const SizedBox.shrink()),
-    ];
+        ],
+      ),
+    );
   }
+}
+
+class _ProgressPainter extends CustomPainter {
+  _ProgressPainter({
+    required this.value,
+    required this.sweep,
+    required this.still,
+    required this.track,
+    required this.fill,
+  }) : super(repaint: sweep);
+
+  final double? value;
+  final Animation<double> sweep;
+
+  /// Отрезок не бежит, а стоит у левого края — виден, а не спрятан за ним.
+  final bool still;
+  final Color track;
+  final Color fill;
+
+  /// Доля дорожки, которую занимает бегущий отрезок.
+  static const double _segment = 1 / 3;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final radius = Radius.circular(size.height / 2);
+    final lane = RRect.fromRectAndRadius(Offset.zero & size, radius);
+    canvas.drawRRect(lane, Paint()..color = track);
+
+    final Rect bar;
+    final value = this.value;
+    if (value != null) {
+      final width = size.width * value.clamp(0.0, 1.0);
+      if (width <= 0) {
+        return;
+      }
+      bar = Rect.fromLTWH(0, 0, width, size.height);
+    } else {
+      // От «целиком за левым краем» до «целиком за правым», с разгоном и
+      // торможением — как у системы.
+      final segment = size.width * _segment;
+      final t = Curves.easeInOut.transform(sweep.value);
+      final left = still ? 0.0 : -segment + t * (size.width + segment);
+      bar = Rect.fromLTWH(left, 0, segment, size.height);
+    }
+    // Обрезка по дорожке: короткая заливка и отрезок у края остаются внутри
+    // капсулы, а не торчат прямоугольником.
+    canvas
+      ..save()
+      ..clipRRect(lane)
+      ..drawRRect(RRect.fromRectAndRadius(bar, radius), Paint()..color = fill)
+      ..restore();
+  }
+
+  @override
+  bool shouldRepaint(_ProgressPainter old) =>
+      old.value != value || old.still != still || old.track != track || old.fill != fill || old.sweep != sweep;
 }
 
 /// Сообщение об ошибке в окне команды.

@@ -302,13 +302,10 @@ class DefaultMetrics extends FcMetrics {
   @override
   double get inputHorizontalPadding => 8;
 
-  // --- полоса хода работы (ProgressBar.mxml) ---
+  // --- полоса хода работы: как `NSProgressIndicator` (`spec/progress-bar.md`) ---
 
   @override
-  double get progressHeight => 12;
-
-  @override
-  double get progressInset => 1;
+  double get progressHeight => 8;
 
   // --- общее ---
 

@@ -253,9 +253,6 @@ class OverlayMetrics implements FcMetrics {
   double get progressHeight => overrides['progressHeight'] ?? base.progressHeight;
 
   @override
-  double get progressInset => overrides['progressInset'] ?? base.progressInset;
-
-  @override
   double get scrollbarInset => overrides['scrollbarInset'] ?? base.scrollbarInset;
 
   @override

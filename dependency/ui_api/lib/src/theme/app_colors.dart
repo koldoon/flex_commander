@@ -304,8 +304,11 @@ abstract class FcColors {
 
   // --- прочее ---
 
-  /// Полоса хода работы: обводка и заливка одного цвета.
+  /// Полоса хода работы: заливка и бегущий отрезок (`spec/progress-bar.md`).
   Color get progress;
+
+  /// Дорожка полосы хода работы — то, по чему идёт заливка.
+  Color get progressTrack;
 
   Color get error;
 }

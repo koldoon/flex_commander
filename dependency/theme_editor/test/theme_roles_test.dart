@@ -44,7 +44,7 @@ void main() {
       final contract = declared('app_colors.dart', 'Color');
       // Цветов ANSI здесь нет: в контракте они списком (`List<Color>`), а в
       // каталоге — шестнадцатью ролями, и сверяются отдельным тестом ниже.
-      expect(contract.length, 67, reason: 'роли добавили или убрали — поправьте и накладку, и каталог');
+      expect(contract.length, 68, reason: 'роли добавили или убрали — поправьте и накладку, и каталог');
 
       final catalog = {for (final role in colorRoles) role.name: role.section};
       for (final role in contract) {
@@ -59,7 +59,7 @@ void main() {
 
     test('размеры: те же роли, те же группы и род у каждой', () {
       final contract = declared('app_metrics.dart', 'double');
-      expect(contract.length, 98);
+      expect(contract.length, 97);
 
       final catalog = {for (final role in metricRoles) role.name: role};
       for (final role in contract) {

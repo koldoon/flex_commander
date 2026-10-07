@@ -104,7 +104,7 @@ const Map<String, String> metricSections = {
   'всплывающее сообщение': 'Toast sizes',
   'кнопка окна команды (RegularButtonSkin)': 'Dialog button sizes',
   'поле ввода (TextInputBorderedSkin)': 'Input sizes',
-  'полоса хода работы (ProgressBar.mxml)': 'Progress bar sizes',
+  'полоса хода работы': 'Progress bar sizes',
   'общее': 'Common sizes',
 };
 
@@ -202,6 +202,7 @@ final List<ColorRole> colorRoles = [
   ColorRole('terminalAnsi14', 'Terminal', (colors) => colors.terminalAnsi[14]),
   ColorRole('terminalAnsi15', 'Terminal', (colors) => colors.terminalAnsi[15]),
   ColorRole('progress', 'Other', (colors) => colors.progress),
+  ColorRole('progressTrack', 'Other', (colors) => colors.progressTrack),
   ColorRole('error', 'Other', (colors) => colors.error),
 ];
 
@@ -318,7 +319,6 @@ final List<MetricRole> metricRoles = [
   MetricRole('inputHorizontalPadding', 'Input sizes', MetricKind.gap, (metrics) => metrics.inputHorizontalPadding),
   MetricRole('commandLineHeight', 'Input sizes', MetricKind.size, (metrics) => metrics.commandLineHeight),
   MetricRole('progressHeight', 'Progress bar sizes', MetricKind.size, (metrics) => metrics.progressHeight),
-  MetricRole('progressInset', 'Progress bar sizes', MetricKind.thickness, (metrics) => metrics.progressInset),
   MetricRole('scrollbarInset', 'Common sizes', MetricKind.thickness, (metrics) => metrics.scrollbarInset),
   MetricRole('strokeWidth', 'Common sizes', MetricKind.thickness, (metrics) => metrics.strokeWidth),
   MetricRole('focusRingWidth', 'Common sizes', MetricKind.thickness, (metrics) => metrics.focusRingWidth),

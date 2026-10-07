@@ -154,6 +154,9 @@ Future<AppRuntime> testApp({
   // (`EditableText.debugDeterministicCursor`), и его поля выключаются тем же
   // движением.
   FcCursorBlink.debugDeterministicCursor = true;
+  // Бегущий отрезок полосы хода работы — тот же бесконечный кадр
+  // (`spec/progress-bar.md`, §3).
+  FcProgressBar.debugStill = true;
   EditableText.debugDeterministicCursor = true;
 
   // Настройки в памяти: в виджет-тестах время поддельное, и настоящее чтение
