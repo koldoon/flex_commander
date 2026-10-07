@@ -1,14 +1,16 @@
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
 
-/// Цвета показа видео и звука — не из оформления: видео смотрят на чёрном в
-/// любом оформлении, а плашка лежит на кадре, а не на окне, и обязана читаться
-/// на любом кадре — тёмная полупрозрачная с белым, как в QuickTime.
+/// Цвета показа видео — не из оформления: видео смотрят на чёрном в любом
+/// оформлении, а плашка лежит на кадре, а не на окне, и обязана читаться на
+/// любом кадре — тёмная полупрозрачная с белым, как в QuickTime.
+///
+/// У звука плашка лежит на окне и красится ролями оформления
+/// (`FcColors.mediaControlsBackground`, `audio-viewer.md`, §1).
 abstract final class MediaColors {
   static const Color backdrop = Color(0xFF000000);
   static const Color plate = Color(0xA6202020);
   static const Color ink = Color(0xFFFFFFFF);
-  static const Color track = Color(0x4DFFFFFF);
 }
 
 /// Время как на плашке QuickTime: `0:12`, `3:45`, `1:02:03` — часы только
@@ -37,6 +39,8 @@ class MediaControls extends StatelessWidget {
     required this.onVolume,
     this.fullScreen,
     this.onFullScreen,
+    this.background = MediaColors.plate,
+    this.ink = MediaColors.ink,
   });
 
   final bool playing;
@@ -54,12 +58,17 @@ class MediaControls extends StatelessWidget {
   final bool? fullScreen;
   final VoidCallback? onFullScreen;
 
+  /// Заливка плашки и всё, что на ней. По умолчанию — постоянные цвета видео:
+  /// плашка на кадре. Звук передаёт роли оформления — его плашка на окне.
+  final Color background;
+  final Color ink;
+
   @override
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
     final icons = theme.icons;
     final metrics = theme.metrics;
-    final text = theme.uiStyle.copyWith(color: MediaColors.ink, fontFeatures: const [FontFeature.tabularFigures()]);
+    final text = theme.uiStyle.copyWith(color: ink, fontFeatures: const [FontFeature.tabularFigures()]);
     final played = duration.inMicroseconds <= 0 ? 0.0 : position.inMicroseconds / duration.inMicroseconds;
     final fullScreen = this.fullScreen;
 
@@ -67,10 +76,11 @@ class MediaControls extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 560),
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: EdgeInsets.symmetric(horizontal: metrics.dialogPadding, vertical: metrics.dialogGap),
-      decoration: BoxDecoration(color: MediaColors.plate, borderRadius: BorderRadius.circular(10)),
+      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(10)),
       child: Row(
         children: [
           _IconButton(
+            ink: ink,
             key: const ValueKey('media.playPause'),
             icon: playing ? icons.pause : icons.play,
             onTap: onPlayPause,
@@ -80,6 +90,7 @@ class MediaControls extends StatelessWidget {
           SizedBox(width: metrics.dialogGap),
           Expanded(
             child: _Bar(
+              ink: ink,
               key: const ValueKey('media.scrub'),
               value: played,
               onChanged: (fraction) => onSeek(duration * fraction),
@@ -89,6 +100,7 @@ class MediaControls extends StatelessWidget {
           Text(formatClock(duration), style: text),
           SizedBox(width: metrics.dialogGap * 2),
           _IconButton(
+            ink: ink,
             key: const ValueKey('media.mute'),
             icon: muted ? icons.soundOff : icons.soundOn,
             onTap: onToggleMute,
@@ -96,11 +108,12 @@ class MediaControls extends StatelessWidget {
           SizedBox(width: metrics.dialogGap),
           SizedBox(
             width: 72,
-            child: _Bar(key: const ValueKey('media.volume'), value: muted ? 0 : volume, onChanged: onVolume),
+            child: _Bar(ink: ink, key: const ValueKey('media.volume'), value: muted ? 0 : volume, onChanged: onVolume),
           ),
           if (fullScreen != null) ...[
             SizedBox(width: metrics.dialogGap * 2),
             _IconButton(
+              ink: ink,
               key: const ValueKey('media.fullScreen'),
               icon: fullScreen ? icons.exitFullScreen : icons.enterFullScreen,
               onTap: onFullScreen ?? () {},
@@ -114,7 +127,9 @@ class MediaControls extends StatelessWidget {
 
 /// Значок-кнопка на плашке.
 class _IconButton extends StatelessWidget {
-  const _IconButton({super.key, required this.icon, required this.onTap});
+  const _IconButton({super.key, required this.ink, required this.icon, required this.onTap});
+
+  final Color ink;
 
   final IconData icon;
   final VoidCallback onTap;
@@ -127,11 +142,7 @@ class _IconButton extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: SizedBox(
-          width: size + 8,
-          height: size + 8,
-          child: Center(child: Icon(icon, size: size, color: MediaColors.ink)),
-        ),
+        child: SizedBox(width: size + 8, height: size + 8, child: Center(child: Icon(icon, size: size, color: ink))),
       ),
     );
   }
@@ -139,7 +150,9 @@ class _IconButton extends StatelessWidget {
 
 /// Полоса с бегунком: перемотка и громкость. Щелчок переносит, протяжка ведёт.
 class _Bar extends StatelessWidget {
-  const _Bar({super.key, required this.value, required this.onChanged});
+  const _Bar({super.key, required this.ink, required this.value, required this.onChanged});
+
+  final Color ink;
 
   /// Где бегунок, от 0 до 1.
   final double value;
@@ -149,6 +162,9 @@ class _Bar extends StatelessWidget {
   static const double _height = 18;
   static const double _thickness = 4;
   static const double _knob = 6;
+
+  /// Пустая часть полосы — цвет значков, прозрачнее.
+  static const double _trackAlpha = 0.3;
 
   @override
   Widget build(BuildContext context) {
@@ -169,7 +185,7 @@ class _Bar extends StatelessWidget {
             child: SizedBox(
               height: _height,
               width: width,
-              child: CustomPaint(painter: _BarPainter(value.clamp(0.0, 1.0))),
+              child: CustomPaint(painter: _BarPainter(value.clamp(0.0, 1.0), ink)),
             ),
           ),
         );
@@ -179,7 +195,9 @@ class _Bar extends StatelessWidget {
 }
 
 class _BarPainter extends CustomPainter {
-  const _BarPainter(this.value);
+  const _BarPainter(this.value, this.ink);
+
+  final Color ink;
 
   final double value;
 
@@ -195,15 +213,15 @@ class _BarPainter extends CustomPainter {
       y + _Bar._thickness / 2,
       const Radius.circular(_Bar._thickness / 2),
     );
-    canvas.drawRRect(track, Paint()..color = MediaColors.track);
+    canvas.drawRRect(track, Paint()..color = ink.withValues(alpha: _Bar._trackAlpha));
     final x = left + (right - left) * value;
     canvas.drawRRect(
       RRect.fromLTRBR(left, track.top, x, track.bottom, const Radius.circular(_Bar._thickness / 2)),
-      Paint()..color = MediaColors.ink,
+      Paint()..color = ink,
     );
-    canvas.drawCircle(Offset(x, y), _Bar._knob, Paint()..color = MediaColors.ink);
+    canvas.drawCircle(Offset(x, y), _Bar._knob, Paint()..color = ink);
   }
 
   @override
-  bool shouldRepaint(_BarPainter old) => old.value != value;
+  bool shouldRepaint(_BarPainter old) => old.value != value || old.ink != ink;
 }

@@ -118,6 +118,10 @@ class _AudioViewerViewState extends State<AudioViewerView> {
                               onSeek: screen.seekTo,
                               onToggleMute: screen.toggleMute,
                               onVolume: screen.setVolume,
+                              // Плашка лежит на окне, а не на кадре, — цвета
+                              // от оформления (§1).
+                              background: theme.colors.mediaControlsBackground,
+                              ink: theme.colors.mediaControlsText,
                             ),
                       ),
                       const SizedBox(height: 16),

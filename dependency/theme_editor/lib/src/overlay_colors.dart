@@ -126,6 +126,12 @@ class OverlayColors implements FcColors {
   Color get spectrumBar => overrides['spectrumBar'] ?? base.spectrumBar;
 
   @override
+  Color get mediaControlsBackground => overrides['mediaControlsBackground'] ?? base.mediaControlsBackground;
+
+  @override
+  Color get mediaControlsText => overrides['mediaControlsText'] ?? base.mediaControlsText;
+
+  @override
   Color get dialogTitleButtonHover => overrides['dialogTitleButtonHover'] ?? base.dialogTitleButtonHover;
 
   @override

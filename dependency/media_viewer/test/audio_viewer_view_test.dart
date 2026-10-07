@@ -95,6 +95,18 @@ void main() {
     screen.close();
   });
 
+  testWidgets('плашка красится оформлением, а не цветами видео (§1)', (tester) async {
+    await pump(tester, const SystemAudioTags());
+
+    final colors = DefaultColors();
+    final controls = tester.widget<MediaControls>(find.byType(MediaControls));
+    expect(controls.background, colors.mediaControlsBackground);
+    expect(controls.ink, colors.mediaControlsText);
+    expect(controls.background, isNot(MediaColors.plate), reason: 'серая плашка видео на окне звука чужая');
+
+    screen.close();
+  });
+
   testWidgets('без тегов — имя файла', (tester) async {
     await pump(tester, const SystemAudioTags());
 
