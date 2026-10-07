@@ -783,6 +783,7 @@ class ColumnsViewState extends State<ColumnsView> {
                 highlightOf: (_) => _dropRect,
                 child: SingleChildScrollView(
                   controller: _ribbon,
+                  physics: const SettledScrollPhysics(),
                   scrollDirection: Axis.horizontal,
                   child: SizedBox(
                     height: constraints.maxHeight,
@@ -945,6 +946,7 @@ class _ColumnState extends State<_Column> {
     // показать, иначе оно неотличимо от «сюда не входили».
     return ListView.builder(
       controller: widget.controller,
+      physics: const SettledScrollPhysics(),
       itemExtent: widget.step,
       itemCount: column.rows.length,
       // Беречь строке нечего: своего состояния у неё нет

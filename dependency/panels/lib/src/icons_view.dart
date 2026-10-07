@@ -65,7 +65,13 @@ class _IconsViewState extends State<IconsView> {
 
   /// Список сразу встаёт туда, где стоял: начальное смещение задаётся при
   /// создании контроллера, а не подмоткой следующим кадром.
-  late final ScrollController _scroll = ScrollController(initialScrollOffset: widget.panel.scrollOffset);
+  ///
+  /// Прокрутка живёт по каталогу, как и у таблицы: контроллер новый на каждый
+  /// каталог (см. [_prepareScroll]).
+  late ScrollController _scroll = ScrollController(initialScrollOffset: widget.panel.scrollOffset);
+
+  /// Каталог, под который построена нынешняя прокрутка.
+  String? _scrolledDirectory;
 
   /// Прокрутку запомнили — можно о ней и рассказывать.
   bool _shown = false;
@@ -132,6 +138,12 @@ class _IconsViewState extends State<IconsView> {
   /// прошлого кадра; до первой раскладки их нет, и тогда ведёт проверка в
   /// разметке.
   void _onPanelChanged() {
+    if (widget.panel.currentPath != _scrolledDirectory) {
+      // Каталог сменился — прокрутку поставит сборка ([_prepareScroll]). Здесь
+      // считать не из чего: мерки ещё от прежнего списка, и прыжок по ним
+      // уводил прокрутку за край нового — короткий список отпружинивал назад.
+      return;
+    }
     final at = widget.panel.cursorIndex;
     if (at == _followedCursor) {
       return;
@@ -162,6 +174,42 @@ class _IconsViewState extends State<IconsView> {
     _marking.dispose();
     _scroll.dispose();
     super.dispose();
+  }
+
+  /// Готовит прокрутку нового каталога до того, как он появится на экране, —
+  /// тем же порядком, что и таблица (`file_table.dart`, `_prepareScroll`).
+  ///
+  /// Плитки одной высоты, поэтому ряд с курсором считается без разметки, и
+  /// первый же кадр рисуется прокрученным. Ключ у списка меняется вместе с
+  /// контроллером: `Scrollable` бережёт положение, узнав свой элемент.
+  void _prepareScroll(int count) {
+    final panel = widget.panel;
+    if (panel.currentPath == _scrolledDirectory) {
+      return;
+    }
+    final first = _scrolledDirectory == null;
+    _scrolledDirectory = panel.currentPath;
+    _followedCursor = panel.cursorIndex;
+    if (first) {
+      // Вид собрали заново — список встаёт туда, где стоял.
+      return;
+    }
+    final previous = _scroll;
+    _scroll = ScrollController(initialScrollOffset: _cursorOffset(count));
+    // Прежний ещё привязан к списку на экране: отпускать после кадра.
+    WidgetsBinding.instance.addPostFrameCallback((_) => previous.dispose());
+  }
+
+  /// Куда прокрутить новый список из [count] плиток, чтобы ряд с курсором был
+  /// виден: ряд у нижнего края, если он ниже видимой части, иначе начало.
+  double _cursorOffset(int count) {
+    if (_rowHeight <= 0 || _viewHeight <= 0 || _columns <= 0) {
+      return 0;
+    }
+    final rows = (count / _columns).ceil();
+    final bottom = _top + (widget.panel.cursorIndex ~/ _columns + 1) * _rowHeight;
+    final extent = _top + rows * _rowHeight + _gap - _viewHeight;
+    return (bottom - _viewHeight).clamp(0.0, math.max(0.0, extent));
   }
 
   /// Докрутить так, чтобы ряд с курсором стоял целиком.
@@ -444,6 +492,7 @@ class _IconsViewState extends State<IconsView> {
               _top = top;
               _headroom = metrics.pathHeaderHeight / 2;
               _viewHeight = viewHeight;
+              _prepareScroll(entries.length);
               if (resized) {
                 WidgetsBinding.instance.addPostFrameCallback((_) => _pinCursorRow(wasCursorAt));
               }
@@ -481,7 +530,11 @@ class _IconsViewState extends State<IconsView> {
               ]);
 
               final list = ListView.builder(
+                // Новый каталог — новый список: положение прежнего в него не
+                // переносится.
+                key: ValueKey(_scrolledDirectory),
                 controller: _scroll,
+                physics: const SettledScrollPhysics(),
                 // Поля — внутри прокрутки: так плитки уезжают под плашку пути
                 // целиком, а не обрезаются по её краю.
                 padding: EdgeInsets.fromLTRB(gap, top, gap, gap),

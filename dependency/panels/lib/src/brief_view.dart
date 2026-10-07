@@ -392,6 +392,7 @@ class _BriefViewState extends State<BriefView> {
 
               final list = ListView.builder(
                 controller: _scroll,
+                physics: const SettledScrollPhysics(),
                 scrollDirection: Axis.horizontal,
                 itemExtent: columnWidth,
                 itemCount: total,

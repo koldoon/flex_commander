@@ -574,6 +574,7 @@ class TreeViewState extends State<TreeView> {
 
               return ListView.builder(
                 controller: _scroll,
+                physics: const SettledScrollPhysics(),
                 itemExtent: step,
                 itemCount: rows.length,
                 // Беречь ветви нечего: своего состояния у неё нет

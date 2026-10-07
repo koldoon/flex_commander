@@ -486,6 +486,7 @@ class _FileTableState extends State<FileTable> {
             // переносится.
             key: ValueKey(_scrolledDirectory),
             controller: _scroll,
+            physics: const SettledScrollPhysics(),
             // Тем же шагом, что и всё остальное: `_rowHeight` посчитан выше, в
             // разметке, и учитывает крупные иконки.
             itemExtent: _rowHeight,

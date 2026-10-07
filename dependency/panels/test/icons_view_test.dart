@@ -186,6 +186,53 @@ void main() {
     );
   });
 
+  group('вход и выход', () {
+    /// Длинный каталог из каталогов и короткий внутри последнего.
+    InMemoryTreeProvider deep() => InMemoryTreeProvider([
+      FakeEntry.directory('/home'),
+      for (var i = 1; i <= 300; i++) FakeEntry.directory('/home/d${'$i'.padLeft(3, '0')}'),
+      FakeEntry.file('/home/d300/one.txt', size: 1),
+    ])..home = '/home';
+
+    ScrollPosition position(WidgetTester tester) =>
+        tester.state<ScrollableState>(find.byType(Scrollable).first).position;
+
+    testWidgets(
+      'вход в короткий каталог не пружинит прокрутку',
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+      (tester) async {
+        final runtime = await open(tester, size: const Size(1000, 700), source: deep());
+        final panel = runtime.app.left;
+        panel.setCursorIndex(panel.entries.length - 1);
+        await tester.pumpAndSettle();
+        expect(position(tester).pixels, greaterThan(0), reason: 'иначе уходить за край нечему');
+
+        await panel.openPath('/home/d300');
+        for (var frame = 0; frame < 3; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          expect(position(tester).pixels, 0, reason: 'кадр $frame: пружина к началу — непрошенная анимация');
+        }
+      },
+    );
+
+    testWidgets('выход наверх сразу показывает покинутый каталог', (tester) async {
+      final runtime = await open(tester, size: const Size(1000, 700), source: deep());
+      final panel = runtime.app.left;
+      await panel.openPath('/home/d300');
+      await tester.pumpAndSettle();
+
+      await panel.goUp();
+      await tester.pump();
+
+      expect(panel.currentEntry?.name, 'd300');
+      final tile = find.descendant(of: find.byType(IconTile), matching: find.text('d300'));
+      expect(tile, findsOneWidget, reason: 'первым же кадром, а не подмоткой следующим');
+      final frame = tester.getRect(find.byType(Scrollable).first);
+      expect(tester.getRect(tile).bottom, lessThanOrEqualTo(frame.bottom));
+      await tester.pumpAndSettle();
+    });
+  });
+
   testWidgets('вбок курсор шагает на плитку, вниз — на ряд', (tester) async {
     final runtime = await open(tester);
     final panel = runtime.app.left;

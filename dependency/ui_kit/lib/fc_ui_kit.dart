@@ -33,6 +33,7 @@ export 'src/plate.dart';
 export 'src/side_marks.dart';
 export 'src/panel_frame.dart';
 export 'src/settings_form.dart';
+export 'src/settled_scroll_physics.dart';
 export 'src/split_view.dart';
 export 'src/text_trim.dart';
 export 'src/chain_name.dart';
