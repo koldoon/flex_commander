@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:fc_default_theme/fc_default_theme.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -160,23 +161,40 @@ void main() {
   });
 
   group('акцент', () {
-    test('без службы — синий системный', () {
-      expect(light.cursorBackground, macOsBlueAccent);
+    test('без службы — то, что система даёт при синем акценте (§6а)', () {
       expect(light.buttonPrimaryBackground, macOsBlueAccent);
       expect(light.progress, macOsBlueAccent);
       expect(light.focusRing.withValues(alpha: 1), macOsBlueAccent);
+
+      // Выделенное и выделение текста — свои цвета системы, а не акцент. Числа
+      // сняты с `NSColor` пробой: `selectedContentBackgroundColor` и
+      // `selectedTextBackgroundColor`.
+      expect(light.cursorBackground, const Color(0xFF0064E1));
+      expect(light.pathBackground, const Color(0xFF0064E1));
+      expect(light.inputSelection, const Color(0xFFB3D7FF));
+      expect(dark.cursorBackground, const Color(0xFF0059D1));
+      expect(dark.pathBackground, const Color(0xFF0059D1));
+      expect(dark.inputSelection, const Color(0xFF3F638B));
     });
 
     test('ведёт ровно те роли, которые красит система', () {
       const pink = Color(0xFFFF2D55);
-      const withPink = MacOsColors(tones: macOsLightTones, accent: pink);
+      const pinkSelection = Color(0xFFD6224A);
+      const pinkText = Color(0xFFFFC2CF);
+      const withPink = MacOsColors(
+        tones: macOsLightTones,
+        accent: SystemAccentColors(accent: pink, selection: pinkSelection, textSelection: pinkText),
+      );
 
-      expect(withPink.cursorBackground, pink);
+      // Кнопки и прочее — акцент.
       expect(withPink.buttonPrimaryBackground, pink);
       expect(withPink.progress, pink);
-      expect(withPink.pathBackground, pink);
       expect(withPink.focusRing, pink.withValues(alpha: 0.5));
-      expect(withPink.inputSelection, pink.withValues(alpha: 0.3));
+      // Выделенное в фокусе — свой цвет системы, а не акцент.
+      expect(withPink.cursorBackground, pinkSelection);
+      expect(withPink.pathBackground, pinkSelection);
+      // Выделение текста — тоже свой, непрозрачный.
+      expect(withPink.inputSelection, pinkText);
 
       // А неакцентные роли смена акцента не шевелит.
       expect(withPink.rowText, light.rowText);
@@ -197,7 +215,10 @@ void main() {
         const Color(0xFF8E8E93), // Graphite
       ]) {
         expect(
-          MacOsColors(tones: macOsLightTones, accent: accent).cursorText,
+          MacOsColors(
+            tones: macOsLightTones,
+            accent: SystemAccentColors(accent: accent, selection: accent, textSelection: accent),
+          ).cursorText,
           const Color(0xFFFFFFFF),
           reason: 'на системном акценте подпись белая',
         );
@@ -205,7 +226,10 @@ void main() {
 
       const almostWhite = Color(0xFFFFF7C0);
       expect(
-        MacOsColors(tones: macOsLightTones, accent: almostWhite).cursorText,
+        MacOsColors(
+          tones: macOsLightTones,
+          accent: SystemAccentColors(accent: almostWhite, selection: almostWhite, textSelection: almostWhite),
+        ).cursorText,
         macOsLightTones.label,
         reason: 'на светлом акценте белая подпись исчезла бы',
       );

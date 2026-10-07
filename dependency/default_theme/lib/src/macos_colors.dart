@@ -1,5 +1,4 @@
 import 'package:fc_ui_api/fc_ui_api.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
 import 'macos_palette.dart';
@@ -24,23 +23,33 @@ class MacOsColors extends FcColors {
   /// Светлые тона или тёмные.
   final MacOsTones tones;
 
-  /// Акцент, выбранный в системе; `null` — спросить некого.
+  /// Цвета, которые система выводит из акцента; `null` — спросить некого.
   ///
   /// Канала нет в тестах и на другой платформе, и это не ошибка: оформление
-  /// остаётся с [macOsBlueAccent]. Живой акцент приносит модуль
-  /// `fc.systemAccent` (`docs/spec/macos-themes.md`, §5).
-  final Color? accent;
+  /// остаётся с тем, что система даёт при синем акценте ([macOsBlueAccent],
+  /// [MacOsTones.selection], [MacOsTones.textSelection]). Живые цвета приносит
+  /// модуль `fc.systemAccent` (`docs/spec/macos-themes.md`, §5, §6а).
+  final SystemAccentColors? accent;
 
-  Color get _accent => accent ?? macOsBlueAccent;
+  /// Акцент — кнопка подтверждения, обводка фокуса, ход работы.
+  Color get _accent => accent?.accent ?? macOsBlueAccent;
 
-  /// Чем писать поверх акцента.
+  /// Выделенное в фокусе — курсор, активная плашка (§6а). **Не акцент:** у
+  /// системы это свой цвет, темнее акцента и разный во внешностях.
+  Color get _selection => accent?.selection ?? tones.selection;
+
+  /// Чем писать поверх [fill].
   ///
   /// Система отдаёт белый всегда — все восемь её акцентов достаточно темны.
   /// Но «Другой…» в настройках даёт любой цвет, вплоть до почти белого, и белое
   /// по белому исчезает. Поэтому порог по яркости, а не «всегда белый»: это тот
   /// же ответ, что у системы, на всех её акцентах — и не тот же там, где она
   /// ошиблась бы.
-  Color get _onAccent => _accent.computeLuminance() > 0.5 ? tones.label : tones.onAccentText;
+  Color _on(Color fill) => fill.computeLuminance() > 0.5 ? tones.label : tones.onAccentText;
+
+  Color get _onAccent => _on(_accent);
+
+  Color get _onSelection => _on(_selection);
 
   @override
   Color get windowBackground => tones.windowBackground;
@@ -85,10 +94,10 @@ class MacOsColors extends FcColors {
   Color get headerText => tones.headerText;
 
   @override
-  Color get cursorBackground => _accent;
+  Color get cursorBackground => _selection;
 
   @override
-  Color get cursorText => _onAccent;
+  Color get cursorText => _onSelection;
 
   /// Пометка — оранжевая, а не акцентная (`MacOsTones.systemOrange`).
   @override
@@ -101,30 +110,32 @@ class MacOsColors extends FcColors {
   Color get icon => tones.secondaryLabel;
 
   @override
-  Color get iconSelected => _onAccent;
+  Color get iconSelected => _onSelection;
 
   // --- плашка пути ---
 
-  /// Плашка активной панели — **акцент**, как выбранный сегмент переключателя.
+  /// Плашка активной панели — **выделенное в фокусе**
+  /// (`selectedContentBackgroundColor`), а пассивной — оно же без фокуса.
   ///
-  /// Образец взят у него же: в macOS выбранный сегмент залит системным акцентом
-  /// и подписан белым, а невыбранный — нейтральной заливкой. Плашка показывает
+  /// Образец — выбранный сегмент переключателя: залит цветом системы и подписан
+  /// белым, а невыбранный — нейтральной заливкой. До §6а здесь был сам акцент;
+  /// у системы для выделенного свой цвет, темнее. Плашка показывает
   /// ровно то же самое — какая панель принимает клавиши, — и различать их
   /// оттенками серого мало: `unemphasizedSelection` и `controlColor` на тёмной
   /// внешности сходятся так близко, что различие пропадает вовсе.
   @override
-  Color get pathBackground => _accent;
+  Color get pathBackground => _selection;
 
   @override
   Color get pathBorder => tones.separator;
 
   @override
-  Color get pathText => _onAccent;
+  Color get pathText => _onSelection;
 
-  /// Крошки приглушаются **подписью плашки**, а не подписью списка: на акцентной
+  /// Крошки приглушаются **подписью плашки**, а не подписью списка: на цветной
   /// заливке приглушать надо то, чем по ней пишут.
   @override
-  Color get pathSecondaryText => _onAccent.withValues(alpha: 0.65);
+  Color get pathSecondaryText => _onSelection.withValues(alpha: 0.65);
 
   /// Пассивная — «выделенное, но не в фокусе»: та самая пара AppKit, вторая
   /// половина которой теперь досталась акценту.
@@ -213,13 +224,12 @@ class MacOsColors extends FcColors {
   @override
   Color get inputHint => tones.placeholder;
 
-  /// Выделение в поле — акцент с прозрачностью.
-  ///
-  /// Вес не выдуман: `DVTSourceTextSelectionColor` темы Xcode «Default (Light)»
-  /// равен `#A4CDFF`, а это в точности акцент «Blue» при альфе около 0.3 над
-  /// белым. Рецепт, стало быть, тоже Apple, и проверяется арифметикой.
+  /// Выделение текста — `selectedTextBackgroundColor`, непрозрачный, как у
+  /// системы (§6а). До того был акцент с прозрачностью по рецепту Xcode; у
+  /// системы для этого готовый цвет, и он идёт ещё и за настройкой «Цвет
+  /// выделения».
   @override
-  Color get inputSelection => _accent.withValues(alpha: tones.brightness == Brightness.light ? 0.3 : 0.45);
+  Color get inputSelection => accent?.textSelection ?? tones.textSelection;
 
   /// Обводка фокуса — акцент вполсилы, как `keyboardFocusIndicatorColor`.
   @override

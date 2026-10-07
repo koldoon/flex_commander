@@ -12,12 +12,22 @@ void main() {
   const pink = Color(0xFFFF2D55);
   const brightPink = Color(0xFFFF375F);
 
+  // Как отвечает раннер: три цвета на внешность (`spec/macos-themes.md`, §6а).
+  const light = SystemAccentColors(accent: pink, selection: Color(0xFFD6224A), textSelection: Color(0xFFFFC2CF));
+  const dark = SystemAccentColors(accent: brightPink, selection: Color(0xFFC4183F), textSelection: Color(0xFF7A3445));
+  Map<String, Object?> wire(SystemAccentColors colors) => {
+    'accent': colors.accent.toARGB32(),
+    'selection': colors.selection.toARGB32(),
+    'textSelection': colors.textSelection.toARGB32(),
+  };
+  final answer = <String, Object?>{'light': wire(light), 'dark': wire(dark)};
+
   tearDown(() => messenger.setMockMethodCallHandler(channel, null));
 
   test('акцент приезжает ответом на вопрос', () async {
     messenger.setMockMethodCallHandler(channel, (call) async {
       expect(call.method, 'accent');
-      return <String, Object?>{'light': pink.toARGB32(), 'dark': brightPink.toARGB32()};
+      return answer;
     });
 
     final accent = ChannelSystemAccent();
@@ -26,8 +36,8 @@ void main() {
 
     await accent.refresh();
 
-    expect(accent.light, pink);
-    expect(accent.dark, brightPink);
+    expect(accent.light, light);
+    expect(accent.dark, dark);
     expect(notifications, 1);
   });
 
@@ -48,15 +58,26 @@ void main() {
 
     // Событие «из раннера»: канал двусторонний, и это первый в приложении,
     // который заговаривает сам.
-    await _fromRunner(messenger, <String, Object?>{'light': pink.toARGB32(), 'dark': brightPink.toARGB32()});
+    await _fromRunner(messenger, answer);
 
-    expect(accent.light, pink);
+    expect(accent.light, light);
+    expect(accent.dark, dark);
     expect(notifications, 1);
 
     // Присылок об одном событии бывает две: AppKit и распределённое уведомление.
     // Второй раз о том же будить незачем — темы перевыкладывались бы впустую.
-    await _fromRunner(messenger, <String, Object?>{'light': pink.toARGB32(), 'dark': brightPink.toARGB32()});
+    await _fromRunner(messenger, answer);
     expect(notifications, 1);
+  });
+
+  test('неполный набор — как молчание: оформлению полнабора не нужно', () async {
+    // Так ответил бы раннер, собранный до §6а: один акцент на внешность.
+    final accent = ChannelSystemAccent();
+
+    await _fromRunner(messenger, <String, Object?>{'light': pink.toARGB32(), 'dark': brightPink.toARGB32()});
+
+    expect(accent.light, isNull);
+    expect(accent.dark, isNull);
   });
 
   test('служба объявлена контрактом, а не своим классом', () {

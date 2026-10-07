@@ -189,10 +189,14 @@ void main() {
   test('без службы акцента оформления берут синий, с нею — её цвет', () {
     // Канала нет в тестах и на другой платформе — это законный случай, а не
     // ошибка.
-    expect((macOsLightTheme().colors as MacOsColors).cursorBackground, macOsBlueAccent);
+    expect((macOsLightTheme().colors as MacOsColors).buttonPrimaryBackground, macOsBlueAccent);
+    expect((macOsLightTheme().colors as MacOsColors).cursorBackground, macOsLightTones.selection);
 
     const pink = Color(0xFFFF2D55);
-    expect((macOsLightTheme(accent: pink).colors as MacOsColors).cursorBackground, pink);
+    const pinkSelection = Color(0xFFD6224A);
+    const colors = SystemAccentColors(accent: pink, selection: pinkSelection, textSelection: pink);
+    expect((macOsLightTheme(accent: colors).colors as MacOsColors).buttonPrimaryBackground, pink);
+    expect((macOsLightTheme(accent: colors).colors as MacOsColors).cursorBackground, pinkSelection);
   });
 
   // Проверка «без оформления сборка не начинается» — в тестах сборки

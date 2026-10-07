@@ -1,7 +1,13 @@
 import Cocoa
 import FlutterMacOS
 
-/// Акцентный цвет, выбранный в системе.
+/// Акцентный цвет, выбранный в системе, и выделение, которое из него следует.
+///
+/// Три цвета на внешность: акцент (`controlAccentColor`), выделенное в фокусе
+/// (`selectedContentBackgroundColor`) и выделение текста
+/// (`selectedTextBackgroundColor`). Последние два система пересчитывает под
+/// акцент и под настройку «Цвет выделения» — поэтому их спрашивают, а не
+/// выводят из акцента (`docs/spec/macos-themes.md`, §6а).
 ///
 /// Канал **двусторонний**, и этим он первый в приложении: пять прежних только
 /// отвечают на вопрос. Здесь раннер ещё и заговаривает сам, потому что акцент
@@ -16,9 +22,9 @@ final class SystemAccent {
 
   private let channel: FlutterMethodChannel
 
-  /// Последняя отправленная пара: присылок об одном событии бывает две, и
+  /// Последний отправленный набор: присылок об одном событии бывает две, и
   /// будить приложение дважды незачем.
-  private var sent: [String: Int]?
+  private var sent: [String: [String: Int]]?
 
   init(messenger: FlutterBinaryMessenger) {
     channel = FlutterMethodChannel(name: SystemAccent.channelName, binaryMessenger: messenger)
@@ -27,9 +33,9 @@ final class SystemAccent {
         result(FlutterMethodNotImplemented)
         return
       }
-      let pair = SystemAccent.pair()
-      self.sent = pair
-      result(pair)
+      let colors = SystemAccent.colors()
+      self.sent = colors
+      result(colors)
     }
 
     // AppKit сообщает о смене акцента и цвета выделения этим уведомлением, и
@@ -61,27 +67,36 @@ final class SystemAccent {
     // `NSColor` про неё: с другой он отвечает не всегда и не сразу.
     DispatchQueue.main.async { [weak self] in
       guard let self = self else { return }
-      let pair = SystemAccent.pair()
-      guard pair != self.sent else { return }
-      self.sent = pair
-      self.channel.invokeMethod("changed", arguments: pair)
+      let colors = SystemAccent.colors()
+      guard colors != self.sent else { return }
+      self.sent = colors
+      self.channel.invokeMethod("changed", arguments: colors)
     }
   }
 
-  private static func pair() -> [String: Int] {
-    ["light": argb(.aqua), "dark": argb(.darkAqua)]
+  /// `{'light': {...}, 'dark': {...}}` — три цвета на каждую внешность.
+  private static func colors() -> [String: [String: Int]] {
+    ["light": colors(in: .aqua), "dark": colors(in: .darkAqua)]
   }
 
-  /// Акцент, разрешённый в заданной внешности, как `0xAARRGGBB`.
+  private static func colors(in appearance: NSAppearance.Name) -> [String: Int] {
+    [
+      "accent": argb(.controlAccentColor, in: appearance),
+      "selection": argb(.selectedContentBackgroundColor, in: appearance),
+      "textSelection": argb(.selectedTextBackgroundColor, in: appearance),
+    ]
+  }
+
+  /// Цвет, разрешённый в заданной внешности, как `0xAARRGGBB`.
   ///
   /// Приведение к sRGB делается **внутри** блока внешности: динамический
   /// `NSColor` тянет с разрешением до того мгновения, когда у него спросят
   /// составляющие, — со внешним приведением обе внешности вернули бы одно и то
   /// же, и подмены не было бы видно, потому что числа правдоподобны.
-  private static func argb(_ name: NSAppearance.Name) -> Int {
+  private static func argb(_ color: NSColor, in name: NSAppearance.Name) -> Int {
     var value = 0
     NSAppearance(named: name)?.performAsCurrentDrawingAppearance {
-      guard let c = NSColor.controlAccentColor.usingColorSpace(.sRGB) else { return }
+      guard let c = color.usingColorSpace(.sRGB) else { return }
       let a = Int((c.alphaComponent * 255).rounded())
       let r = Int((c.redComponent * 255).rounded())
       let g = Int((c.greenComponent * 255).rounded())

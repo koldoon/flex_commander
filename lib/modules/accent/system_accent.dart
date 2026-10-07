@@ -47,14 +47,14 @@ class ChannelSystemAccent extends ChangeNotifier implements SystemAccent {
 
   final MethodChannel _channel;
 
-  Color? _light;
-  Color? _dark;
+  SystemAccentColors? _light;
+  SystemAccentColors? _dark;
 
   @override
-  Color? get light => _light;
+  SystemAccentColors? get light => _light;
 
   @override
-  Color? get dark => _dark;
+  SystemAccentColors? get dark => _dark;
 
   @override
   Future<void> refresh() async => _remember(await _ask());
@@ -67,7 +67,8 @@ class ChannelSystemAccent extends ChangeNotifier implements SystemAccent {
     return null;
   }
 
-  /// Ответ и событие — одного вида: `{'light': 0xAARRGGBB, 'dark': …}`.
+  /// Ответ и событие — одного вида: `{'light': {'accent': 0xAARRGGBB,
+  /// 'selection': …, 'textSelection': …}, 'dark': {…}}` (§6а).
   ///
   /// Молчание — тоже ответ: акцента нет, и оформления остаются с постоянным
   /// синим.
@@ -75,8 +76,8 @@ class ChannelSystemAccent extends ChangeNotifier implements SystemAccent {
     if (answer is! Map) {
       return;
     }
-    final light = _color(answer['light']);
-    final dark = _color(answer['dark']);
+    final light = _colors(answer['light']);
+    final dark = _colors(answer['dark']);
     if (light == _light && dark == _dark) {
       // Уведомление о том же самом заставило бы перевыложить темы впустую.
       // Присылок может быть две: AppKit и распределённое уведомление говорят об
@@ -88,7 +89,17 @@ class ChannelSystemAccent extends ChangeNotifier implements SystemAccent {
     notifyListeners();
   }
 
-  Color? _color(Object? value) => value is int ? Color(value) : null;
+  /// Все три цвета или ничего: оформлению полнабора не нужно.
+  SystemAccentColors? _colors(Object? value) {
+    if (value is! Map) {
+      return null;
+    }
+    final (accent, selection, textSelection) = (value['accent'], value['selection'], value['textSelection']);
+    if (accent is! int || selection is! int || textSelection is! int) {
+      return null;
+    }
+    return SystemAccentColors(accent: Color(accent), selection: Color(selection), textSelection: Color(textSelection));
+  }
 
   /// Спросить раннер.
   ///

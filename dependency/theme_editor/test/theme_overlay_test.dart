@@ -310,7 +310,10 @@ void main() {
         const FcThemeSpec(
           id: 'light',
           title: 'Light',
-          colors: MacOsColors(tones: macOsLightTones, accent: pink),
+          colors: MacOsColors(
+            tones: macOsLightTones,
+            accent: SystemAccentColors(accent: pink, selection: pink, textSelection: pink),
+          ),
           metrics: DefaultMetrics(),
           icons: DefaultIcons(),
           fonts: DefaultFonts(),
@@ -332,7 +335,10 @@ void main() {
         const FcThemeSpec(
           id: 'light',
           title: 'Light',
-          colors: MacOsColors(tones: macOsLightTones, accent: pink),
+          colors: MacOsColors(
+            tones: macOsLightTones,
+            accent: SystemAccentColors(accent: pink, selection: pink, textSelection: pink),
+          ),
           metrics: DefaultMetrics(),
           icons: DefaultIcons(),
           fonts: DefaultFonts(),

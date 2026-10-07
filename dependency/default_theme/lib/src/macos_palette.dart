@@ -34,6 +34,8 @@ class MacOsTones {
     required this.control,
     required this.card,
     required this.unemphasizedSelection,
+    required this.selection,
+    required this.textSelection,
     required this.separator,
     required this.grid,
     required this.scrim,
@@ -125,6 +127,15 @@ class MacOsTones {
 
   /// `unemphasizedSelectedContentBackgroundColor` — выделенное, но не в фокусе.
   final Color unemphasizedSelection;
+
+  /// `selectedContentBackgroundColor` — выделенное в фокусе, при акценте
+  /// «Blue». Живое значение приносит служба акцента: система пересчитывает его
+  /// под акцент (`docs/spec/macos-themes.md`, §6а).
+  final Color selection;
+
+  /// `selectedTextBackgroundColor` — выделение текста, при синем акценте и
+  /// цвете выделения «Акцент». Живое — тоже от службы.
+  final Color textSelection;
 
   /// `separatorColor` — разделительная линия.
   final Color separator;
@@ -266,6 +277,8 @@ const MacOsTones macOsLightTones = MacOsTones(
   control: Color(0xFFFFFFFF),
   card: Color(0x0A000000),
   unemphasizedSelection: Color(0xFFDCDCDC),
+  selection: Color(0xFF0064E1),
+  textSelection: Color(0xFFB3D7FF),
   separator: Color(0x19000000),
   grid: Color(0xFFE6E6E6),
   // Вес подобран замером: текст под затемнением должен упасть по контрасту
@@ -329,6 +342,8 @@ const MacOsTones macOsDarkTones = MacOsTones(
   control: Color(0x3FFFFFFF),
   card: Color(0x0CFFFFFF),
   unemphasizedSelection: Color(0xFF464646),
+  selection: Color(0xFF0059D1),
+  textSelection: Color(0xFF3F638B),
   separator: Color(0x19FFFFFF),
   grid: Color(0xFF1A1A1A),
   scrim: Color(0x66000000),

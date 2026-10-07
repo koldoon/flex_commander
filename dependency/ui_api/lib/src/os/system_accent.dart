@@ -12,15 +12,46 @@ import 'package:flutter/painting.dart';
 /// на это перекладывается, и для приложения это обычное изменение состояния —
 /// такое же, как смена самой темы.
 abstract interface class SystemAccent implements Listenable {
-  /// Акцент для светлой внешности; `null` — не спрашивали или спросить некого.
+  /// Цвета для светлой внешности; `null` — не спрашивали или спросить некого.
   ///
   /// Обе внешности сразу, потому что оформление выбирают руками: светлое
-  /// обязано взять свой акцент даже тогда, когда система стоит тёмной.
-  Color? get light;
+  /// обязано взять свои цвета даже тогда, когда система стоит тёмной.
+  SystemAccentColors? get light;
 
-  /// Акцент для тёмной внешности.
-  Color? get dark;
+  /// Цвета для тёмной внешности.
+  SystemAccentColors? get dark;
 
   /// Спросить систему и запомнить ответ.
   Future<void> refresh();
+}
+
+/// Что система красит акцентом в одной внешности (`docs/spec/macos-themes.md`,
+/// §6а).
+///
+/// Три цвета, а не один акцент: выделенное и выделение текста система
+/// пересчитывает сама — под акцент и под настройку «Цвет выделения», — и
+/// вывести их из акцента нельзя.
+@immutable
+class SystemAccentColors {
+  const SystemAccentColors({required this.accent, required this.selection, required this.textSelection});
+
+  /// `controlAccentColor` — кнопка по умолчанию, обводка фокуса, ход работы.
+  final Color accent;
+
+  /// `selectedContentBackgroundColor` — выделенное в фокусе: строка списка,
+  /// активная плашка.
+  final Color selection;
+
+  /// `selectedTextBackgroundColor` — выделение текста.
+  final Color textSelection;
+
+  @override
+  bool operator ==(Object other) =>
+      other is SystemAccentColors &&
+      other.accent == accent &&
+      other.selection == selection &&
+      other.textSelection == textSelection;
+
+  @override
+  int get hashCode => Object.hash(accent, selection, textSelection);
 }

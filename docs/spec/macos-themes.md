@@ -142,7 +142,8 @@ FcThemeSpec (macos_themes.dart)    macOsLightTheme() / macOsDarkTheme()
 | `inputText` | `textColor` — набираемый текст непрозрачен |
 | `inputHint` | `placeholderTextColor` |
 | `controlText` у `buttonText`, `functionButtonText` | `controlTextColor` |
-| `pathBackground` | **акцент**, как выбранный сегмент переключателя; пассивная — `unemphasizedSelectedContentBackgroundColor` |
+| `pathBackground`, `cursorBackground` | `selectedContentBackgroundColor` — выделенное в фокусе (§6а); пассивная плашка — `unemphasizedSelectedContentBackgroundColor` |
+| `inputSelection` | `selectedTextBackgroundColor` (§6а) |
 | `functionButtonBackground`, `buttonBackground`, `dialogTitleBackground` | `controlColor` |
 | `dialogBackground` | `underPageBackgroundColor`, как и окно |
 | `syntax*` (семь) | темы Xcode |
@@ -209,6 +210,12 @@ FcThemeSpec (macos_themes.dart)    macOsLightTheme() / macOsDarkTheme()
 `buttonPrimaryBackground`, `buttonPrimaryText`, `inputSelection`, `focusRing`,
 `progress`, `pathBackground`, `pathText`.
 
+**С 7 октября 2026 (§6а) сам акцент ведёт только кнопку подтверждения,
+обводку фокуса и ход работы.** Курсор, плашка и выделение текста — тоже от
+акцента, но через свои системные цвета, которые macOS выводит из него сама.
+Ниже — как было решено до того; рассуждение про переключатель остаётся
+верным, сменился только цвет заливки.
+
 **Плашка активной панели — тоже акцент**, и образец взят у переключателя macOS:
 выбранный сегмент там залит акцентом и подписан белым, невыбранный — нейтральной
 заливкой. Оттенками серого эту пару развести не вышло: на тёмной внешности
@@ -234,7 +241,8 @@ FcThemeSpec (macos_themes.dart)    macOsLightTheme() / macOsDarkTheme()
 
 ### 6а. Выделенное в фокусе и выделение текста — свои системные цвета
 
-**Состояние:** начато 7 октября 2026.
+**Состояние:** сделана 7 октября 2026; живьём — за пользователем, после
+полного перезапуска приложения.
 
 **Что не так.** Курсор в списках и плашка активной области были залиты самим
 акцентом (`controlAccentColor`, `#007AFF`), а выделение текста — акцентом с
@@ -283,9 +291,11 @@ FcThemeSpec (macos_themes.dart)    macOsLightTheme() / macOsDarkTheme()
 
 **Ход работы.**
 
-- [ ] Канал и контракт
-- [ ] Оформление
-- [ ] Тесты, раннер
+- [x] Канал и контракт: `SystemAccentColors`, раннер отдаёт три цвета на
+  внешность. Неполный набор (раннер, собранный до §6а) — как молчание.
+- [x] Оформление: курсор, плашка и выделение текста — системные цвета,
+  подписи на них — порогом яркости от заливки.
+- [x] Тесты, раннер собирается
 
 ### Своя роль у подписи кнопки подтверждения
 
@@ -313,6 +323,8 @@ NSColor.systemColorsDidChangeNotification  (и распределённое ув
         |                                   присылок бывает две)
         v
 SystemAccent (macos/Runner)  -> channel.invokeMethod('changed', {light, dark})
+                                по три цвета на внешность: accent, selection,
+                                textSelection (§6а)
         |
         v
 ChannelSystemAccent          -> notifyListeners()

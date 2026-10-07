@@ -1,6 +1,5 @@
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/painting.dart';
 
 import 'default_fonts.dart';
 import 'default_icons.dart';
@@ -62,7 +61,7 @@ class MacOsFonts extends DefaultFonts {
 /// Иконки — общие с референсным, размеры и шрифты — почти: гайдлайны Apple
 /// здесь про цвет, а раскладка у приложения своя. Глифы красятся ролью цвета,
 /// поэтому переезжают сами.
-FcThemeSpec macOsLightTheme({Color? accent}) => FcThemeSpec(
+FcThemeSpec macOsLightTheme({SystemAccentColors? accent}) => FcThemeSpec(
   id: MacOsThemeIds.light,
   title: 'macOS Light',
   brightness: Brightness.light,
@@ -77,7 +76,7 @@ FcThemeSpec macOsLightTheme({Color? accent}) => FcThemeSpec(
 /// `brightness` здесь совпадает с умолчанием конструктора, но назван всё равно:
 /// у светлой его забыть нельзя, и пара, в которой одна половина говорит, а
 /// другая молчит, читается как недосмотр.
-FcThemeSpec macOsDarkTheme({Color? accent}) => FcThemeSpec(
+FcThemeSpec macOsDarkTheme({SystemAccentColors? accent}) => FcThemeSpec(
   id: MacOsThemeIds.dark,
   title: 'macOS Dark',
   brightness: Brightness.dark,
@@ -95,7 +94,7 @@ FcThemeSpec macOsDarkTheme({Color? accent}) => FcThemeSpec(
 /// Сменился внешний вид системы — модуль перевыкладывает эту тему с другой
 /// половиной пары, и приложение перекрашивается тем же порядком, каким оно
 /// перекрашивается от смены акцента.
-FcThemeSpec macOsAutoTheme({required Brightness brightness, Color? accent}) => FcThemeSpec(
+FcThemeSpec macOsAutoTheme({required Brightness brightness, SystemAccentColors? accent}) => FcThemeSpec(
   id: MacOsThemeIds.auto,
   title: 'Follow macOS theme',
   brightness: brightness,
