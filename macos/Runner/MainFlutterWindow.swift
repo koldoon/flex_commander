@@ -1705,7 +1705,7 @@ final class SystemVideo {
 /// Кадры снимает `AVPlayerItemVideoOutput`; движок забирает их сам через
 /// `copyPixelBuffer` на своей нити, а о новом кадре узнаёт от display link — в
 /// такт экрану, а не таймером.
-final class VideoPlayer: NSObject, FlutterTexture {
+final class VideoPlayer: NSObject, FlutterTexture, AVPlayerItemOutputPullDelegate {
   let player: AVPlayer
   private(set) var textureId: Int64 = 0
 
@@ -1719,6 +1719,15 @@ final class VideoPlayer: NSObject, FlutterTexture {
   /// читает нить движка, а пишет она же и display link.
   private var latest: CVPixelBuffer?
   private let lock = NSLock()
+
+  /// Когда такт последний раз видел новый кадр. Нет их дольше [idleAfter] —
+  /// такт встаёт до `outputMediaDataWillChange` (`video-viewer.md`, §2.2).
+  /// Под тем же замком: пишут такт и очередь делегата.
+  private var lastFrame = CACurrentMediaTime()
+  private static let idleAfter: CFTimeInterval = 0.5
+
+  /// Очередь делегата вывода — не главная: проснуться такту главная не нужна.
+  private let outputQueue = DispatchQueue(label: "flex_commander.video.output")
 
   /// Спектр того, что играет; nil — его не просили (видео) или тап не завёлся.
   let spectrum: SpectrumTap?
@@ -1756,6 +1765,8 @@ final class VideoPlayer: NSObject, FlutterTexture {
     super.init()
     if let textures = textures {
       textureId = textures.register(self)
+      // Делегат — после `super.init()`: до него `self` отдавать нельзя.
+      output?.setDelegate(self, queue: outputQueue)
       startDisplayLink()
     }
   }
@@ -1767,30 +1778,55 @@ final class VideoPlayer: NSObject, FlutterTexture {
       return
     }
     let context = Unmanaged.passUnretained(self).toOpaque()
-    CVDisplayLinkSetOutputCallback(link, { _, _, _, _, _, context in
+    CVDisplayLinkSetOutputCallback(link, { ticking, _, _, _, _, context in
       guard let context = context else {
         return kCVReturnSuccess
       }
       let player = Unmanaged<VideoPlayer>.fromOpaque(context).takeUnretainedValue()
-      player.tick()
+      player.tick(ticking)
       return kCVReturnSuccess
     }, context)
     CVDisplayLinkStart(link)
     displayLink = link
   }
 
-  /// Такт экрана: есть новый кадр — сказать движку.
-  private func tick() {
+  /// Такт экрана: есть новый кадр — сказать движку. Нет их дольше
+  /// [idleAfter] — встать и попросить вывод разбудить, когда данные пойдут:
+  /// пауза и стоящий первый кадр быстрого просмотра такт не крутят (§2.2).
+  private func tick(_ link: CVDisplayLink) {
     guard let output = output else {
       return
     }
-    let time = output.itemTime(forHostTime: CACurrentMediaTime())
+    let now = CACurrentMediaTime()
+    let time = output.itemTime(forHostTime: now)
     guard output.hasNewPixelBuffer(forItemTime: time) else {
+      lock.lock()
+      let idle = now - lastFrame > VideoPlayer.idleAfter
+      lock.unlock()
+      if idle {
+        output.requestNotificationOfMediaDataChange(withAdvanceInterval: 0.03)
+        CVDisplayLinkStop(link)
+      }
       return
     }
+    lock.lock()
+    lastFrame = now
+    lock.unlock()
     let id = textureId
     DispatchQueue.main.async { [weak self] in
       self?.textures?.textureFrameAvailable(id)
+    }
+  }
+
+  /// Вывод: данные вот-вот пойдут — пуск, перемотка, шаг на кадр. Такт
+  /// просыпается (§2.2).
+  func outputMediaDataWillChange(_ sender: AVPlayerItemOutput) {
+    lock.lock()
+    lastFrame = CACurrentMediaTime()
+    let link = displayLink
+    lock.unlock()
+    if let link = link, !CVDisplayLinkIsRunning(link) {
+      CVDisplayLinkStart(link)
     }
   }
 
@@ -1862,10 +1898,16 @@ final class VideoPlayer: NSObject, FlutterTexture {
     // Тап отпускается вместе с миксом: финализатор отдаст и его состояние.
     player.currentItem?.audioMix = nil
     player.replaceCurrentItem(with: nil)
-    if let link = displayLink {
+    // Сперва делегат: запоздавшее «данные пойдут» не должно снова завести
+    // такт закрытого плеера.
+    output?.setDelegate(nil, queue: nil)
+    lock.lock()
+    let link = displayLink
+    displayLink = nil
+    lock.unlock()
+    if let link = link {
       CVDisplayLinkStop(link)
     }
-    displayLink = nil
     if let textures = textures {
       textures.unregisterTexture(textureId)
     }
