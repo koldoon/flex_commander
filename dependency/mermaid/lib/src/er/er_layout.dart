@@ -323,7 +323,7 @@ Map<int, (int, int)> _parallel(List<ErRelation> relations) {
 _Route? _route(FlowChain chain, FlowGeometry geometry, ErMetrics metrics, double spread) {
   if (chain.selfLoop) {
     // Шаг петли — графа: под него геометрия оставила место сбоку.
-    final points = flowLoop(geometry.boxes[chain.cells.single.id]!.rect, lead: metrics.flow.lead);
+    final points = flowLoop(geometry.boxes[chain.cells.single.id]!.rect, lead: metrics.flow.lead, straight: true);
 
     return (points: points, labelSpan: diagramSample(diagramBasis(points)));
   }
@@ -366,7 +366,7 @@ _Route? _route(FlowChain chain, FlowGeometry geometry, ErMetrics metrics, double
       }
     }
     final step = math.min(metrics.lead, (towards - exit).distance / 6);
-    return flowLead(exit, outward, step);
+    return flowLead(exit, outward, step, straight: true);
   }
 
   if (!first.isBend) {

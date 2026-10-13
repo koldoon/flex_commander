@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import '../draw/diagram_layout.dart';
 import '../draw/diagram_text.dart';
+import '../flowchart/flowchart_layout.dart';
 import 'sequence_model.dart';
 
 /// Размеры раскладки. Числами, а не ролями темы: это устройство одной картинки.
@@ -266,21 +267,11 @@ class _Layout {
         _y += run.size.height + metrics.labelGap;
       }
       final loopTop = _y;
-      // Петля сглаженная, как у mermaid: уходит от линии жизни и возвращается
-      // в неё горизонтально — по две точки у каждого конца, — и наконечник
-      // смотрит ровно в линию жизни (`docs/spec/mermaid.md`, §6).
-      final lead = metrics.selfLoop / 4;
+      // Петля — одна круглая дуга, как у mermaid: без прямых кусков у линии
+      // жизни (`docs/spec/mermaid.md`, §6).
       _content.add(
         DiagramPath(
-          points: [
-            Offset(from, loopTop),
-            Offset(from + lead, loopTop),
-            Offset(from + lead * 2, loopTop),
-            Offset(from + metrics.selfLoop, loopTop + height / 2),
-            Offset(from + lead * 2, loopTop + height),
-            Offset(from + lead, loopTop + height),
-            Offset(from, loopTop + height),
-          ],
+          points: flowRoundLoop(Offset(from, loopTop), Offset(from, loopTop + height), metrics.selfLoop),
           head: _head(message.arrow.head),
           dashed: message.arrow.dotted,
           smooth: true,

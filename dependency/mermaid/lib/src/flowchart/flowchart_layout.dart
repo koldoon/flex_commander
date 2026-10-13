@@ -80,30 +80,57 @@ Offset flowOutward(FlowBox box, Offset exit) {
   }
 }
 
-/// Начало сглаженной линии: точка на границе и две по нормали к ней, на
-/// [step] и вдвое дальше.
+/// Начало сглаженной линии: точка на границе и точка по нормали к ней, на
+/// [step].
 ///
-/// Кривая `curveBasis` у конца идёт по прямой через эти точки — поэтому
-/// выходит из фигуры и входит в неё под прямым углом, а наконечник лежит на
-/// прямом участке, а не на изгибе (`docs/spec/mermaid.md`, §7а).
-List<Offset> flowLead(Offset exit, Offset outward, double step) => [
+/// Кривая `curveBasis` касается отрезка между ними — поэтому выходит из фигуры
+/// и входит в неё под прямым углом, а сразу за ним уже изгибается, как у
+/// mermaid. Прямой кусок у конца — шестая доля шага, глазу не виден.
+///
+/// [straight] — две точки по нормали, на шаге и вдвое дальше: тогда кривая у
+/// конца идёт по прямой на всю длину шага. Это для знаков кардинальности ER —
+/// «воронья лапка» длиной в 15 точек должна лежать на прямой, а не на изгибе
+/// (`docs/spec/mermaid.md`, §7а). Стрелке в шесть точек столько прямой не нужно:
+/// с ней петля выходила «ступенькой» — прямой кусок и резкий загиб.
+List<Offset> flowLead(Offset exit, Offset outward, double step, {bool straight = false}) => [
   exit,
   exit + outward * step,
-  exit + outward * step * 2,
+  if (straight) exit + outward * step * 2,
 ];
 
-/// Петля на себя: сбоку от фигуры и обратно в неё — сглаженная, начало и конец
-/// горизонтально, через [flowLead].
-List<Offset> flowLoop(Rect rect, {double lead = 10}) {
+/// Петля на себя: сбоку от фигуры и обратно в неё. Вбок она выступает не
+/// дальше четырёх шагов [lead].
+///
+/// Обычная — как у mermaid: четыре точки, две опоры далеко справа и чуть за
+/// краями петли (`flowRoundLoop`). Кривая круглая, без прямых кусков.
+///
+/// [straight] — для знаков кардинальности ER: начало и конец горизонтально и по
+/// прямой на шаг, через [flowLead], чтобы «лапка» легла на прямую.
+List<Offset> flowLoop(Rect rect, {double lead = 10, bool straight = false}) {
   final top = Offset(rect.right, rect.center.dy - rect.height / 4);
   final bottom = Offset(rect.right, rect.center.dy + rect.height / 4);
+
+  if (!straight) {
+    return flowRoundLoop(top, bottom, lead * 4);
+  }
+
   const right = Offset(1, 0);
 
   return [
-    ...flowLead(top, right, lead),
+    ...flowLead(top, right, lead, straight: true),
     Offset(rect.right + lead * 4, rect.center.dy),
-    ...flowLead(bottom, right, lead).reversed,
+    ...flowLead(bottom, right, lead, straight: true).reversed,
   ];
+}
+
+/// Круглая петля вправо от [top] к [bottom] шириной не больше [reach] — как
+/// у mermaid: одна дуга по четырём точкам, опоры справа и на четверть высоты
+/// за краями петли. Выходит вправо-вверх и возвращается слева-снизу, без
+/// прямых кусков.
+List<Offset> flowRoundLoop(Offset top, Offset bottom, double reach) {
+  final over = (bottom.dy - top.dy) / 4;
+
+  return [top, Offset(top.dx + reach, top.dy - over), Offset(bottom.dx + reach, bottom.dy + over), bottom];
 }
 
 class _Drawing {
