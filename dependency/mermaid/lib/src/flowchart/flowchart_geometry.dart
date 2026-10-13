@@ -20,6 +20,7 @@ class FlowMetrics {
     this.frameInset = 10,
     this.frameGap = 6,
     this.labelGap = 6,
+    this.lead = 10,
   });
 
   /// Поле вокруг всей картинки.
@@ -53,6 +54,11 @@ class FlowMetrics {
   /// Между подписью ребра и самим ребром.
   final double labelGap;
 
+  /// Шаг вспомогательных точек у границы фигуры: на нём сглаженная линия ещё
+  /// идёт по нормали к границе. Петля на себя уходит вбок на четыре таких шага
+  /// (`docs/spec/mermaid.md`, §7а).
+  final double lead;
+
   /// Те же размеры с другим зазором между слоями: ER растит его под подписи
   /// параллельных связей (`docs/spec/mermaid.md`, §7а).
   FlowMetrics withLayerGap(double layerGap) => FlowMetrics(
@@ -67,6 +73,7 @@ class FlowMetrics {
     frameInset: frameInset,
     frameGap: frameGap,
     labelGap: labelGap,
+    lead: lead,
   );
 }
 
@@ -236,6 +243,13 @@ class _Geometry {
     }
     for (final centre in bends.values) {
       add(Rect.fromCenter(center: centre, width: 1, height: 1));
+    }
+    // Петля на себя выступает вбок от узла — и тоже входит в картинку.
+    for (final chain in layering.chains) {
+      final box = chain.selfLoop ? boxes[chain.cells.single.id] : null;
+      if (box != null) {
+        add(Rect.fromLTRB(box.rect.right, box.rect.top, box.rect.right + metrics.lead * 4, box.rect.bottom));
+      }
     }
 
     if (bounds == null) {

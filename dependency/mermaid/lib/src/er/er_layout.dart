@@ -272,7 +272,7 @@ Map<int, (int, int)> _fans(
     }
     final rect = geometry.boxes[start.id]!.rect;
     final exit = route.labelSpan.first;
-    final side = _outward(rect, exit);
+    final side = flowSide(rect, exit);
     // Вдоль стороны: сверху и снизу — по x, сбоку — по y.
     final position = side.dy != 0 ? exit.dx : exit.dy;
     groups.putIfAbsent('${start.id}\u0000$side', () => []).add((i, position));
@@ -308,18 +308,6 @@ Map<int, (int, int)> _parallel(List<ErRelation> relations) {
   };
 }
 
-/// Наружу от той стороны [rect], на которой лежит [point].
-Offset _outward(Rect rect, Offset point) {
-  final sides = {
-    const Offset(-1, 0): (point.dx - rect.left).abs(),
-    const Offset(1, 0): (point.dx - rect.right).abs(),
-    const Offset(0, -1): (point.dy - rect.top).abs(),
-    const Offset(0, 1): (point.dy - rect.bottom).abs(),
-  };
-
-  return sides.entries.reduce((a, b) => b.value < a.value ? b : a).key;
-}
-
 /// Линия связи: кривая через перегибы геометрии, концами в рамки таблиц.
 ///
 /// У каждого конца — две точки на одной прямой, перпендикулярной стороне
@@ -334,19 +322,8 @@ Offset _outward(Rect rect, Offset point) {
 /// расходящиеся связи ещё рядом.
 _Route? _route(FlowChain chain, FlowGeometry geometry, ErMetrics metrics, double spread) {
   if (chain.selfLoop) {
-    final rect = geometry.boxes[chain.cells.single.id]!.rect;
-    final top = Offset(rect.right, rect.center.dy - rect.height / 4);
-    final bottom = Offset(rect.right, rect.center.dy + rect.height / 4);
-    final lead = Offset(metrics.lead, 0);
-    final points = [
-      top,
-      top + lead,
-      top + lead * 2,
-      Offset(rect.right + metrics.lead * 4, rect.center.dy),
-      bottom + lead * 2,
-      bottom + lead,
-      bottom,
-    ];
+    // Шаг петли — графа: под него геометрия оставила место сбоку.
+    final points = flowLoop(geometry.boxes[chain.cells.single.id]!.rect, lead: metrics.flow.lead);
 
     return (points: points, labelSpan: diagramSample(diagramBasis(points)));
   }
@@ -371,7 +348,7 @@ _Route? _route(FlowChain chain, FlowGeometry geometry, ErMetrics metrics, double
   List<Offset> lead(FlowCell cell, Offset towards) {
     final rect = geometry.boxes[cell.id]!.rect;
     var exit = flowExit(geometry.boxes[cell.id]!, towards);
-    final outward = _outward(rect, exit);
+    final outward = flowSide(rect, exit);
     if (spread != 0) {
       // Вдоль стороны, в ту же сторону, что [across], и не дальше её краёв.
       final side = Offset(outward.dy.abs(), outward.dx.abs());
@@ -389,9 +366,7 @@ _Route? _route(FlowChain chain, FlowGeometry geometry, ErMetrics metrics, double
       }
     }
     final step = math.min(metrics.lead, (towards - exit).distance / 6);
-    final out = outward * step;
-
-    return [exit, exit + out, exit + out * 2];
+    return flowLead(exit, outward, step);
   }
 
   if (!first.isBend) {

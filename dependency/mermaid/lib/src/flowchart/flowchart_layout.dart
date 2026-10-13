@@ -49,15 +49,60 @@ Offset flowExit(FlowBox box, Offset towards) {
   return centre + unit * reach;
 }
 
-/// Петля на себя: сбоку от фигуры и обратно в неё.
-List<Offset> flowLoop(Rect rect) {
-  final out = rect.width / 2;
+/// Наружу от той стороны [rect], на которой лежит [point].
+Offset flowSide(Rect rect, Offset point) {
+  final sides = {
+    const Offset(-1, 0): (point.dx - rect.left).abs(),
+    const Offset(1, 0): (point.dx - rect.right).abs(),
+    const Offset(0, -1): (point.dy - rect.top).abs(),
+    const Offset(0, 1): (point.dy - rect.bottom).abs(),
+  };
+
+  return sides.entries.reduce((a, b) => b.value < a.value ? b : a).key;
+}
+
+/// Наружу от фигуры в точке её границы [exit] — нормаль к границе: у круга по
+/// радиусу, у ромба — к его грани, у прочих — к стороне рамки.
+Offset flowOutward(FlowBox box, Offset exit) {
+  final centre = box.rect.center;
+  final from = exit - centre;
+
+  switch (box.shape) {
+    case FlowShape.circle:
+      return from.distance == 0 ? const Offset(0, 1) : from / from.distance;
+
+    case FlowShape.rhombus:
+      final normal = Offset(from.dx.sign / (box.rect.width / 2), from.dy.sign / (box.rect.height / 2));
+      return normal.distance == 0 ? const Offset(0, 1) : normal / normal.distance;
+
+    default:
+      return flowSide(box.rect, exit);
+  }
+}
+
+/// Начало сглаженной линии: точка на границе и две по нормали к ней, на
+/// [step] и вдвое дальше.
+///
+/// Кривая `curveBasis` у конца идёт по прямой через эти точки — поэтому
+/// выходит из фигуры и входит в неё под прямым углом, а наконечник лежит на
+/// прямом участке, а не на изгибе (`docs/spec/mermaid.md`, §7а).
+List<Offset> flowLead(Offset exit, Offset outward, double step) => [
+  exit,
+  exit + outward * step,
+  exit + outward * step * 2,
+];
+
+/// Петля на себя: сбоку от фигуры и обратно в неё — сглаженная, начало и конец
+/// горизонтально, через [flowLead].
+List<Offset> flowLoop(Rect rect, {double lead = 10}) {
+  final top = Offset(rect.right, rect.center.dy - rect.height / 4);
+  final bottom = Offset(rect.right, rect.center.dy + rect.height / 4);
+  const right = Offset(1, 0);
 
   return [
-    Offset(rect.right, rect.center.dy - rect.height / 4),
-    Offset(rect.right + out, rect.center.dy - rect.height / 4),
-    Offset(rect.right + out, rect.center.dy + rect.height / 4),
-    Offset(rect.right, rect.center.dy + rect.height / 4),
+    ...flowLead(top, right, lead),
+    Offset(rect.right + lead * 4, rect.center.dy),
+    ...flowLead(bottom, right, lead).reversed,
   ];
 }
 
@@ -117,9 +162,22 @@ class _Drawing {
     ];
 
     // Концы упираются в границу фигуры, а не в её центр: иначе наконечник
-    // тонет внутри узла.
-    points[0] = _exit(chain.cells.first, points[1]);
-    points[points.length - 1] = _exit(chain.cells.last, points[points.length - 2]);
+    // тонет внутри узла. И у каждого — по две точки по нормали к границе:
+    // кривая выходит и входит под прямым углом, как у mermaid.
+    List<Offset> lead(FlowCell cell, Offset towards) {
+      final exit = _exit(cell, towards);
+      if (cell.isBend) {
+        return [exit];
+      }
+      final step = math.min(metrics.lead, (towards - exit).distance / 6);
+
+      return flowLead(exit, flowOutward(geometry.boxes[cell.id]!, exit), step);
+    }
+
+    final centres = [...points];
+    points
+      ..replaceRange(0, 1, lead(chain.cells.first, centres[1]))
+      ..replaceRange(points.length - 1, points.length, lead(chain.cells.last, centres[centres.length - 2]).reversed);
 
     // Рисуем в настоящую сторону: перевёрнутость живёт только внутри раскладки.
     final route = chain.reversed ? points.reversed.toList() : points;
@@ -131,6 +189,7 @@ class _Drawing {
         tail: _head(edge.tail),
         dashed: edge.line == FlowLine.dotted,
         thick: edge.line == FlowLine.thick,
+        smooth: true,
       ),
     ];
   }
@@ -138,10 +197,11 @@ class _Drawing {
   /// Петля на себя: сбоку от узла и обратно в него.
   DiagramShape _loop(FlowChain chain, FlowEdge edge) {
     return DiagramPath(
-      points: flowLoop(geometry.boxes[chain.cells.single.id]!.rect),
+      points: flowLoop(geometry.boxes[chain.cells.single.id]!.rect, lead: metrics.lead),
       head: _head(edge.head),
       dashed: edge.line == FlowLine.dotted,
       thick: edge.line == FlowLine.thick,
+      smooth: true,
     );
   }
 

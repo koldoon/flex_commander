@@ -120,15 +120,36 @@ void main() {
       final l = down('A --> A\n');
       final loop = arrowsOf(l).single;
 
-      expect(loop.points, hasLength(4));
+      expect(loop.smooth, isTrue);
       expect(loop.points[1].dx, greaterThan(figuresOf(l).single.path.getBounds().right));
+    });
+
+    test('рёбра сглажены и выходят из фигуры по нормали к границе', () {
+      // Сверху вниз: из прямоугольника — вертикально вниз, в круг — по
+      // радиусу, то есть точно к его центру.
+      final l = down('A[Начало] --> B((Круг))\nA --> C[Конец]\n');
+      final circle = figuresOf(l)[1].path.getBounds();
+
+      for (final edge in arrowsOf(l)) {
+        expect(edge.smooth, isTrue);
+        final first = edge.points[1] - edge.points[0];
+        expect(first.dx.abs(), lessThan(1e-6), reason: 'из прямоугольника — вертикально');
+      }
+
+      final intoCircle = arrowsOf(l).firstWhere((edge) => circle.inflate(1).contains(edge.points.last));
+      final last = intoCircle.points.last - intoCircle.points[intoCircle.points.length - 2];
+      final toCentre = circle.center - intoCircle.points.last;
+      final cross = last.dx * toCentre.dy - last.dy * toCentre.dx;
+      expect(cross.abs(), lessThan(1e-3), reason: 'в круг — по радиусу');
     });
 
     test('длинное ребро идёт через перегиб', () {
       final l = down('A --> B --> C\nA --> C\n');
-      final long = arrowsOf(l).firstWhere((path) => path.points.length > 2);
+      // У каждого конца — точка на границе и две по нормали к ней; у длинного
+      // ребра сверх того одна точка перегиба посередине.
+      final lengths = [for (final path in arrowsOf(l)) path.points.length]..sort();
 
-      expect(long.points, hasLength(3));
+      expect(lengths, [6, 6, 7]);
     });
   });
 

@@ -344,7 +344,7 @@ void main() {
       final l = layout('A->>A: сам себе\n');
       final loop = arrowsOf(l).single;
 
-      expect(loop.points, hasLength(4));
+      expect(loop.smooth, isTrue, reason: 'петля сглаженная, как у mermaid');
       final lifeline = loop.points.first.dx;
       expect(loop.points[1].dx, greaterThan(lifeline), reason: 'петля уходит вправо');
       expect(loop.points.last.dx, lifeline, reason: 'и возвращается на ту же линию');
