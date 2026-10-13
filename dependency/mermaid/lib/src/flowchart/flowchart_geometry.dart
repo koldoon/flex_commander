@@ -191,6 +191,7 @@ class _Geometry {
     final offsets = _offsets(thickness, gaps);
 
     _placeAlong();
+    _separateFrames();
     _centreLayers();
 
     final total = offsets.last + thickness.last;
@@ -199,6 +200,10 @@ class _Geometry {
 
     for (final cells in layering.layers) {
       for (final cell in cells) {
+        if (cell.isAnchor) {
+          // Опора держала подграф при расстановке и ничего не рисует.
+          continue;
+        }
         final centre = _centreOf(cell, offsets, thickness, total + metrics.margin);
         if (cell.isBend) {
           bends[cell] = centre;
@@ -214,7 +219,7 @@ class _Geometry {
       }
     }
 
-    final frames = _frames(boxes);
+    final frames = _frames(boxes, bends);
     final labels = _labels(boxes, bends);
 
     // Рамка подграфа выступает над своими узлами на заголовок, а подпись ребра
@@ -337,7 +342,7 @@ class _Geometry {
 
   /// Размер ячейки вдоль слоя и поперёк.
   double _alongSize(FlowCell cell) {
-    if (cell.isBend) {
+    if (cell.id == null) {
       return 0;
     }
     final size = _shapeSize[cell.id]!;
@@ -346,7 +351,7 @@ class _Geometry {
   }
 
   double _acrossSize(FlowCell cell) {
-    if (cell.isBend) {
+    if (cell.id == null) {
       return 0;
     }
     final size = _shapeSize[cell.id]!;
@@ -463,6 +468,124 @@ class _Geometry {
     return places.length.isOdd ? places[middle] : (places[middle - 1] + places[middle]) / 2;
   }
 
+  /// Сколько раз проходить разведение рамок: противоречивый порядок не должен
+  /// зациклить раскладку.
+  static const int _frameRounds = 50;
+
+  /// Рамки подграфов — сплошными полосами (`docs/spec/mermaid.md`, §7, «Рамка
+  /// — сплошная полоса во всех своих слоях»).
+  ///
+  /// У каждого подграфа — промежуток вдоль слоя: от края до края его ячеек и
+  /// вложенных рамок, с полями рамки. В каждом слое чужая ячейка после блока
+  /// подграфа, залезшая в промежуток, сдвигается за его конец вместе со всеми,
+  /// кто за ней; чужая до блока, залезшая в него, сдвигает вперёд весь
+  /// подграф. Только вперёд — и пока что-то движется.
+  void _separateFrames() {
+    final groups = layering.groups;
+    if (diagram.subgraphs.isEmpty || groups.isEmpty) {
+      return;
+    }
+
+    final inner = {
+      for (var i = 0; i < diagram.subgraphs.length; i++)
+        i: [
+          for (final id in diagram.subgraphs[i].subgraphs)
+            if (diagram.subgraphs.indexWhere((group) => group.id == id) >= 0)
+              diagram.subgraphs.indexWhere((group) => group.id == id),
+        ],
+    };
+    // Заголовок рамки стоит над её содержимым: слева направо это вдоль слоя.
+    final title = {
+      for (var i = 0; i < diagram.subgraphs.length; i++)
+        i:
+            _horizontal
+                ? measure.run(diagram.subgraphs[i].text.join('\n'), DiagramTextRole.blockLabel).size.height +
+                    metrics.frameGap
+                : 0.0,
+    };
+
+    (double, double)? span(int group) {
+      double? start;
+      double? end;
+      void add(double from, double to) {
+        start = start == null ? from : math.min(start!, from);
+        end = end == null ? to : math.max(end!, to);
+      }
+
+      for (final cells in layering.layers) {
+        for (final cell in cells) {
+          final path = groups[cell] ?? const <int>[];
+          if (!cell.isAnchor && path.isNotEmpty && path.last == group) {
+            add(_along[cell]! - _alongSize(cell) / 2, _along[cell]! + _alongSize(cell) / 2);
+          }
+        }
+      }
+      for (final nested in inner[group]!) {
+        final their = span(nested);
+        if (their != null) {
+          add(their.$1, their.$2);
+        }
+      }
+      if (start == null) {
+        return null;
+      }
+
+      return (start! - metrics.frameInset - title[group]!, end! + metrics.frameInset);
+    }
+
+    void shift(Iterable<FlowCell> cells, double by) {
+      for (final cell in cells) {
+        _along[cell] = _along[cell]! + by;
+      }
+    }
+
+    for (var round = 0; round < _frameRounds; round++) {
+      var moved = false;
+
+      for (var group = 0; group < diagram.subgraphs.length; group++) {
+        for (final cells in layering.layers) {
+          final mine = [
+            for (var i = 0; i < cells.length; i++)
+              if ((groups[cells[i]] ?? const <int>[]).contains(group)) i,
+          ];
+          final frame = span(group);
+          if (mine.isEmpty || frame == null) {
+            continue;
+          }
+
+          // Чужая до блока залезла в промежуток — весь подграф вперёд.
+          if (mine.first > 0) {
+            final before = cells[mine.first - 1];
+            final reach = _along[before]! + _alongSize(before) / 2 + metrics.cellGap;
+            if (reach > frame.$1 + 0.01) {
+              shift([
+                for (final layer in layering.layers)
+                  for (final cell in layer)
+                    if ((groups[cell] ?? const <int>[]).contains(group)) cell,
+              ], reach - frame.$1);
+              moved = true;
+              continue;
+            }
+          }
+
+          // Чужая после блока — за его конец, вместе со всеми, кто за ней.
+          if (mine.last + 1 < cells.length) {
+            final after = cells[mine.last + 1];
+            final from = _along[after]! - _alongSize(after) / 2 - metrics.cellGap;
+            if (from < frame.$2 - 0.01) {
+              shift(cells.sublist(mine.last + 1), frame.$2 - from);
+              moved = true;
+            }
+          }
+        }
+      }
+
+      if (!moved) {
+        break;
+      }
+    }
+  }
+
   /// Сдвинуть всё вдоль слоёв к началу.
   void _centreLayers() {
     var least = double.infinity;
@@ -504,7 +627,7 @@ class _Geometry {
 
   // --- рамки подграфов ---
 
-  List<FlowFrame> _frames(Map<String, FlowBox> boxes) {
+  List<FlowFrame> _frames(Map<String, FlowBox> boxes, Map<FlowCell, Offset> bends) {
     final frames = <String, FlowFrame>{};
     final order = _byDepth();
 
@@ -518,6 +641,14 @@ class _Geometry {
         final box = boxes[id];
         if (box != null) {
           add(box.rect);
+        }
+      }
+      // Перегибы рёбер между своими — тоже свои: без них линия внутри рамки
+      // выходила за её край.
+      for (final entry in bends.entries) {
+        final path = layering.groups[entry.key] ?? const <int>[];
+        if (path.isNotEmpty && path.last == index) {
+          add(Rect.fromCenter(center: entry.value, width: 1, height: 1));
         }
       }
       for (final inner in group.subgraphs) {

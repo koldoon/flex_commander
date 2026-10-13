@@ -457,9 +457,9 @@ Map<(FlowChain, bool), Offset> _ports(
 /// без полосы.
 Map<int, (double, double)> _bands(FlowLayering layering, FlowGeometry geometry, {required bool horizontal}) => {
   for (var i = 0; i < layering.layers.length; i++)
-    if (layering.layers[i].any((cell) => !cell.isBend))
+    if (layering.layers[i].any((cell) => cell.id != null))
       i: layering.layers[i]
-          .where((cell) => !cell.isBend)
+          .where((cell) => cell.id != null)
           .map((cell) => geometry.boxes[cell.id]!.rect)
           .map((rect) => horizontal ? (rect.left, rect.right) : (rect.top, rect.bottom))
           .reduce((a, b) => (math.min(a.$1, b.$1), math.max(a.$2, b.$2))),

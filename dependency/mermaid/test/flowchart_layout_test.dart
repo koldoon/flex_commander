@@ -154,6 +154,38 @@ void main() {
   });
 
   group('подграфы', () {
+    test('живая схема «Между файлами» — рамки не налезают, чужих внутри нет', () {
+      // Подграф `library.sqlite` растянут на всю картинку: его `covers` — в
+      // последнем слое. В промежуточных слоях внутрь его рамки вставали узлы
+      // чужих подграфов, и рамки перекрывались (§7, «Рамка — сплошная полоса»).
+      final diagram = parseFlowchart(_betweenFiles);
+      final geometry = placeFlowchart(diagram, layerFlowchart(diagram), measure);
+      final frames = {for (final frame in geometry.frames) frame.id: frame.rect};
+
+      // Кто в каком подграфе — и во вложенных.
+      Set<String> membersOf(String id) {
+        final group = diagram.subgraphs.firstWhere((group) => group.id == id);
+        return {...group.nodes, for (final inner in group.subgraphs) ...membersOf(inner)};
+      }
+
+      for (final entry in frames.entries) {
+        final members = membersOf(entry.key);
+        for (final box in geometry.boxes.values) {
+          if (!members.contains(box.id)) {
+            expect(entry.value.overlaps(box.rect), isFalse, reason: '${box.id} внутри рамки ${entry.key}');
+          }
+        }
+        for (final other in frames.entries) {
+          final nested =
+              membersOf(entry.key).containsAll(membersOf(other.key)) ||
+              membersOf(other.key).containsAll(membersOf(entry.key));
+          if (other.key != entry.key && !nested) {
+            expect(entry.value.overlaps(other.value), isFalse, reason: 'рамки ${entry.key} и ${other.key}');
+          }
+        }
+      }
+    });
+
     test('рамка — незалитая коробка с заголовком', () {
       final l = down('subgraph S [Заголовок]\n  A --> B\nend\n');
 
@@ -230,3 +262,32 @@ bool _onEdge(Rect rect, Offset point) =>
     (point.dx - rect.right).abs() < 0.5 ||
     (point.dy - rect.top).abs() < 0.5 ||
     (point.dy - rect.bottom).abs() < 0.5;
+
+/// Схема «Между файлами» — как она написана в живом документе
+/// (`spectrum/docs/database.md`).
+const String _betweenFiles = '''
+flowchart LR
+    subgraph library.sqlite
+        roots --> tracks
+        tracks --> lcovers[covers]
+    end
+    subgraph library-clean.sqlite
+        ctracks[clean.tracks]
+    end
+    subgraph metadata.sqlite
+        files --> mb_tracks --> mcovers[covers]
+    end
+    subgraph user.sqlite
+        playlist_tracks
+        plays
+    end
+    jpg[(covers/mbid.jpg)]
+
+    tracks -.->|"root_id, folder, file"| ctracks
+    ctracks -.->|cover_id| lcovers
+    tracks -.->|"полный путь = files.path"| files
+    tracks -.->|"полный путь = path"| playlist_tracks
+    tracks -.->|"matchKey исполнителя, названия, альбома"| plays
+    mcovers -.->|file| jpg
+    jpg -.->|"ExternalCovers: makeCover, по hash"| lcovers
+''';

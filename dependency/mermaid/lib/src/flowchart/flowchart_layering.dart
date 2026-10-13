@@ -6,15 +6,25 @@ import 'flowchart_model.dart';
 /// маршруте — не было ни одного ребра длиннее одного слоя
 /// (`docs/spec/mermaid.md`, §7).
 class FlowCell {
-  FlowCell.node(this.id, this.layer) : edge = -1;
+  FlowCell.node(this.id, this.layer) : edge = -1, group = -1;
 
-  FlowCell.bend(this.edge, this.layer) : id = null;
+  FlowCell.bend(this.edge, this.layer) : id = null, group = -1;
 
-  /// Имя узла; null — перегиб.
+  /// Опора подграфа [group] в слое, где своих узлов у него нет: держит
+  /// подграф сплошным блоком во всех слоях его рамки. Ничего не рисует и в
+  /// маршруты рёбер не входит (`docs/spec/mermaid.md`, §7, «Рамка — сплошная
+  /// полоса»).
+  FlowCell.anchor(this.group, this.layer) : id = null, edge = -1;
+
+  /// Имя узла; null — перегиб или опора.
   final String? id;
 
-  /// Чьё это ребро; -1 у настоящего узла.
+  /// Чьё это ребро; -1 у настоящего узла и у опоры.
   final int edge;
+
+  /// Чей подграф держит опора — индекс в [FlowchartDiagram.subgraphs]; -1 у
+  /// всех прочих.
+  final int group;
 
   /// Номер слоя, считая с нуля.
   final int layer;
@@ -22,10 +32,15 @@ class FlowCell {
   /// Место в слое: считается упорядочиванием.
   int order = 0;
 
-  bool get isBend => id == null;
+  bool get isBend => id == null && group < 0;
+
+  bool get isAnchor => group >= 0;
 
   @override
-  String toString() => isBend ? 'изгиб ребра $edge на слое $layer' : '$id на слое $layer';
+  String toString() =>
+      isAnchor
+          ? 'опора подграфа $group на слое $layer'
+          : (isBend ? 'изгиб ребра $edge на слое $layer' : '$id на слое $layer');
 }
 
 /// Путь одного ребра по слоям.
@@ -50,13 +65,18 @@ class FlowChain {
 
 /// Слои и порядок внутри них.
 class FlowLayering {
-  const FlowLayering({required this.layers, required this.chains});
+  const FlowLayering({required this.layers, required this.chains, this.groups = const {}});
 
   /// Ячейки по слоям, каждый — в своём порядке.
   final List<List<FlowCell>> layers;
 
   /// По одной цепочке на ребро исходной модели, в том же порядке.
   final List<FlowChain> chains;
+
+  /// Подграфы вокруг каждой ячейки, от внешнего к внутреннему: у узла — его, у
+  /// перегиба — общие у концов ребра, у опоры — её подграф. Пусто — подграфов
+  /// нет. По этому геометрия разводит рамки.
+  final Map<FlowCell, List<int>> groups;
 
   /// Сколько пересечений между соседними слоями сейчас.
   int get crossings {
@@ -130,10 +150,21 @@ class _Layering {
     final arcs = _removeCycles();
     final layerOf = _assignLayers(arcs);
     final (layers, chains) = _buildCells(arcs, layerOf);
+    _anchor(layers);
 
     _order(layers, chains);
 
-    return FlowLayering(layers: layers, chains: chains);
+    return FlowLayering(
+      layers: layers,
+      chains: chains,
+      groups:
+          diagram.subgraphs.isEmpty
+              ? const {}
+              : {
+                for (final layer in layers)
+                  for (final cell in layer) cell: _groupsOf(cell),
+              },
+    );
   }
 
   // --- 1. снятие циклов ---
@@ -266,6 +297,54 @@ class _Layering {
 
     return (layers, [for (final chain in chains) chain!]);
   }
+
+  // --- 3а. опоры подграфов ---
+
+  /// В каждый слой между первым и последним слоем подграфа, где у него нет
+  /// ничего своего, — опору. Сперва вложенные: опора вложенного своя и для
+  /// внешнего.
+  void _anchor(List<List<FlowCell>> layers) {
+    if (diagram.subgraphs.isEmpty) {
+      return;
+    }
+
+    final depth = {for (var i = 0; i < diagram.subgraphs.length; i++) i: (_pathOfGroup[i] ?? const []).length};
+    final order = [for (var i = 0; i < diagram.subgraphs.length; i++) i]
+      ..sort((a, b) => depth[b]!.compareTo(depth[a]!));
+
+    for (final group in order) {
+      final spanned = [
+        for (var i = 0; i < layers.length; i++)
+          if (layers[i].any((cell) => !cell.isBend && _groupsOf(cell).contains(group))) i,
+      ];
+      if (spanned.isEmpty) {
+        continue;
+      }
+      for (var layer = spanned.first + 1; layer < spanned.last; layer++) {
+        if (!layers[layer].any((cell) => _groupsOf(cell).contains(group))) {
+          layers[layer].add(FlowCell.anchor(group, layer));
+        }
+      }
+    }
+  }
+
+  /// Цепочка подграфов от внешнего к самому подграфу — по индексу подграфа.
+  late final Map<int, List<int>> _pathOfGroup = () {
+    final parent = <int, int>{};
+    for (var i = 0; i < diagram.subgraphs.length; i++) {
+      for (final inner in diagram.subgraphs[i].subgraphs) {
+        final at = diagram.subgraphs.indexWhere((group) => group.id == inner);
+        if (at >= 0) {
+          parent[at] = i;
+        }
+      }
+    }
+
+    return {
+      for (var i = 0; i < diagram.subgraphs.length; i++)
+        i: [for (int? at = i; at != null; at = parent[at]) at].reversed.toList(),
+    };
+  }();
 
   // --- 4. порядок внутри слоя ---
 
@@ -416,6 +495,9 @@ class _Layering {
   /// У перегиба своего подграфа нет; он принадлежит тому, что общий у концов
   /// его ребра, — иначе длинное ребро внутри рамки выталкивало бы её края.
   List<int> _groupsOf(FlowCell cell) {
+    if (cell.isAnchor) {
+      return _pathOfGroup[cell.group] ?? const [];
+    }
     if (!cell.isBend) {
       return _groups[cell.id] ?? const [];
     }
@@ -458,7 +540,10 @@ class _Layering {
 
   /// Чем сортировать в самом начале: узел — местом объявления, перегиб —
   /// номером своего ребра, и перегибы после узлов.
-  int _initial(FlowCell cell) => cell.isBend ? _ids.length + cell.edge : (_declared[cell.id] ?? 0);
+  int _initial(FlowCell cell) =>
+      cell.isAnchor
+          ? _ids.length + diagram.edges.length + cell.group
+          : (cell.isBend ? _ids.length + cell.edge : (_declared[cell.id] ?? 0));
 
   void _renumber(List<List<FlowCell>> layers) {
     for (final layer in layers) {
