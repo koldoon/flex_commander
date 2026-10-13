@@ -252,6 +252,59 @@ ORDER {
     }
   });
 
+  test('длинные связи к узкой таблице не пересекаются', () {
+    // По живому снимку: в узкую таблицу внизу приходит пять связей, четыре из
+    // них — длинные, сверху справа. Концы, посчитанные каждый сам по себе,
+    // ложились почти в одну точку и не в том порядке, в каком шли перегибы, —
+    // линии перекрещивались у самой таблицы.
+    final body = StringBuffer('''
+roots ||--o{ folders : "root_id (CASCADE)"
+roots ||--o{ tracks : root_id
+covers |o--o{ folders : cover_id
+covers |o--o{ tracks : cover_id
+folders |o..o{ tracks : "(root_id, folder) = (root_id, path)"
+covers |o..o{ files : "cover_id — картинка из тега"
+covers |o..o{ files : "cover_id — обложка сервиса"
+clean_artists |o..o{ files : artist_id
+clean_genres |o..o{ files : genre_id
+tracks ||--o{ files : file
+roots {
+  INTEGER id PK
+  TEXT path UK
+  INTEGER scanned_at
+}
+covers {
+  INTEGER id PK
+  BLOB hash UK
+  INTEGER width
+  INTEGER height
+  BLOB image
+}
+folders {
+  INTEGER root_id PK
+  TEXT path PK
+  TEXT cover_file
+  INTEGER size
+  INTEGER mtime
+  INTEGER cover_id FK
+}
+''');
+    body.writeln('tracks {');
+    for (var i = 0; i < 14; i++) {
+      body.writeln('  TEXT column$i');
+    }
+    body.writeln('}');
+
+    final relations = relationsOf(layout(body.toString()));
+    final curves = [for (final relation in relations) diagramSample(diagramBasis(relation.points))];
+
+    for (var i = 0; i < curves.length; i++) {
+      for (var j = i + 1; j < curves.length; j++) {
+        expect(_crossings(curves[i], curves[j]), 0, reason: 'связи $i и $j');
+      }
+    }
+  });
+
   test('связь с собой — петля сбоку от таблицы', () {
     final l = layout('EMPLOYEE }o--o| EMPLOYEE : reports_to');
     final table = tablesOf(l).single;
@@ -291,4 +344,23 @@ ORDER {
       [for (final path in relationsOf(layout(shop))) path.points],
     );
   });
+}
+
+/// Сколько раз пересекаются две ломаные; касание концами — не пересечение.
+int _crossings(List<Offset> a, List<Offset> b) {
+  double turn(Offset o, Offset p, Offset q) => (p.dx - o.dx) * (q.dy - o.dy) - (p.dy - o.dy) * (q.dx - o.dx);
+  var count = 0;
+  for (var i = 0; i + 1 < a.length; i++) {
+    for (var j = 0; j + 1 < b.length; j++) {
+      final d1 = turn(b[j], b[j + 1], a[i]);
+      final d2 = turn(b[j], b[j + 1], a[i + 1]);
+      final d3 = turn(a[i], a[i + 1], b[j]);
+      final d4 = turn(a[i], a[i + 1], b[j + 1]);
+      if (d1 * d2 < 0 && d3 * d4 < 0) {
+        count++;
+      }
+    }
+  }
+
+  return count;
 }

@@ -19,7 +19,7 @@ class ErMetrics {
     this.columnGap = 12,
     this.minWidth = 64,
     this.lead = 12,
-    this.parallelGap = 24,
+    this.portGap = 24,
     this.flow = const FlowMetrics(layerGap: 84, cellGap: 40),
   });
 
@@ -39,8 +39,8 @@ class ErMetrics {
   /// на этом прямом участке стоят знаки кардинальности.
   final double lead;
 
-  /// Между связями одной пары сущностей вдоль стороны таблицы.
-  final double parallelGap;
+  /// Между концами связей, входящих в одну сторону таблицы (`_ports`).
+  final double portGap;
 
   /// Раскладка графа: зазоры шире, чем у `flowchart`, — на концах связей
   /// стоят знаки кардинальности, и им нужно место.
@@ -76,8 +76,6 @@ DiagramLayout layoutErDiagram(ErDiagram diagram, DiagramTextMeasure measure, {Er
     subgraphs: const [],
   );
 
-  final parallel = _parallel(diagram.relations);
-
   var labelHeight = 0.0;
   for (final relation in diagram.relations) {
     if (relation.label.isNotEmpty) {
@@ -103,9 +101,8 @@ DiagramLayout layoutErDiagram(ErDiagram diagram, DiagramTextMeasure measure, {Er
       metrics: metrics.flow.withLayerGap(gap),
       sizes: {for (final entry in tables.entries) entry.key: entry.value.size},
     );
-    routes = [
-      for (final chain in layering.chains) _route(chain, geometry, metrics, _spreadOf(parallel[chain.edge], metrics)),
-    ];
+    final ports = _ports(layering.chains, geometry, metrics);
+    routes = [for (final chain in layering.chains) _route(chain, geometry, metrics, ports)];
     fans = _fans(layering.chains, routes, geometry, diagram.relations);
 
     final crowd = fans.values.fold(1, (most, fan) => math.max(most, fan.$2));
@@ -240,17 +237,6 @@ Offset _placeLabel(Size size, _Route route, List<Rect> placed, {double first = 0
   return best.topLeft;
 }
 
-/// Насколько сдвинуть концы связи вдоль стороны таблицы: связи одной пары
-/// встают веером вокруг середины стороны.
-double _spreadOf((int, int)? parallel, ErMetrics metrics) {
-  if (parallel == null) {
-    return 0;
-  }
-  final (place, of) = parallel;
-
-  return (place - (of - 1) / 2) * metrics.parallelGap;
-}
-
 /// Веера подписей: связи с подписью, выходящие из одной стороны одной таблицы.
 /// Для каждой — место в веере слева направо (сверху вниз) и размер веера.
 ///
@@ -284,28 +270,94 @@ Map<int, (int, int)> _fans(
   };
 }
 
-/// Связи одной пары сущностей: какая по счёту и сколько их всего.
+/// Концы связей на сторонах таблиц — «порты»: где какая связь входит в
+/// таблицу (`docs/spec/mermaid.md`, §7а).
 ///
-/// Раскладка у них одна, и без разводки линии ложатся друг на друга: одна
-/// прячет другую, а подписям некуда разойтись. Так бывает часто — «создал» и
-/// «изменил» от одной таблицы к другой. Связи пары встают веером вокруг
-/// середины стороны, на [ErMetrics.parallelGap] друг от друга.
-Map<int, (int, int)> _parallel(List<ErRelation> relations) {
-  final pairs = <String, List<int>>{};
-  for (var i = 0; i < relations.length; i++) {
-    final relation = relations[i];
-    if (relation.from == relation.to) {
+/// Конец, посчитанный сам по себе — по направлению на соседнюю точку
+/// маршрута, — у узкой таблицы, куда приходит несколько связей, ложится почти
+/// в одну точку, и порядок концов расходится с порядком перегибов в слоях:
+/// линии перекрещиваются у самой таблицы. Поэтому концы одной стороны
+/// собираются вместе, сортируются по тому, откуда подходит линия, — по углу
+/// подхода, то есть по естественной точке входа, — и встают с равным шагом
+/// [ErMetrics.portGap] вокруг своей естественной середины. Тогда у таблицы
+/// линии не пересекаются, если не пересекаются в слоях.
+///
+/// Одиночный конец стоит, где стоял. Связи одной пары без перегибов — частный
+/// случай: соседняя точка у них одна, и порядок решает порядок записи —
+/// одинаковый у обеих таблиц, так что пара не перекрещивается.
+Map<(FlowChain, bool), Offset> _ports(List<FlowChain> chains, FlowGeometry geometry, ErMetrics metrics) {
+  Offset centreOf(FlowCell cell) => cell.isBend ? geometry.bends[cell]! : geometry.boxes[cell.id]!.rect.center;
+
+  final groups = <String, List<({FlowChain chain, bool start, Offset natural, Offset towards})>>{};
+  for (final chain in chains) {
+    if (chain.selfLoop || chain.cells.length < 2) {
       continue;
     }
-    // Пара без учёта стороны: `A–B` и `B–A` — та же пара таблиц.
-    final key = ([relation.from, relation.to]..sort()).join('\u0000');
-    pairs.putIfAbsent(key, () => []).add(i);
+    for (final start in [true, false]) {
+      final cell = start ? chain.cells.first : chain.cells.last;
+      if (cell.isBend) {
+        continue;
+      }
+      final towards = centreOf(start ? chain.cells[1] : chain.cells[chain.cells.length - 2]);
+      final box = geometry.boxes[cell.id]!;
+      final natural = flowExit(box, towards);
+      groups.putIfAbsent('${cell.id}\u0000${flowSide(box.rect, natural)}', () => []).add((
+        chain: chain,
+        start: start,
+        natural: natural,
+        towards: towards,
+      ));
+    }
   }
 
-  return {
-    for (final group in pairs.values)
-      for (var k = 0; k < group.length; k++) group[k]: (k, group.length),
-  };
+  final ports = <(FlowChain, bool), Offset>{};
+  for (final group in groups.values) {
+    final any = group.first;
+    final rect = geometry.boxes[(any.start ? any.chain.cells.first : any.chain.cells.last).id]!.rect;
+    final outward = flowSide(rect, any.natural);
+    // Сверху и снизу концы стоят по x, сбоку — по y.
+    final acrossX = outward.dy != 0;
+    double along(Offset point) => acrossX ? point.dx : point.dy;
+    Offset onSide(double at) =>
+        acrossX
+            ? Offset(at, outward.dy > 0 ? rect.bottom : rect.top)
+            : Offset(outward.dx > 0 ? rect.right : rect.left, at);
+
+    if (group.length == 1) {
+      ports[(any.chain, any.start)] = any.natural;
+      continue;
+    }
+
+    // По углу, под которым линия подходит к таблице, — по естественной точке
+    // входа: для прямых в выпуклую фигуру этот порядок пересечений не даёт.
+    // Равные — по соседней точке, потом по порядку записи.
+    group.sort((a, b) {
+      for (final by in [
+        along(a.natural).compareTo(along(b.natural)),
+        along(a.towards).compareTo(along(b.towards)),
+        a.chain.edge.compareTo(b.chain.edge),
+      ]) {
+        if (by != 0) {
+          return by;
+        }
+      }
+
+      return 0;
+    });
+
+    final low = (acrossX ? rect.left : rect.top) + metrics.padding;
+    final high = (acrossX ? rect.right : rect.bottom) - metrics.padding;
+    final step = math.min(metrics.portGap, math.max(0.0, high - low) / (group.length - 1));
+    final span = step * (group.length - 1);
+    final middle = group.map((end) => along(end.natural)).reduce((a, b) => a + b) / group.length;
+    final from = (middle - span / 2).clamp(low, math.max(low, high - span));
+
+    for (final (k, end) in group.indexed) {
+      ports[(end.chain, end.start)] = onSide(from + step * k);
+    }
+  }
+
+  return ports;
 }
 
 /// Линия связи: кривая через перегибы геометрии, концами в рамки таблиц.
@@ -320,7 +372,7 @@ Map<int, (int, int)> _parallel(List<ErRelation> relations) {
 /// раскладки, а не посередине между центрами, как в графе: у высокой таблицы
 /// центр далеко внутри, и подпись съезжала к самой рамке, туда, где две
 /// расходящиеся связи ещё рядом.
-_Route? _route(FlowChain chain, FlowGeometry geometry, ErMetrics metrics, double spread) {
+_Route? _route(FlowChain chain, FlowGeometry geometry, ErMetrics metrics, Map<(FlowChain, bool), Offset> ports) {
   if (chain.selfLoop) {
     // Шаг петли — графа: под него геометрия оставила место сбоку.
     final points = flowLoop(geometry.boxes[chain.cells.single.id]!.rect, lead: metrics.flow.lead, straight: true);
@@ -338,42 +390,26 @@ _Route? _route(FlowChain chain, FlowGeometry geometry, ErMetrics metrics, double
   final last = chain.cells.last;
   final points = [...centres];
 
-  // Поперёк линии от первой ячейки к последней: в эту сторону сдвигаются оба
-  // конца параллельной связи, и линии пары не перекрещиваются.
-  final along = centres.last - centres.first;
-  final across = along.distance == 0 ? const Offset(1, 0) : Offset(-along.dy, along.dx) / along.distance;
-
   // Конец в рамке и две точки перпендикулярно её стороне; ближе, если рамки
   // стоят тесно, — иначе точки разошлись бы мимо друг друга.
-  List<Offset> lead(FlowCell cell, Offset towards) {
+  List<Offset> lead(FlowCell cell, Offset towards, {required bool start}) {
     final rect = geometry.boxes[cell.id]!.rect;
-    var exit = flowExit(geometry.boxes[cell.id]!, towards);
+    // Конец — порт своей стороны (`_ports`).
+    final exit = ports[(chain, start)] ?? flowExit(geometry.boxes[cell.id]!, towards);
     final outward = flowSide(rect, exit);
-    if (spread != 0) {
-      // Вдоль стороны, в ту же сторону, что [across], и не дальше её краёв.
-      final side = Offset(outward.dy.abs(), outward.dx.abs());
-      final sign = (across.dx * side.dx + across.dy * side.dy) < 0 ? -1.0 : 1.0;
-      final shifted = exit + side * spread * sign;
-      exit = Offset(
-        shifted.dx.clamp(rect.left + metrics.padding, rect.right - metrics.padding),
-        shifted.dy.clamp(rect.top + metrics.padding, rect.bottom - metrics.padding),
-      );
-      // Сдвинутый конец остаётся на своей стороне рамки.
-      if (outward.dx != 0) {
-        exit = Offset(outward.dx > 0 ? rect.right : rect.left, exit.dy);
-      } else {
-        exit = Offset(exit.dx, outward.dy > 0 ? rect.bottom : rect.top);
-      }
-    }
     final step = math.min(metrics.lead, (towards - exit).distance / 6);
     return flowLead(exit, outward, step, straight: true);
   }
 
   if (!first.isBend) {
-    points.replaceRange(0, 1, lead(first, centres[1]));
+    points.replaceRange(0, 1, lead(first, centres[1], start: true));
   }
   if (!last.isBend) {
-    points.replaceRange(points.length - 1, points.length, lead(last, centres[centres.length - 2]).reversed);
+    points.replaceRange(
+      points.length - 1,
+      points.length,
+      lead(last, centres[centres.length - 2], start: false).reversed,
+    );
   }
 
   // Пролёт подписи — по кривой до точки, ближайшей к следующей ячейке.
