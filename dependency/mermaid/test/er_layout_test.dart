@@ -98,6 +98,21 @@ ORDER {
     expect(ys[1] - ys[0], greaterThanOrEqualTo(16));
   });
 
+  test('между строками — черта разделителя панели, по всей ширине таблицы', () {
+    final l = layout('A {\n  int id\n  string name\n  string tag\n}');
+    final table = tablesOf(l).single;
+    final dividers = [
+      for (final path in l.shapes.whereType<DiagramPath>())
+        if (path.ink == DiagramInk.divider) path,
+    ];
+
+    expect(dividers, hasLength(2), reason: 'три строки — две черты между ними');
+    for (final divider in dividers) {
+      expect(divider.points.first.dx, table.left);
+      expect(divider.points.last.dx, table.right);
+    }
+  });
+
   test('колонки выровнены: одна колонка — одна левая граница', () {
     final l = layout('A {\n  int id PK\n  varchar(255) longer_name FK\n}');
 

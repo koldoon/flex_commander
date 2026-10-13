@@ -163,5 +163,9 @@ void main() {
     expect(style.colorOf(DiagramInk.line), colors.rowText);
     expect(style.colorOf(DiagramInk.faint), colors.secondaryText);
     expect(style.colorOf(DiagramInk.line), isNot(colors.panelBorder));
+    // Черта между строками таблицы ER — та же, что делит колонки в панели
+    // файлов (§7а).
+    expect(style.colorOf(DiagramInk.divider), colors.columnDivider);
+    expect(style.stroke, DefaultMetrics().strokeWidth);
   });
 }

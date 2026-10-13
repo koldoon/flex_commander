@@ -17,6 +17,7 @@ void main() {
     edge: Color(0xFF000000),
     bar: Color(0xFF000000),
     faint: Color(0xFF000000),
+    divider: Color(0xFF000000),
     plate: Color(0xFF000000),
     onPlate: Color(0xFF000000),
     background: Color(0xFF000000),

@@ -474,7 +474,7 @@ class _Table {
     for (var row = 0; row < cells.length; row++) {
       final top = rect.top + headerHeight + rowHeight * row;
       if (row > 0) {
-        shapes.add(DiagramPath(points: [Offset(rect.left, top), Offset(rect.right, top)], ink: DiagramInk.faint));
+        shapes.add(DiagramPath(points: [Offset(rect.left, top), Offset(rect.right, top)], ink: DiagramInk.divider));
       }
 
       var x = rect.left + metrics.padding;

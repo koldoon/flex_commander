@@ -16,6 +16,7 @@ class DiagramStyle {
     required this.edge,
     required this.bar,
     required this.faint,
+    required this.divider,
     required this.plate,
     required this.onPlate,
     required this.background,
@@ -44,6 +45,9 @@ class DiagramStyle {
       edge: theme.colors.dialogListBorder,
       bar: theme.colors.markedBar,
       faint: theme.colors.secondaryText,
+      // Та же линия, что делит колонки в панели файлов: таблица сущности — та
+      // же таблица.
+      divider: theme.colors.columnDivider,
       // Тем же цветом, что и линии жизни: плашка и линия — одно целое.
       plate: theme.colors.secondaryText,
       onPlate: theme.colors.panelBackground,
@@ -69,6 +73,9 @@ class DiagramStyle {
   /// Второстепенное: рамки блоков, ярлыки.
   final Color faint;
 
+  /// Черта между строками таблицы ER — `columnDivider`, как в панели файлов.
+  final Color divider;
+
   /// Плашка участника — залита цветом линий жизни.
   final Color plate;
 
@@ -92,6 +99,7 @@ class DiagramStyle {
     DiagramInk.plate => plate,
     DiagramInk.bar => bar,
     DiagramInk.faint => faint,
+    DiagramInk.divider => divider,
   };
 }
 
