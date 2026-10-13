@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'mermaid_error.dart';
 import 'mermaid_kind.dart';
 import 'draw/diagram_view.dart';
+import 'er/er_parser.dart';
 import 'flowchart/flowchart_layout.dart';
 import 'flowchart/flowchart_parser.dart';
 import 'sequence/sequence_layout.dart';
@@ -61,6 +62,11 @@ Widget _draw(BuildContext context, MermaidKind kind, MarkdownBlockRequest reques
     final diagram = parseFlowchart(request.source);
 
     return MermaidDiagramView(maxWidth: request.maxWidth, build: (measure) => layoutFlowchart(diagram, measure));
+  }
+
+  if (kind == MermaidKind.erDiagram) {
+    // Разбор — сразу: опечатку человеку стоит показать уже сейчас (§7а).
+    parseErDiagram(request.source);
   }
 
   throw MarkdownBlockRefused(context.strings.tr('{kind} is not drawn yet', args: {'kind': kind.keyword}));

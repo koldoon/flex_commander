@@ -60,4 +60,8 @@ const Map<String, String> _russian = {
   'invisible links are not drawn yet': 'невидимые связи пока не рисуются',
   'a link with heads at both ends is not drawn yet': 'связь с наконечниками на обоих концах пока не рисуется',
   'do not understand this line': 'непонятная строка',
+  'this brace closes nothing': 'эта скобка ничего не закрывает',
+  'this relationship does not say its cardinality': 'у связи непонятная кардинальность',
+  'this line does not say what the attribute is': 'не сказано, что за атрибут: нужны тип и имя',
+  'a relationship needs a colon and its label': 'у связи нет двоеточия и подписи',
 };
