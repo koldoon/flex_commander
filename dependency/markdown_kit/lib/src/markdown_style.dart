@@ -13,22 +13,41 @@ import 'markdown_table_width.dart';
 /// markdown стал показываться в двух местах: две копии оформления разошлись бы
 /// молча, и заметил бы это человек, а не сборка
 /// (`docs/spec/markdown-viewer.md`, §2).
+/// Интерлиньяж абзацев — в долях кегля.
+///
+/// В окнах подписи короткие, и интерлиньяж у них свой, от шрифта, около 1,15:
+/// для документа это слеплено. Ориентиры: «Practical Typography» Баттерика —
+/// 120–145 % кегля, стиль markdown GitHub — 1,5. Берём верх диапазона
+/// Баттерика, рядом с GitHub (`docs/spec/markdown-viewer.md`, §6).
+const double fcMarkdownLineHeight = 1.45;
+
+/// Отбивка между абзацами — в долях кегля: 0,75, как у GitHub (12 при 16), в
+/// середине диапазона Баттерика (50–100 % кегля). Просвет между абзацами
+/// выходит в два с половиной раза больше просвета между строками — абзац
+/// читается абзацем, а не продолжением строки.
+const double fcMarkdownParagraphGap = 0.75;
+
 MarkdownStyleSheet fcMarkdownStyle(FcTheme theme) {
   final metrics = theme.metrics;
-  final code = theme.dialogTextStyle.copyWith(
-    fontFamily: theme.fonts.fixed,
-    fontFamilyFallback: theme.fonts.fixedFallback,
+  // Всё, что стоит в строке абзаца, — одной высоты строки: иначе строка со
+  // словом жирным или кодом выходила бы выше соседней. Добавка поровну сверху и
+  // снизу, а не по шрифту: так строка стоит посередине своей высоты.
+  final body = theme.dialogTextStyle.copyWith(
+    height: fcMarkdownLineHeight,
+    leadingDistribution: TextLeadingDistribution.even,
   );
+  final size = body.fontSize ?? metrics.fontSize;
+  final code = body.copyWith(fontFamily: theme.fonts.fixed, fontFamilyFallback: theme.fonts.fixedFallback);
 
   return MarkdownStyleSheet(
-    p: theme.dialogTextStyle,
+    p: body,
     // Заголовки разделов — тем же кеглем, что заголовки в справке: они
     // разделяют части рассказа, а не спорят с заголовком окна.
     h1: theme.headingStyle.copyWith(fontSize: metrics.sectionHeadingFontSize),
     h2: theme.headingStyle.copyWith(fontSize: metrics.sectionHeadingFontSize),
     h3: theme.headingStyle,
-    strong: theme.dialogTextStyle.copyWith(fontWeight: FontWeight.bold, color: theme.colors.dialogLabel),
-    em: theme.dialogTextStyle.copyWith(fontStyle: FontStyle.italic),
+    strong: body.copyWith(fontWeight: FontWeight.bold, color: theme.colors.dialogLabel),
+    em: body.copyWith(fontStyle: FontStyle.italic),
     code: code,
     // Врезку рисует не библиотека, а `FcCodeBlock`: тег `pre` она заворачивает
     // в рамку **безусловно**, даже когда блок отрисован своим builder'ом
@@ -39,14 +58,14 @@ MarkdownStyleSheet fcMarkdownStyle(FcTheme theme) {
     codeblockDecoration: const BoxDecoration(),
     // Подчёркиванием, а не только цветом: ссылка обязана отличаться от
     // выделенного слова с первого взгляда — иначе по ней просто не нажмут.
-    a: theme.dialogTextStyle.copyWith(color: theme.colors.dialogLabel, decoration: TextDecoration.underline),
-    listBullet: theme.dialogTextStyle,
+    a: body.copyWith(color: theme.colors.dialogLabel, decoration: TextDecoration.underline),
+    listBullet: body,
     // Зазор от маркера до текста — тот же, что у флажка до его метки
     // (`checkboxGap`): маркер списка и есть знак при подписи. В библиотеке он
     // 4, и текст стоял к точке вплотную; заодно флажок в списке задач теперь
     // отбит от текста ровно так же, как флажок в окне.
     listBulletPadding: EdgeInsets.only(right: metrics.checkboxGap),
-    blockSpacing: metrics.dialogGap,
+    blockSpacing: size * fcMarkdownParagraphGap,
     // Ширина колонок — по содержимому: поровну колонка «Да/Нет» получала
     // столько же, сколько колонка с описанием на три строки.
     tableColumnWidth: const FcContentColumnWidth(),
