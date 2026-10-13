@@ -181,10 +181,58 @@ ORDER {
     expect(labels, hasLength(5));
     for (var i = 0; i < labels.length; i++) {
       for (var j = i + 1; j < labels.length; j++) {
-        expect(labels[i].overlaps(labels[j]), isFalse, reason: 'подписи $i и $j');
+        // Не просто не пересекаются — между ними зазор: вплотную две подписи
+        // читаются одной строкой.
+        expect(labels[i].inflate(4).overlaps(labels[j]), isFalse, reason: 'подписи $i и $j');
       }
       for (final table in tables) {
         expect(labels[i].overlaps(table), isFalse, reason: 'подпись $i и таблица');
+      }
+    }
+  });
+
+  test('связи сглажены и выходят из рамки перпендикулярно её стороне', () {
+    final l = layout(shop);
+    final tables = tablesOf(l);
+
+    for (final relation in relationsOf(l)) {
+      expect(relation.smooth, isTrue);
+      for (final (end, next) in [
+        (relation.points.first, relation.points[1]),
+        (relation.points.last, relation.points[relation.points.length - 2]),
+      ]) {
+        final table = tables.firstWhere((rect) => onBorder(rect, end));
+        final step = next - end;
+        final onTopOrBottom = (end.dy - table.top).abs() < 0.5 || (end.dy - table.bottom).abs() < 0.5;
+        // Сверху или снизу — уходит по вертикали, сбоку — по горизонтали.
+        expect(onTopOrBottom ? step.dx.abs() : step.dy.abs(), lessThan(1e-6), reason: '$end → $next');
+        expect(step.distance, greaterThan(0));
+      }
+    }
+  });
+
+  test('связи одной пары разведены и не пересекаются, подписи не слипаются', () {
+    // «Создал» и «изменил» — две связи между одними и теми же таблицами: без
+    // разводки линии ложились друг на друга.
+    final l = layout('USER ||--o{ DOC : created\nUSER ||--o{ DOC : changed\nUSER ||--o{ DOC : reviewed');
+    final relations = relationsOf(l);
+    final starts = [for (final r in relations) r.points.first.dx];
+    final ends = [for (final r in relations) r.points.last.dx];
+
+    expect(starts.toSet(), hasLength(3), reason: 'выходят из разных мест');
+    expect(ends.toSet(), hasLength(3), reason: 'входят в разные места');
+    // Порядок один и тот же у обеих таблиц — значит, линии не перекрещиваются.
+    final order = [for (var i = 0; i < 3; i++) i]..sort((a, b) => starts[a].compareTo(starts[b]));
+    final orderAtEnd = [for (var i = 0; i < 3; i++) i]..sort((a, b) => ends[a].compareTo(ends[b]));
+    expect(orderAtEnd, order);
+
+    final labels = [
+      for (final label in l.shapes.whereType<DiagramLabel>())
+        if (label.backdrop) label.at & label.run.size,
+    ];
+    for (var i = 0; i < labels.length; i++) {
+      for (var j = i + 1; j < labels.length; j++) {
+        expect(labels[i].inflate(4).overlaps(labels[j]), isFalse, reason: 'подписи $i и $j');
       }
     }
   });

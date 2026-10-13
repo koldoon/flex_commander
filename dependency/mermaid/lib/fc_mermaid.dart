@@ -11,6 +11,7 @@ export 'src/mermaid_block.dart';
 export 'src/mermaid_error.dart';
 export 'src/mermaid_kind.dart';
 export 'src/mermaid_module.dart';
+export 'src/draw/diagram_curve.dart';
 export 'src/draw/diagram_layout.dart';
 export 'src/draw/diagram_theme.dart';
 export 'src/draw/diagram_view.dart';

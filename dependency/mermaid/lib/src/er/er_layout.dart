@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
+import '../draw/diagram_curve.dart';
 import '../draw/diagram_layout.dart';
 import '../draw/diagram_text.dart';
 import '../flowchart/flowchart_geometry.dart';
@@ -17,6 +18,8 @@ class ErMetrics {
     this.rowPadding = 3,
     this.columnGap = 12,
     this.minWidth = 64,
+    this.lead = 12,
+    this.parallelGap = 24,
     this.flow = const FlowMetrics(layerGap: 84, cellGap: 40),
   });
 
@@ -31,6 +34,13 @@ class ErMetrics {
 
   /// Самая узкая таблица: сущность с коротким именем не выходит точкой.
   final double minWidth;
+
+  /// Шаг от рамки, на котором кривая ещё идёт перпендикулярно стороне таблицы:
+  /// на этом прямом участке стоят знаки кардинальности.
+  final double lead;
+
+  /// Между связями одной пары сущностей вдоль стороны таблицы.
+  final double parallelGap;
 
   /// Раскладка графа: зазоры шире, чем у `flowchart`, — на концах связей
   /// стоят знаки кардинальности, и им нужно место.
@@ -66,14 +76,45 @@ DiagramLayout layoutErDiagram(ErDiagram diagram, DiagramTextMeasure measure, {Er
     subgraphs: const [],
   );
 
-  final layering = layerFlowchart(graph);
-  final geometry = placeFlowchart(
-    graph,
-    layering,
-    measure,
-    metrics: metrics.flow,
-    sizes: {for (final entry in tables.entries) entry.key: entry.value.size},
-  );
+  final parallel = _parallel(diagram.relations);
+
+  var labelHeight = 0.0;
+  for (final relation in diagram.relations) {
+    if (relation.label.isNotEmpty) {
+      labelHeight = math.max(labelHeight, measure.run(relation.label, DiagramTextRole.message).size.height);
+    }
+  }
+
+  // Раскладка и маршруты. Зазор между рядами растёт под самый большой веер
+  // подписей: они встают по пролёту лесенкой, каждой — своя высота и запас.
+  // Какие связи выйдут из одной стороны одной таблицы, решают слои, — поэтому
+  // сперва раскладываем, а не хватило зазора — раскладываем ещё раз, с нужным.
+  var gap = metrics.flow.layerGap;
+  late FlowLayering layering;
+  late FlowGeometry geometry;
+  late List<_Route?> routes;
+  late Map<int, (int, int)> fans;
+  for (var attempt = 0; attempt < 2; attempt++) {
+    layering = layerFlowchart(graph);
+    geometry = placeFlowchart(
+      graph,
+      layering,
+      measure,
+      metrics: metrics.flow.withLayerGap(gap),
+      sizes: {for (final entry in tables.entries) entry.key: entry.value.size},
+    );
+    routes = [
+      for (final chain in layering.chains) _route(chain, geometry, metrics, _spreadOf(parallel[chain.edge], metrics)),
+    ];
+    fans = _fans(layering.chains, routes, geometry, diagram.relations);
+
+    final crowd = fans.values.fold(1, (most, fan) => math.max(most, fan.$2));
+    final needed = (crowd + 1) * (labelHeight + _labelClearance);
+    if (needed <= gap) {
+      break;
+    }
+    gap = needed;
+  }
 
   final runs = {for (final label in geometry.labels) label.edge: label.run};
   final lines = <DiagramShape>[];
@@ -81,8 +122,9 @@ DiagramLayout layoutErDiagram(ErDiagram diagram, DiagramTextMeasure measure, {Er
 
   /// Что уже стоит и чего подписи касаться нельзя: таблицы и прежние подписи.
   final placed = [for (final box in geometry.boxes.values) box.rect];
-  for (final chain in layering.chains) {
-    final route = _route(chain, geometry);
+  for (var i = 0; i < layering.chains.length; i++) {
+    final chain = layering.chains[i];
+    final route = routes[i];
     if (route == null) {
       continue;
     }
@@ -93,11 +135,18 @@ DiagramLayout layoutErDiagram(ErDiagram diagram, DiagramTextMeasure measure, {Er
         head: _headOf(relation.toCard),
         tail: _headOf(relation.fromCard),
         dashed: !relation.identifying,
+        smooth: true,
       ),
     );
     final run = runs[chain.edge];
     if (run != null) {
-      labels.add(DiagramLabel(run: run, at: _placeLabel(run.size, route, placed), backdrop: true));
+      // Подписи веера — заранее вразбежку по пролёту: на трети и двух третях,
+      // на четвертях… Иначе первая встаёт в середину, и второй не остаётся
+      // места ни выше, ни ниже.
+      final (place, of) = fans[i] ?? (0, 1);
+      labels.add(
+        DiagramLabel(run: run, at: _placeLabel(run.size, route, placed, first: (place + 1) / (of + 1)), backdrop: true),
+      );
     }
   }
 
@@ -120,49 +169,186 @@ DiagramHead _headOf(ErCard card) => switch (card) {
   ErCard.zeroOrMore => DiagramHead.zeroOrMore,
 };
 
-/// Маршрут связи и отрезок, на котором стоит её подпись.
-typedef _Route = ({List<Offset> points, Offset labelFrom, Offset labelTo});
+/// Маршрут связи — точки кривой — и ломаная по самой кривой, на которой
+/// стоит подпись.
+typedef _Route = ({List<Offset> points, List<Offset> labelSpan});
 
-/// Где на отрезке пробовать подпись: сперва середина, потом всё дальше от неё.
-/// Не ближе четверти к концам — там стоят знаки кардинальности.
+/// Где на пролёте пробовать подпись, долей его длины: сперва середина, потом
+/// всё дальше от неё. Не ближе четверти к концам — там стоят знаки
+/// кардинальности.
 const List<double> _labelSpots = [0.5, 0.35, 0.65, 0.25, 0.75];
+
+/// Сколько пустого держать вокруг подписи.
+const double _labelClearance = 8;
 
 /// Левый верхний угол подписи размера [size] на маршруте [route].
 ///
 /// Подпись, задевшая уже поставленную или таблицу, едет вдоль своей линии: из
 /// одной таблицы связи расходятся медленно, и две подписи на одной высоте
 /// слипаются в одну строку. Лесенкой они стоят там, где линии уже разошлись.
-/// Места нет нигде — остаётся середина: подпись важнее зазора.
-Offset _placeLabel(Size size, _Route route, List<Rect> placed) {
-  Rect at(double t) =>
-      Rect.fromCenter(center: Offset.lerp(route.labelFrom, route.labelTo, t)!, width: size.width, height: size.height);
+/// Места нет нигде — туда, где задевает меньше всего.
+Offset _placeLabel(Size size, _Route route, List<Rect> placed, {double first = 0.5}) {
+  final span = route.labelSpan;
+  final lengths = [0.0];
+  for (var i = 1; i < span.length; i++) {
+    lengths.add(lengths.last + (span[i] - span[i - 1]).distance);
+  }
 
-  for (final t in _labelSpots) {
+  /// Точка на пролёте при доле [t] его длины.
+  Offset along(double t) {
+    final wanted = lengths.last * t;
+    for (var i = 1; i < span.length; i++) {
+      if (lengths[i] >= wanted) {
+        final piece = lengths[i] - lengths[i - 1];
+        return Offset.lerp(span[i - 1], span[i], piece == 0 ? 0 : (wanted - lengths[i - 1]) / piece)!;
+      }
+    }
+    return span.last;
+  }
+
+  Rect at(double t) => Rect.fromCenter(center: along(t), width: size.width, height: size.height);
+
+  for (final t in [first, ..._labelSpots]) {
     final rect = at(t);
-    if (!placed.any((other) => other.overlaps(rect.inflate(3)))) {
+    // Зазор — с букву: подписи вплотную читаются одной строкой.
+    if (!placed.any((other) => other.overlaps(rect.inflate(_labelClearance)))) {
       placed.add(rect);
 
       return rect.topLeft;
     }
   }
 
-  final middle = at(0.5);
-  placed.add(middle);
+  // Места нет нигде — туда, где задевает меньше всего: подпись важнее зазора.
+  double overlap(Rect rect) {
+    var total = 0.0;
+    for (final other in placed) {
+      final common = other.intersect(rect.inflate(_labelClearance));
+      if (common.width > 0 && common.height > 0) {
+        total += common.width * common.height;
+      }
+    }
 
-  return middle.topLeft;
+    return total;
+  }
+
+  final candidates = [
+    for (final t in [first, ..._labelSpots]) at(t),
+  ];
+  final best = candidates.reduce((a, b) => overlap(b) < overlap(a) ? b : a);
+  placed.add(best);
+
+  return best.topLeft;
 }
 
-/// Линия связи: через перегибы геометрии, концами в рамки таблиц.
-///
-/// Подпись — на **видимом** первом отрезке, между рамкой и следующей точкой, а
-/// не посередине между центрами, как в графе. Таблица высокая, её центр далеко
-/// внутри, и от середины между центрами подпись съезжала к самой рамке — туда,
-/// где две расходящиеся связи ещё рядом, и их подписи слипались.
-_Route? _route(FlowChain chain, FlowGeometry geometry) {
-  if (chain.selfLoop) {
-    final loop = flowLoop(geometry.boxes[chain.cells.single.id]!.rect);
+/// Насколько сдвинуть концы связи вдоль стороны таблицы: связи одной пары
+/// встают веером вокруг середины стороны.
+double _spreadOf((int, int)? parallel, ErMetrics metrics) {
+  if (parallel == null) {
+    return 0;
+  }
+  final (place, of) = parallel;
 
-    return (points: loop, labelFrom: loop[1], labelTo: loop[2]);
+  return (place - (of - 1) / 2) * metrics.parallelGap;
+}
+
+/// Веера подписей: связи с подписью, выходящие из одной стороны одной таблицы.
+/// Для каждой — место в веере слева направо (сверху вниз) и размер веера.
+///
+/// Подписи веера стоят на пролётах, которые у таблицы ещё рядом: расставленные
+/// по одной в середину, они слипаются. Связи одной пары — частный случай.
+Map<int, (int, int)> _fans(
+  List<FlowChain> chains,
+  List<_Route?> routes,
+  FlowGeometry geometry,
+  List<ErRelation> relations,
+) {
+  final groups = <String, List<(int, double)>>{};
+  for (var i = 0; i < chains.length; i++) {
+    final chain = chains[i];
+    final route = routes[i];
+    final start = chain.cells.first;
+    if (route == null || chain.selfLoop || start.isBend || relations[chain.edge].label.isEmpty) {
+      continue;
+    }
+    final rect = geometry.boxes[start.id]!.rect;
+    final exit = route.labelSpan.first;
+    final side = _outward(rect, exit);
+    // Вдоль стороны: сверху и снизу — по x, сбоку — по y.
+    final position = side.dy != 0 ? exit.dx : exit.dy;
+    groups.putIfAbsent('${start.id}\u0000$side', () => []).add((i, position));
+  }
+
+  return {
+    for (final group in groups.values)
+      for (final (k, (index, _)) in (group..sort((a, b) => a.$2.compareTo(b.$2))).indexed) index: (k, group.length),
+  };
+}
+
+/// Связи одной пары сущностей: какая по счёту и сколько их всего.
+///
+/// Раскладка у них одна, и без разводки линии ложатся друг на друга: одна
+/// прячет другую, а подписям некуда разойтись. Так бывает часто — «создал» и
+/// «изменил» от одной таблицы к другой. Связи пары встают веером вокруг
+/// середины стороны, на [ErMetrics.parallelGap] друг от друга.
+Map<int, (int, int)> _parallel(List<ErRelation> relations) {
+  final pairs = <String, List<int>>{};
+  for (var i = 0; i < relations.length; i++) {
+    final relation = relations[i];
+    if (relation.from == relation.to) {
+      continue;
+    }
+    // Пара без учёта стороны: `A–B` и `B–A` — та же пара таблиц.
+    final key = ([relation.from, relation.to]..sort()).join('\u0000');
+    pairs.putIfAbsent(key, () => []).add(i);
+  }
+
+  return {
+    for (final group in pairs.values)
+      for (var k = 0; k < group.length; k++) group[k]: (k, group.length),
+  };
+}
+
+/// Наружу от той стороны [rect], на которой лежит [point].
+Offset _outward(Rect rect, Offset point) {
+  final sides = {
+    const Offset(-1, 0): (point.dx - rect.left).abs(),
+    const Offset(1, 0): (point.dx - rect.right).abs(),
+    const Offset(0, -1): (point.dy - rect.top).abs(),
+    const Offset(0, 1): (point.dy - rect.bottom).abs(),
+  };
+
+  return sides.entries.reduce((a, b) => b.value < a.value ? b : a).key;
+}
+
+/// Линия связи: кривая через перегибы геометрии, концами в рамки таблиц.
+///
+/// У каждого конца — две точки на одной прямой, перпендикулярной стороне
+/// таблицы, на [ErMetrics.lead] и вдвое дальше. Кривая `curveBasis` у конца
+/// идёт по этой прямой, и потому выходит из таблицы и входит в неё под прямым
+/// углом, а знак кардинальности лежит на прямом участке, а не на изгибе
+/// (`docs/spec/mermaid.md`, §7а).
+///
+/// Подпись — на **первом пролёте** самой кривой, от рамки до следующей точки
+/// раскладки, а не посередине между центрами, как в графе: у высокой таблицы
+/// центр далеко внутри, и подпись съезжала к самой рамке, туда, где две
+/// расходящиеся связи ещё рядом.
+_Route? _route(FlowChain chain, FlowGeometry geometry, ErMetrics metrics, double spread) {
+  if (chain.selfLoop) {
+    final rect = geometry.boxes[chain.cells.single.id]!.rect;
+    final top = Offset(rect.right, rect.center.dy - rect.height / 4);
+    final bottom = Offset(rect.right, rect.center.dy + rect.height / 4);
+    final lead = Offset(metrics.lead, 0);
+    final points = [
+      top,
+      top + lead,
+      top + lead * 2,
+      Offset(rect.right + metrics.lead * 4, rect.center.dy),
+      bottom + lead * 2,
+      bottom + lead,
+      bottom,
+    ];
+
+    return (points: points, labelSpan: diagramSample(diagramBasis(points)));
   }
   if (chain.cells.length < 2) {
     return null;
@@ -170,18 +356,63 @@ _Route? _route(FlowChain chain, FlowGeometry geometry) {
 
   Offset centreOf(FlowCell cell) => cell.isBend ? geometry.bends[cell]! : geometry.boxes[cell.id]!.rect.center;
 
-  final points = [for (final cell in chain.cells) centreOf(cell)];
+  final centres = [for (final cell in chain.cells) centreOf(cell)];
   final first = chain.cells.first;
   final last = chain.cells.last;
+  final points = [...centres];
+
+  // Поперёк линии от первой ячейки к последней: в эту сторону сдвигаются оба
+  // конца параллельной связи, и линии пары не перекрещиваются.
+  final along = centres.last - centres.first;
+  final across = along.distance == 0 ? const Offset(1, 0) : Offset(-along.dy, along.dx) / along.distance;
+
+  // Конец в рамке и две точки перпендикулярно её стороне; ближе, если рамки
+  // стоят тесно, — иначе точки разошлись бы мимо друг друга.
+  List<Offset> lead(FlowCell cell, Offset towards) {
+    final rect = geometry.boxes[cell.id]!.rect;
+    var exit = flowExit(geometry.boxes[cell.id]!, towards);
+    final outward = _outward(rect, exit);
+    if (spread != 0) {
+      // Вдоль стороны, в ту же сторону, что [across], и не дальше её краёв.
+      final side = Offset(outward.dy.abs(), outward.dx.abs());
+      final sign = (across.dx * side.dx + across.dy * side.dy) < 0 ? -1.0 : 1.0;
+      final shifted = exit + side * spread * sign;
+      exit = Offset(
+        shifted.dx.clamp(rect.left + metrics.padding, rect.right - metrics.padding),
+        shifted.dy.clamp(rect.top + metrics.padding, rect.bottom - metrics.padding),
+      );
+      // Сдвинутый конец остаётся на своей стороне рамки.
+      if (outward.dx != 0) {
+        exit = Offset(outward.dx > 0 ? rect.right : rect.left, exit.dy);
+      } else {
+        exit = Offset(exit.dx, outward.dy > 0 ? rect.bottom : rect.top);
+      }
+    }
+    final step = math.min(metrics.lead, (towards - exit).distance / 6);
+    final out = outward * step;
+
+    return [exit, exit + out, exit + out * 2];
+  }
+
   if (!first.isBend) {
-    points[0] = flowExit(geometry.boxes[first.id]!, points[1]);
+    points.replaceRange(0, 1, lead(first, centres[1]));
   }
   if (!last.isBend) {
-    points[points.length - 1] = flowExit(geometry.boxes[last.id]!, points[points.length - 2]);
+    points.replaceRange(points.length - 1, points.length, lead(last, centres[centres.length - 2]).reversed);
+  }
+
+  // Пролёт подписи — по кривой до точки, ближайшей к следующей ячейке.
+  final sampled = diagramSample(diagramBasis(points));
+  final next = chain.cells.length > 2 ? centres[1] : sampled.last;
+  var end = sampled.length - 1;
+  for (var i = 0; i < sampled.length; i++) {
+    if ((sampled[i] - next).distance < (sampled[end] - next).distance) {
+      end = i;
+    }
   }
 
   // Рисуем в настоящую сторону: перевёрнутость живёт только внутри раскладки.
-  return (points: chain.reversed ? points.reversed.toList() : points, labelFrom: points[0], labelTo: points[1]);
+  return (points: chain.reversed ? points.reversed.toList() : points, labelSpan: sampled.sublist(0, end + 1));
 }
 
 /// Таблица сущности: шапка с именем и строки атрибутов колонками

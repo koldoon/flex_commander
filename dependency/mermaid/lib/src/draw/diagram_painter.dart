@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
+import 'diagram_curve.dart';
 import 'diagram_layout.dart';
 import 'diagram_theme.dart';
 
@@ -98,13 +99,17 @@ class DiagramPainter extends CustomPainter {
               path.thick ? style.arrowStroke * 2 : (path.ink == DiagramInk.line ? style.arrowStroke : style.stroke)
           ..color = style.colorOf(path.ink);
 
-    for (var i = 0; i + 1 < path.points.length; i++) {
-      final a = path.points[i];
-      final b = path.points[i + 1];
-      if (path.dashed) {
-        _dashed(canvas, a, b, paint);
-      } else {
-        canvas.drawLine(a, b, paint);
+    if (path.smooth) {
+      _curve(canvas, path, paint);
+    } else {
+      for (var i = 0; i + 1 < path.points.length; i++) {
+        final a = path.points[i];
+        final b = path.points[i + 1];
+        if (path.dashed) {
+          _dashed(canvas, a, b, paint);
+        } else {
+          canvas.drawLine(a, b, paint);
+        }
       }
     }
 
@@ -113,6 +118,33 @@ class DiagramPainter extends CustomPainter {
     }
     if (path.tail != DiagramHead.none && path.points.length >= 2) {
       _head(canvas, path.points[1], path.points.first, path.tail, paint);
+    }
+  }
+
+  /// Сглаженная кривая; пунктир — вдоль её длины, теми же штрихами, что у
+  /// прямой.
+  void _curve(Canvas canvas, DiagramPath path, Paint paint) {
+    final curve = diagramBasis(path.points);
+    if (curve.isEmpty) {
+      return;
+    }
+    final line = Path()..moveTo(curve.first.from.dx, curve.first.from.dy);
+    for (final cubic in curve) {
+      line.cubicTo(cubic.c1.dx, cubic.c1.dy, cubic.c2.dx, cubic.c2.dy, cubic.to.dx, cubic.to.dy);
+    }
+
+    if (!path.dashed) {
+      canvas.drawPath(line, paint);
+
+      return;
+    }
+
+    const dash = 4.0;
+    const gap = 4.0;
+    for (final metric in line.computeMetrics()) {
+      for (var at = 0.0; at < metric.length; at += dash + gap) {
+        canvas.drawPath(metric.extractPath(at, math.min(at + dash, metric.length)), paint);
+      }
     }
   }
 

@@ -114,10 +114,16 @@ class DiagramPath extends DiagramShape {
     this.dashed = false,
     this.thick = false,
     this.ink = DiagramInk.line,
+    this.smooth = false,
   });
 
   /// Точки по порядку; двух хватает на прямую.
   final List<Offset> points;
+
+  /// Сгладить: кривая `curveBasis`, как у mermaid, а не ломаная
+  /// (`diagram_curve.dart`). Через промежуточные точки она не проходит — они её
+  /// тянут; концы и направление на концах те же, что у ломаной.
+  final bool smooth;
 
   final DiagramHead head;
 

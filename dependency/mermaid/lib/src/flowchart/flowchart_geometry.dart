@@ -52,6 +52,22 @@ class FlowMetrics {
 
   /// Между подписью ребра и самим ребром.
   final double labelGap;
+
+  /// Те же размеры с другим зазором между слоями: ER растит его под подписи
+  /// параллельных связей (`docs/spec/mermaid.md`, §7а).
+  FlowMetrics withLayerGap(double layerGap) => FlowMetrics(
+    margin: margin,
+    padding: padding,
+    layerGap: layerGap,
+    cellGap: cellGap,
+    minWidth: minWidth,
+    minHeight: minHeight,
+    slant: slant,
+    lip: lip,
+    frameInset: frameInset,
+    frameGap: frameGap,
+    labelGap: labelGap,
+  );
 }
 
 /// Узел на своём месте.

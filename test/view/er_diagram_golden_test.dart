@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Снимок нарисованной ER-диаграммы: таблицы сущностей с колонками атрибутов,
-/// все четыре знака кардинальности, пунктир неидентифицирующей связи, подписи
+/// все четыре знака кардинальности, пунктир неидентифицирующей связи,
+/// сглаженные кривые, разведённая пара параллельных связей, подписи
 /// (`docs/spec/mermaid.md`, §7а).
 ///
 /// Рисуется **сама диаграмма**, а не приложение вокруг неё — по той же причине,
@@ -15,6 +16,7 @@ void main() {
   const source = '''
 erDiagram
     CUSTOMER ||--o{ ORDER : places
+    CUSTOMER |o..o{ ORDER : reviews
     ORDER ||--|{ LINE-ITEM : contains
     CUSTOMER }|..|{ DELIVERY-ADDRESS : uses
     ORDER |o--o| INVOICE : "billed by"
