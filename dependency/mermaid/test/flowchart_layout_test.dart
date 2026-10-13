@@ -69,10 +69,12 @@ void main() {
       expect(pathsOf(down('A[обычный]\n')), isEmpty);
     });
 
-    test('у цилиндра есть крышка отдельной незалитой фигурой', () {
+    test('у цилиндра крышка — залитый овал светлее тела, без обводки', () {
       final l = down('A[(хранилище)]\n');
+      final lid = figuresOf(l).where((figure) => figure.ink == DiagramInk.lid).single;
 
-      expect(figuresOf(l).where((figure) => !figure.filled), hasLength(1));
+      expect(lid.filled, isTrue);
+      expect(lid.outlined, isFalse, reason: 'не кольцо, а заливка');
     });
 
     test('подпись стоит по центру своей фигуры', () {

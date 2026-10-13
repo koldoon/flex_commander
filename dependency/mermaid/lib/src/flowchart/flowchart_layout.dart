@@ -287,10 +287,12 @@ class _Drawing {
 
       case FlowShape.cylinder:
         shapes.add(
+          // Крышка — залитый овал светлее тела, а не обводка кольцом: так
+          // цилиндр читается объёмом, а не двумя наложенными контурами.
           DiagramFigure(
             path: Path()..addOval(Rect.fromLTWH(rect.left, rect.top, rect.width, metrics.lip * 2)),
-            ink: DiagramInk.faint,
-            filled: false,
+            ink: DiagramInk.lid,
+            outlined: false,
           ),
         );
 

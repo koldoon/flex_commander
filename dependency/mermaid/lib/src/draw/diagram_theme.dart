@@ -100,7 +100,13 @@ class DiagramStyle {
     DiagramInk.bar => bar,
     DiagramInk.faint => faint,
     DiagramInk.divider => divider,
+    DiagramInk.lid => lid,
   };
+
+  /// Крышка цилиндра — заливка, на четверть смешанная с цветом второстепенных
+  /// линий: светлее тела в тёмной теме, темнее в светлой — заметна в обеих.
+  /// Не своя роль темы: это оттенок заливки, а не новое место (§9).
+  Color get lid => Color.lerp(fill, faint, 0.25)!;
 }
 
 /// Настоящий замер: тем же `TextPainter`, которым текст потом и рисуется.

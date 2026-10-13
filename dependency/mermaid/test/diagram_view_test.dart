@@ -166,6 +166,8 @@ void main() {
     // Черта между строками таблицы ER — та же, что делит колонки в панели
     // файлов (§7а).
     expect(style.colorOf(DiagramInk.divider), colors.columnDivider);
+    // Крышка цилиндра — заливка, сдвинутая к цвету линий: отлична от тела.
+    expect(style.colorOf(DiagramInk.lid), isNot(style.colorOf(DiagramInk.fill)));
     expect(style.stroke, DefaultMetrics().strokeWidth);
   });
 }
