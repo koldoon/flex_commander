@@ -42,15 +42,18 @@ class DiagramPainter extends CustomPainter {
 
     if (box.filled) {
       canvas.drawRRect(rect, Paint()..color = style.colorOf(box.ink));
-      canvas.drawRRect(
-        rect,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = style.stroke
-          // У плашки обводка того же цвета, что заливка: отдельная граница
-          // разрезала бы её пополам.
-          ..color = box.ink == DiagramInk.plate ? style.plate : style.edge,
-      );
+      // Плашка — без обводки. Обводка того же цвета ложилась поверх
+      // полупрозрачной заливки, прозрачность складывалась, и край выходил
+      // светлее — рамкой вокруг шапки участника (по живому показу).
+      if (box.ink != DiagramInk.plate) {
+        canvas.drawRRect(
+          rect,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = style.stroke
+            ..color = style.edge,
+        );
+      }
 
       return;
     }
