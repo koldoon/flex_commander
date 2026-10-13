@@ -66,6 +66,11 @@ class DiagramPainter extends CustomPainter {
 
   /// Фигура узла: заливка и обводка — те же, что у коробки.
   void _figure(Canvas canvas, DiagramFigure figure) {
+    if (figure.filled && !figure.outlined) {
+      canvas.drawPath(figure.path, Paint()..color = style.colorOf(figure.ink));
+
+      return;
+    }
     if (figure.filled) {
       canvas
         ..drawPath(figure.path, Paint()..color = style.colorOf(figure.ink))

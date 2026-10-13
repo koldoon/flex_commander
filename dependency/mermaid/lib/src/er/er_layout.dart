@@ -551,6 +551,9 @@ _Route? _route(
   return (points: chain.reversed ? points.reversed.toList() : points, labelSpan: sampled.sublist(0, end + 1));
 }
 
+/// Скругление углов таблицы сущности.
+const double _radius = 4;
+
 /// Таблица сущности: шапка с именем и строки атрибутов колонками
 /// «тип | имя | ключи | комментарий».
 class _Table {
@@ -623,9 +626,27 @@ class _Table {
   List<DiagramShape> draw(Rect rect, ErMetrics metrics) {
     final header = Rect.fromLTWH(rect.left, rect.top, rect.width, headerHeight);
     final shapes = <DiagramShape>[
-      DiagramBox(rect: rect, radius: 2, ink: DiagramInk.fill),
-      // Шапка инвертирована, как шапка участника: имя видно первым (§9).
-      DiagramBox(rect: header, radius: 2, ink: DiagramInk.plate),
+      DiagramBox(rect: rect, radius: _radius, ink: DiagramInk.fill),
+      // Шапка инвертирована, как шапка участника: имя видно первым (§9). Она —
+      // верх таблицы, а не отдельная коробка: без обводки, скруглены только
+      // верхние углы, по радиусу самой таблицы, а низ прямой и встык со
+      // строками.
+      DiagramFigure(
+        path:
+            Path()..addRRect(
+              RRect.fromRectAndCorners(
+                header,
+                topLeft: const Radius.circular(_radius),
+                topRight: const Radius.circular(_radius),
+                // Без атрибутов шапка и есть вся таблица: прямые нижние углы
+                // торчали бы за скруглённые углы таблицы.
+                bottomLeft: cells.isEmpty ? const Radius.circular(_radius) : Radius.zero,
+                bottomRight: cells.isEmpty ? const Radius.circular(_radius) : Radius.zero,
+              ),
+            ),
+        ink: DiagramInk.plate,
+        outlined: false,
+      ),
       DiagramLabel(
         run: title,
         at: Offset(header.center.dx - title.size.width / 2, header.center.dy - title.size.height / 2),

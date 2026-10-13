@@ -131,11 +131,26 @@ ORDER {
 
   test('сущность без атрибутов — одна шапка', () {
     final l = layout('A ||--o{ B : x');
-    final plates = l.shapes.whereType<DiagramBox>().where((box) => box.ink == DiagramInk.plate).toList();
+    final plates = l.shapes.whereType<DiagramFigure>().where((figure) => figure.ink == DiagramInk.plate).toList();
 
     for (var i = 0; i < 2; i++) {
-      expect(tablesOf(l)[i].height, plates[i].rect.height);
+      expect(tablesOf(l)[i].height, plates[i].path.getBounds().height);
     }
+  });
+
+  test('шапка — верх таблицы: без обводки, скруглены только верхние углы', () {
+    final l = layout('A {\n  int id\n}');
+    final table = tablesOf(l).single;
+    final plate = l.shapes.whereType<DiagramFigure>().singleWhere((figure) => figure.ink == DiagramInk.plate);
+
+    expect(plate.outlined, isFalse);
+    final header = plate.path.getBounds();
+    expect(header.top, table.top);
+    expect(header.left, table.left);
+    expect(header.right, table.right);
+    // Нижний угол залит до самого края, верхний — скруглён.
+    expect(plate.path.contains(Offset(header.left + 0.5, header.bottom - 0.5)), isTrue, reason: 'низ прямой');
+    expect(plate.path.contains(Offset(header.left + 0.5, header.top + 0.5)), isFalse, reason: 'верх скруглён');
   });
 
   test('таблицы не налезают друг на друга', () {

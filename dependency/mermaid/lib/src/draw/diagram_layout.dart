@@ -100,13 +100,17 @@ class DiagramBox extends DiagramShape {
 /// незачем — он умеет заливать и обводить, а какой ромб у ромба угол, решает
 /// раскладка (`docs/spec/mermaid.md`, §7).
 class DiagramFigure extends DiagramShape {
-  const DiagramFigure({required this.path, this.ink = DiagramInk.fill, this.filled = true});
+  const DiagramFigure({required this.path, this.ink = DiagramInk.fill, this.filled = true, this.outlined = true});
 
   final Path path;
   final DiagramInk ink;
 
   /// Заливать ли; незалитая — только обводка.
   final bool filled;
+
+  /// Обводить ли залитую: шапке таблицы ER обводка не нужна — она часть
+  /// таблицы, а не отдельная коробка.
+  final bool outlined;
 }
 
 /// Ломаная: стрелка сообщения, линия жизни, черта между ветвями.
