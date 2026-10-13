@@ -340,6 +340,31 @@ folders {
     }
   });
 
+  test('живая схема медиатеки — подписи не налезают', () {
+    // Подписи веера из `covers` ставились долей длины кривой, а длины у
+    // связей веера разные: «cover_id» и «cover_id — обложка сервиса» сходились
+    // в одну строку.
+    final l = layoutErDiagram(parseErDiagram(_mediaLibrary), measure);
+    final tables = tablesOf(l);
+    final labels = [
+      for (final label in l.shapes.whereType<DiagramLabel>())
+        if (label.backdrop) (text: (label.run as _FakeRun).text, rect: label.at & label.run.size),
+    ];
+
+    for (var i = 0; i < labels.length; i++) {
+      for (var j = i + 1; j < labels.length; j++) {
+        expect(
+          labels[i].rect.inflate(4).overlaps(labels[j].rect),
+          isFalse,
+          reason: '«${labels[i].text}» и «${labels[j].text}»',
+        );
+      }
+      for (final table in tables) {
+        expect(labels[i].rect.overlaps(table), isFalse, reason: '«${labels[i].text}» на таблице');
+      }
+    }
+  });
+
   test('связь с собой — петля сбоку от таблицы', () {
     final l = layout('EMPLOYEE }o--o| EMPLOYEE : reports_to');
     final table = tablesOf(l).single;

@@ -111,7 +111,9 @@ DiagramLayout layoutErDiagram(ErDiagram diagram, DiagramTextMeasure measure, {Er
     fans = _fans(layering.chains, routes, geometry, diagram.relations);
 
     final crowd = fans.values.fold(1, (most, fan) => math.max(most, fan.$2));
-    final needed = (crowd + 1) * (labelHeight + _labelClearance);
+    // Ряд — строка и два зазора: с одним ряды стояли впритык, и малейшая
+    // неточность счёта выталкивала подпись на запасное место, к соседке.
+    final needed = (crowd + 1) * (labelHeight + _labelClearance * 2);
     if (needed <= gap) {
       break;
     }
@@ -147,7 +149,11 @@ DiagramLayout layoutErDiagram(ErDiagram diagram, DiagramTextMeasure measure, {Er
       // места ни выше, ни ниже.
       final (place, of) = fans[i] ?? (0, 1);
       labels.add(
-        DiagramLabel(run: run, at: _placeLabel(run.size, route, placed, first: (place + 1) / (of + 1)), backdrop: true),
+        DiagramLabel(
+          run: run,
+          at: _placeLabel(run.size, route, placed, horizontal: horizontal, first: (place + 1) / (of + 1)),
+          backdrop: true,
+        ),
       );
     }
   }
@@ -178,7 +184,7 @@ typedef _Route = ({List<Offset> points, List<Offset> labelSpan});
 /// Где на пролёте пробовать подпись, долей его длины: сперва середина, потом
 /// всё дальше от неё. Не ближе четверти к концам — там стоят знаки
 /// кардинальности.
-const List<double> _labelSpots = [0.5, 0.35, 0.65, 0.25, 0.75];
+const List<double> _labelSpots = [0.5, 0.35, 0.65, 0.25, 0.75, 0.3, 0.7, 0.4, 0.6];
 
 /// Сколько пустого держать вокруг подписи.
 const double _labelClearance = 8;
@@ -189,15 +195,16 @@ const double _labelClearance = 8;
 /// одной таблицы связи расходятся медленно, и две подписи на одной высоте
 /// слипаются в одну строку. Лесенкой они стоят там, где линии уже разошлись.
 /// Места нет нигде — туда, где задевает меньше всего.
-Offset _placeLabel(Size size, _Route route, List<Rect> placed, {double first = 0.5}) {
+Offset _placeLabel(Size size, _Route route, List<Rect> placed, {required bool horizontal, double first = 0.5}) {
   final span = route.labelSpan;
   final lengths = [0.0];
   for (var i = 1; i < span.length; i++) {
     lengths.add(lengths.last + (span[i] - span[i - 1]).distance);
   }
 
-  /// Точка на пролёте при доле [t] его длины.
-  Offset along(double t) {
+  /// Точка на пролёте при доле [t] его длины — когда пролёт не пересекает
+  /// рядов (связь внутри ряда) и уровня по высоте у него нет.
+  Offset byLength(double t) {
     final wanted = lengths.last * t;
     for (var i = 1; i < span.length; i++) {
       if (lengths[i] >= wanted) {
@@ -206,6 +213,30 @@ Offset _placeLabel(Size size, _Route route, List<Rect> placed, {double first = 0
       }
     }
     return span.last;
+  }
+
+  // Доля — **уровень поперёк рядов**, а не доля длины кривой: у связей одного
+  // веера длины разные — одна уходит далеко вбок, другая идёт почти прямо, — и
+  // одинаковая доля длины приходилась на разную высоту, сводя подписи в одну
+  // строку. Нашлось на живой схеме. По уровню у каждой подписи веера свой ряд:
+  // где её кривая проходит эту высоту, там и подпись.
+  double level(Offset point) => horizontal ? point.dx : point.dy;
+  final from = level(span.first);
+  final to = level(span.last);
+
+  Offset along(double t) {
+    if ((to - from).abs() < size.height) {
+      return byLength(t);
+    }
+    final wanted = from + (to - from) * t;
+    for (var i = 1; i < span.length; i++) {
+      final a = level(span[i - 1]);
+      final b = level(span[i]);
+      if ((wanted - a) * (wanted - b) <= 0 && a != b) {
+        return Offset.lerp(span[i - 1], span[i], (wanted - a) / (b - a))!;
+      }
+    }
+    return byLength(t);
   }
 
   Rect at(double t) => Rect.fromCenter(center: along(t), width: size.width, height: size.height);
