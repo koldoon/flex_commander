@@ -87,6 +87,8 @@ DiagramLayout layoutErDiagram(ErDiagram diagram, DiagramTextMeasure measure, {Er
   // подписей: они встают по пролёту лесенкой, каждой — своя высота и запас.
   // Какие связи выйдут из одной стороны одной таблицы, решают слои, — поэтому
   // сперва раскладываем, а не хватило зазора — раскладываем ещё раз, с нужным.
+  // Слева направо слои стоят столбцами, и поперёк слоя — x, а не y.
+  final horizontal = diagram.direction == FlowDirection.leftRight || diagram.direction == FlowDirection.rightLeft;
   var gap = metrics.flow.layerGap;
   late FlowLayering layering;
   late FlowGeometry geometry;
@@ -101,8 +103,11 @@ DiagramLayout layoutErDiagram(ErDiagram diagram, DiagramTextMeasure measure, {Er
       metrics: metrics.flow.withLayerGap(gap),
       sizes: {for (final entry in tables.entries) entry.key: entry.value.size},
     );
-    final ports = _ports(layering.chains, geometry, metrics);
-    routes = [for (final chain in layering.chains) _route(chain, geometry, metrics, ports)];
+    final ports = _ports(layering.chains, geometry, metrics, horizontal: horizontal);
+    final bands = _bands(layering, geometry, horizontal: horizontal);
+    routes = [
+      for (final chain in layering.chains) _route(chain, geometry, metrics, ports, bands, horizontal: horizontal),
+    ];
     fans = _fans(layering.chains, routes, geometry, diagram.relations);
 
     final crowd = fans.values.fold(1, (most, fan) => math.max(most, fan.$2));
@@ -270,6 +275,45 @@ Map<int, (int, int)> _fans(
   };
 }
 
+/// Где связь выходит из таблицы [box] в сторону [towards].
+///
+/// К соседнему ряду — **из стороны, обращённой к нему**: сверху вниз связь к
+/// таблице ниже выходит снизу, к таблице выше — сверху, слева направо — справа
+/// или слева. Место на стороне — там, где её пересекает луч из центра на цель,
+/// но не дальше краёв. По одному лучу, как в графе, невысокая таблица отдавала
+/// связь к далёкой цели внизу сбоку из **боковой** стороны: линия шла почти
+/// горизонтально и задевала соседнюю таблицу того же ряда. Нашлось на живой
+/// схеме. Цель в том же ряду — по лучу, как прежде.
+Offset _exitFacing(FlowBox box, Offset towards, ErMetrics metrics, {required bool horizontal}) {
+  final rect = box.rect;
+  final centre = rect.center;
+
+  // Вдоль слоёв: сверху вниз — y, слева направо — x.
+  final low = horizontal ? rect.left : rect.top;
+  final high = horizontal ? rect.right : rect.bottom;
+  final at = horizontal ? towards.dx : towards.dy;
+  final double? side = at > high ? high : (at < low ? low : null);
+  if (side == null) {
+    return flowExit(box, towards);
+  }
+
+  // Где луч из центра пересекает эту сторону, — вдоль неё.
+  final from = horizontal ? centre.dx : centre.dy;
+  final to = horizontal ? towards.dx : towards.dy;
+  final share = (side - from) / (to - from);
+  final along =
+      horizontal ? centre.dy + (towards.dy - centre.dy) * share : centre.dx + (towards.dx - centre.dx) * share;
+  final double clamped = along.clamp(
+    (horizontal ? rect.top : rect.left) + metrics.padding,
+    math.max(
+      (horizontal ? rect.top : rect.left) + metrics.padding,
+      (horizontal ? rect.bottom : rect.right) - metrics.padding,
+    ),
+  );
+
+  return horizontal ? Offset(side, clamped) : Offset(clamped, side);
+}
+
 /// Концы связей на сторонах таблиц — «порты»: где какая связь входит в
 /// таблицу (`docs/spec/mermaid.md`, §7а).
 ///
@@ -285,7 +329,12 @@ Map<int, (int, int)> _fans(
 /// Одиночный конец стоит, где стоял. Связи одной пары без перегибов — частный
 /// случай: соседняя точка у них одна, и порядок решает порядок записи —
 /// одинаковый у обеих таблиц, так что пара не перекрещивается.
-Map<(FlowChain, bool), Offset> _ports(List<FlowChain> chains, FlowGeometry geometry, ErMetrics metrics) {
+Map<(FlowChain, bool), Offset> _ports(
+  List<FlowChain> chains,
+  FlowGeometry geometry,
+  ErMetrics metrics, {
+  required bool horizontal,
+}) {
   Offset centreOf(FlowCell cell) => cell.isBend ? geometry.bends[cell]! : geometry.boxes[cell.id]!.rect.center;
 
   final groups = <String, List<({FlowChain chain, bool start, Offset natural, Offset towards})>>{};
@@ -300,7 +349,7 @@ Map<(FlowChain, bool), Offset> _ports(List<FlowChain> chains, FlowGeometry geome
       }
       final towards = centreOf(start ? chain.cells[1] : chain.cells[chain.cells.length - 2]);
       final box = geometry.boxes[cell.id]!;
-      final natural = flowExit(box, towards);
+      final natural = _exitFacing(box, towards, metrics, horizontal: horizontal);
       groups.putIfAbsent('${cell.id}\u0000${flowSide(box.rect, natural)}', () => []).add((
         chain: chain,
         start: start,
@@ -372,7 +421,27 @@ Map<(FlowChain, bool), Offset> _ports(List<FlowChain> chains, FlowGeometry geome
 /// раскладки, а не посередине между центрами, как в графе: у высокой таблицы
 /// центр далеко внутри, и подпись съезжала к самой рамке, туда, где две
 /// расходящиеся связи ещё рядом.
-_Route? _route(FlowChain chain, FlowGeometry geometry, ErMetrics metrics, Map<(FlowChain, bool), Offset> ports) {
+/// Полоса каждого слоя поперёк него — от края до края его таблиц: сверху вниз
+/// это верх и низ, слева направо — левый и правый край. Слой без таблиц —
+/// без полосы.
+Map<int, (double, double)> _bands(FlowLayering layering, FlowGeometry geometry, {required bool horizontal}) => {
+  for (var i = 0; i < layering.layers.length; i++)
+    if (layering.layers[i].any((cell) => !cell.isBend))
+      i: layering.layers[i]
+          .where((cell) => !cell.isBend)
+          .map((cell) => geometry.boxes[cell.id]!.rect)
+          .map((rect) => horizontal ? (rect.left, rect.right) : (rect.top, rect.bottom))
+          .reduce((a, b) => (math.min(a.$1, b.$1), math.max(a.$2, b.$2))),
+};
+
+_Route? _route(
+  FlowChain chain,
+  FlowGeometry geometry,
+  ErMetrics metrics,
+  Map<(FlowChain, bool), Offset> ports,
+  Map<int, (double, double)> bands, {
+  required bool horizontal,
+}) {
   if (chain.selfLoop) {
     // Шаг петли — графа: под него геометрия оставила место сбоку.
     final points = flowLoop(geometry.boxes[chain.cells.single.id]!.rect, lead: metrics.flow.lead, straight: true);
@@ -388,33 +457,58 @@ _Route? _route(FlowChain chain, FlowGeometry geometry, ErMetrics metrics, Map<(F
   final centres = [for (final cell in chain.cells) centreOf(cell)];
   final first = chain.cells.first;
   final last = chain.cells.last;
-  final points = [...centres];
+
+  // Перегиб в слое с таблицами — не точка, а отрезок поперёк всего слоя, от
+  // края его полосы до края. Точкой он стоял посередине высоты слоя, и у
+  // высокой таблицы линия шла от него наискось, срезая угол прямо под ней —
+  // по строкам таблицы. Отрезком она идёт вдоль таблицы своим коридором и
+  // выходит из слоя уже за ней. Нашлось на живой схеме.
+  final points = <Offset>[centres.first];
+  for (var i = 1; i < chain.cells.length - 1; i++) {
+    final bend = centres[i];
+    final band = bands[chain.cells[i].layer];
+    if (band == null) {
+      points.add(bend);
+      continue;
+    }
+    final ends = [
+      horizontal ? Offset(band.$1, bend.dy) : Offset(bend.dx, band.$1),
+      horizontal ? Offset(band.$2, bend.dy) : Offset(bend.dx, band.$2),
+    ];
+    // Сперва ближний к тому, откуда линия пришла. Каждый конец — дважды:
+    // сплайн через точки не проходит, а тянется к ним, и у одиночной срезал
+    // угол внутрь — на соседнюю таблицу, мимо которой коридор и идёт. С двойной
+    // точкой кривая подходит к ней вплотную и между ними идёт по прямой.
+    ends.sort((a, b) => (a - points.last).distance.compareTo((b - points.last).distance));
+    points.addAll([ends[0], ends[0], ends[1], ends[1]]);
+  }
+  points.add(centres.last);
+  // Куда смотрят концы: на ближайшую точку маршрута, а не на середину перегиба.
+  final towardsStart = points.length > 2 ? points[1] : centres.last;
+  final towardsEnd = points.length > 2 ? points[points.length - 2] : centres.first;
 
   // Конец в рамке и две точки перпендикулярно её стороне; ближе, если рамки
   // стоят тесно, — иначе точки разошлись бы мимо друг друга.
   List<Offset> lead(FlowCell cell, Offset towards, {required bool start}) {
     final rect = geometry.boxes[cell.id]!.rect;
     // Конец — порт своей стороны (`_ports`).
-    final exit = ports[(chain, start)] ?? flowExit(geometry.boxes[cell.id]!, towards);
+    final exit =
+        ports[(chain, start)] ?? _exitFacing(geometry.boxes[cell.id]!, towards, metrics, horizontal: horizontal);
     final outward = flowSide(rect, exit);
     final step = math.min(metrics.lead, (towards - exit).distance / 6);
     return flowLead(exit, outward, step, straight: true);
   }
 
   if (!first.isBend) {
-    points.replaceRange(0, 1, lead(first, centres[1], start: true));
+    points.replaceRange(0, 1, lead(first, towardsStart, start: true));
   }
   if (!last.isBend) {
-    points.replaceRange(
-      points.length - 1,
-      points.length,
-      lead(last, centres[centres.length - 2], start: false).reversed,
-    );
+    points.replaceRange(points.length - 1, points.length, lead(last, towardsEnd, start: false).reversed);
   }
 
-  // Пролёт подписи — по кривой до точки, ближайшей к следующей ячейке.
+  // Пролёт подписи — по кривой до точки, ближайшей к первой точке за рамкой.
   final sampled = diagramSample(diagramBasis(points));
-  final next = chain.cells.length > 2 ? centres[1] : sampled.last;
+  final next = chain.cells.length > 2 ? towardsStart : sampled.last;
   var end = sampled.length - 1;
   for (var i = 0; i < sampled.length; i++) {
     if ((sampled[i] - next).distance < (sampled[end] - next).distance) {

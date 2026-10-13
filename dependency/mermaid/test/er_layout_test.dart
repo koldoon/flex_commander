@@ -305,6 +305,41 @@ folders {
     }
   });
 
+  test('живая схема медиатеки — без пересечений', () {
+    // Целиком из `spectrum/docs/database.md`: на ней пересекались «обложка
+    // сервиса» и `artist_id` — раскладка слоёв меняла порядок длинных связей
+    // между слоями.
+    final relations = relationsOf(layoutErDiagram(parseErDiagram(_mediaLibrary), measure));
+    final curves = [for (final relation in relations) diagramSample(diagramBasis(relation.points))];
+
+    for (var i = 0; i < curves.length; i++) {
+      for (var j = i + 1; j < curves.length; j++) {
+        expect(_crossings(curves[i], curves[j]), 0, reason: 'связи $i и $j');
+      }
+    }
+  });
+
+  test('живая схема медиатеки — линии не проходят под чужими таблицами', () {
+    // Перегиб стоял посередине высоты слоя, и у высокой `tracks` линия шла от
+    // него наискось, срезая угол прямо по её строкам.
+    final diagram = parseErDiagram(_mediaLibrary);
+    final l = layoutErDiagram(diagram, measure);
+    final tables = tablesOf(l);
+    final relations = relationsOf(l);
+
+    for (final (i, relation) in relations.indexed) {
+      final curve = diagramSample(diagramBasis(relation.points));
+      for (final table in tables) {
+        // Свои таблицы — те, на рамке которых лежат концы.
+        if (onBorder(table, relation.points.first) || onBorder(table, relation.points.last)) {
+          continue;
+        }
+        final inner = table.deflate(1);
+        expect(curve.where(inner.contains), isEmpty, reason: 'связь $i проходит под таблицей $table');
+      }
+    }
+  });
+
   test('связь с собой — петля сбоку от таблицы', () {
     final l = layout('EMPLOYEE }o--o| EMPLOYEE : reports_to');
     final table = tablesOf(l).single;
@@ -364,3 +399,82 @@ int _crossings(List<Offset> a, List<Offset> b) {
 
   return count;
 }
+
+/// Схема медиатеки — как она написана в живом документе.
+const String _mediaLibrary = '''
+erDiagram
+    roots ||--o{ folders : "root_id (CASCADE)"
+    roots ||--o{ tracks : "root_id (CASCADE)"
+    covers |o--o{ folders : "cover_id"
+    covers |o--o{ tracks : "cover_id — картинка из тега"
+    folders |o..o{ tracks : "(root_id, folder) = (root_id, path)"
+
+    tracks ||..|| clean_tracks : "(root_id, folder, file)"
+    clean_artists |o..o{ clean_tracks : "artist_id"
+    clean_genres |o..o{ clean_tracks : "genre_id"
+    covers |o..o{ clean_tracks : "cover_id — обложка сервиса"
+
+    roots {
+        INTEGER id PK
+        TEXT path UK "абсолютный путь источника"
+        INTEGER scanned_at
+    }
+    covers {
+        INTEGER id PK
+        BLOB hash UK "SHA-1 исходной картинки"
+        INTEGER width
+        INTEGER height
+        BLOB image "JPEG, вписан в 240x240"
+    }
+    folders {
+        INTEGER root_id PK,FK
+        TEXT path PK "относительно корня"
+        TEXT cover_file
+        INTEGER size
+        INTEGER mtime
+        INTEGER cover_id FK
+    }
+    tracks {
+        INTEGER root_id PK,FK
+        TEXT folder PK
+        TEXT file PK
+        INTEGER size
+        INTEGER mtime
+        TEXT title
+        TEXT artist
+        TEXT album
+        TEXT genre
+        INTEGER year
+        INTEGER track
+        INTEGER disc
+        INTEGER bitrate
+        INTEGER cover_id FK
+        INTEGER removed "1 - файла нет, строка хранится"
+    }
+    clean_tracks {
+        INTEGER root_id PK
+        TEXT folder PK
+        TEXT file PK
+        INTEGER artist_id
+        INTEGER genre_id
+        TEXT title "опрятное; NULL - не упорядочен"
+        TEXT album
+        INTEGER copy_group
+        INTEGER hidden "копия похуже"
+        INTEGER cover_id "в covers индекса"
+    }
+    clean_artists {
+        INTEGER id PK
+        TEXT key UK "matchKey"
+        TEXT name
+    }
+    clean_genres {
+        INTEGER id PK
+        TEXT key UK
+        TEXT name
+    }
+    clean_organized {
+        TEXT stage PK
+        INTEGER version
+    }
+''';

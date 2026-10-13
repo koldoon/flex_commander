@@ -137,6 +137,20 @@ void main() {
       expect(layering.crossings, 0);
     });
 
+    test('длинные рёбра держат порядок из слоя в слой', () {
+      // Схема медиатеки (ER из живого документа, переведённая в граф): три
+      // длинных ребра в одну таблицу снизу. Проходы брали соседей не с той
+      // стороны — сверху вниз ставили по нижним, — и ребро от `covers`
+      // уезжало в конец второго слоя, перекрещивая два соседних.
+      final layering = layer(
+        'roots --> folders\nroots --> tracks\ncovers --> folders\ncovers --> tracks\n'
+        'folders --> tracks\ntracks --> clean_tracks\nclean_artists --> clean_tracks\n'
+        'clean_genres --> clean_tracks\ncovers --> clean_tracks\n',
+      );
+
+      expect(layering.crossings, 0);
+    });
+
     test('пересечения не растут от прохода', () {
       // Полный двудольный: одно пересечение неизбежно, и оно не должно
       // размножиться.

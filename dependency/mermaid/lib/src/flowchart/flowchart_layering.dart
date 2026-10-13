@@ -297,7 +297,12 @@ class _Layering {
     var least = FlowLayering(layers: layers, chains: chains).crossings;
 
     for (var sweep = 0; sweep < _sweeps; sweep++) {
-      _sweep(layers, sweep.isEven ? down : up, downwards: sweep.isEven);
+      // Сверху вниз узел встаёт в медиану соседей **сверху** — слой над ним уже
+      // расставлен; снизу вверх — соседей снизу. Было наоборот, и ни один
+      // проход не согласовывал слой с только что расставленным: длинные рёбра
+      // меняли порядок между слоями и перекрещивались на ровном месте
+      // (`docs/spec/mermaid.md`, §7а, отметка от 13 октября 2026).
+      _sweep(layers, sweep.isEven ? up : down, downwards: sweep.isEven);
       _keepGroups(layers);
 
       final now = FlowLayering(layers: layers, chains: chains).crossings;
