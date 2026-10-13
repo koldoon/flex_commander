@@ -15,6 +15,7 @@ export 'src/draw/diagram_layout.dart';
 export 'src/draw/diagram_theme.dart';
 export 'src/draw/diagram_view.dart';
 export 'src/draw/diagram_text.dart';
+export 'src/er/er_layout.dart';
 export 'src/er/er_model.dart';
 export 'src/er/er_parser.dart';
 export 'src/flowchart/flowchart_geometry.dart';

@@ -22,6 +22,45 @@ DiagramLayout layoutFlowchart(
   return _Drawing(diagram, geometry, metrics).run();
 }
 
+/// Где ребро выходит из фигуры [box] в сторону [towards]: на её границе, а не
+/// в центре, иначе наконечник тонет внутри.
+///
+/// Общее у графа и ER: таблица сущности — тот же прямоугольник
+/// (`docs/spec/mermaid.md`, §7а).
+Offset flowExit(FlowBox box, Offset towards) {
+  final centre = box.rect.center;
+  final direction = towards - centre;
+  if (direction.distance == 0) {
+    return centre;
+  }
+  final unit = direction / direction.distance;
+  final half = Offset(box.rect.width / 2, box.rect.height / 2);
+
+  final reach = switch (box.shape) {
+    // Круг — по радиусу, ромб — по диагоналям, всё прочее — по рамке.
+    FlowShape.circle => half.dx,
+    FlowShape.rhombus => 1 / (unit.dx.abs() / half.dx + unit.dy.abs() / half.dy),
+    _ => math.min(
+      unit.dx == 0 ? double.infinity : half.dx / unit.dx.abs(),
+      unit.dy == 0 ? double.infinity : half.dy / unit.dy.abs(),
+    ),
+  };
+
+  return centre + unit * reach;
+}
+
+/// Петля на себя: сбоку от фигуры и обратно в неё.
+List<Offset> flowLoop(Rect rect) {
+  final out = rect.width / 2;
+
+  return [
+    Offset(rect.right, rect.center.dy - rect.height / 4),
+    Offset(rect.right + out, rect.center.dy - rect.height / 4),
+    Offset(rect.right + out, rect.center.dy + rect.height / 4),
+    Offset(rect.right, rect.center.dy + rect.height / 4),
+  ];
+}
+
 class _Drawing {
   _Drawing(this.diagram, this.geometry, this.metrics);
 
@@ -98,16 +137,8 @@ class _Drawing {
 
   /// Петля на себя: сбоку от узла и обратно в него.
   DiagramShape _loop(FlowChain chain, FlowEdge edge) {
-    final rect = geometry.boxes[chain.cells.single.id]!.rect;
-    final out = rect.width / 2;
-
     return DiagramPath(
-      points: [
-        Offset(rect.right, rect.center.dy - rect.height / 4),
-        Offset(rect.right + out, rect.center.dy - rect.height / 4),
-        Offset(rect.right + out, rect.center.dy + rect.height / 4),
-        Offset(rect.right, rect.center.dy + rect.height / 4),
-      ],
+      points: flowLoop(geometry.boxes[chain.cells.single.id]!.rect),
       head: _head(edge.head),
       dashed: edge.line == FlowLine.dotted,
       thick: edge.line == FlowLine.thick,
@@ -127,26 +158,7 @@ class _Drawing {
       return geometry.bends[cell]!;
     }
 
-    final box = geometry.boxes[cell.id]!;
-    final centre = box.rect.center;
-    final direction = towards - centre;
-    if (direction.distance == 0) {
-      return centre;
-    }
-    final unit = direction / direction.distance;
-    final half = Offset(box.rect.width / 2, box.rect.height / 2);
-
-    final reach = switch (box.shape) {
-      // Круг — по радиусу, ромб — по диагоналям, всё прочее — по рамке.
-      FlowShape.circle => half.dx,
-      FlowShape.rhombus => 1 / (unit.dx.abs() / half.dx + unit.dy.abs() / half.dy),
-      _ => math.min(
-        unit.dx == 0 ? double.infinity : half.dx / unit.dx.abs(),
-        unit.dy == 0 ? double.infinity : half.dy / unit.dy.abs(),
-      ),
-    };
-
-    return centre + unit * reach;
+    return flowExit(geometry.boxes[cell.id]!, towards);
   }
 
   // --- узлы ---

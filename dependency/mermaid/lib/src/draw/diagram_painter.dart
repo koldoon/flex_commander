@@ -170,7 +170,51 @@ class DiagramPainter extends CustomPainter {
         canvas
           ..drawCircle(to - unit * (size / 3), size / 3, Paint()..color = style.background)
           ..drawCircle(to - unit * (size / 3), size / 3, line);
+
+      // Кардинальность ER: знаки стоят на линии у самой рамки, ближний к ней
+      // — «сколько больше всего», дальний — «сколько меньше всего», как в
+      // нотации crow's foot (`docs/spec/mermaid.md`, §7а).
+      case DiagramHead.exactlyOne:
+        _bar(canvas, to - unit * 5, normal, line);
+        _bar(canvas, to - unit * 9, normal, line);
+
+      case DiagramHead.zeroOrOne:
+        _bar(canvas, to - unit * 5, normal, line);
+        _ring(canvas, to - unit * 12, line);
+
+      case DiagramHead.oneOrMore:
+        _foot(canvas, to, unit, normal, line);
+        _bar(canvas, to - unit * 12, normal, line);
+
+      case DiagramHead.zeroOrMore:
+        _foot(canvas, to, unit, normal, line);
+        _ring(canvas, to - unit * 15, line);
     }
+  }
+
+  /// Длина «лапки» вдоль линии и её полуразмах.
+  static const double _footLength = 9;
+  static const double _footSpread = 5;
+
+  /// Поперечная черта.
+  void _bar(Canvas canvas, Offset at, Offset normal, Paint line) =>
+      canvas.drawLine(at + normal * _footSpread, at - normal * _footSpread, line);
+
+  /// Пустой кружок на подложке фона: залитый читался бы точкой.
+  void _ring(Canvas canvas, Offset at, Paint line) {
+    const radius = 3.5;
+    canvas
+      ..drawCircle(at, radius, Paint()..color = style.background)
+      ..drawCircle(at, radius, line);
+  }
+
+  /// «Воронья лапка»: три пальца от точки на линии к рамке.
+  void _foot(Canvas canvas, Offset to, Offset unit, Offset normal, Paint line) {
+    final heel = to - unit * _footLength;
+    canvas
+      ..drawLine(heel, to + normal * _footSpread, line)
+      ..drawLine(heel, to, line)
+      ..drawLine(heel, to - normal * _footSpread, line);
   }
 
   @override

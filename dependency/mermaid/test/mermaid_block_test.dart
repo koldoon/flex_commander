@@ -59,6 +59,20 @@ void main() {
     expect(find.textContaining('flowchart TD'), findsNothing, reason: 'исходника на экране быть не должно');
   });
 
+  testWidgets('ER-диаграмма рисуется картинкой (§7а)', (tester) async {
+    await pump(tester, 'erDiagram\n  Покупатель ||--o{ Заказ : делает\n  Заказ {\n    int номер PK\n  }');
+
+    expect(find.byType(MermaidDiagramView), findsOneWidget);
+    expect(find.textContaining('is not drawn yet'), findsNothing);
+    expect(find.textContaining('erDiagram'), findsNothing, reason: 'исходника на экране быть не должно');
+  });
+
+  testWidgets('кривая ER-диаграмма называет строку', (tester) async {
+    await pump(tester, 'erDiagram\n  A ||--o{ B : x\n  A <>--o{ B : x');
+
+    expect(find.text('Line 3: this relationship does not say its cardinality'), findsOneWidget);
+  });
+
   testWidgets('кривой граф называет строку, а не «пока не рисуется»', (tester) async {
     // Разбор подключён раньше отрисовки нарочно: опечатку человеку стоит
     // показать сегодня, а не ждать картинки (`docs/spec/mermaid.md`, §7).

@@ -122,20 +122,26 @@ class FlowGeometry {
 ///
 /// Чистый расчёт: на входе модель, слои и замер текста, на выходе прямоугольники
 /// и размер. Ни холста, ни виджетов.
+///
+/// [sizes] — размеры узлов, которые меряет вызывающий: у таблицы сущности ER
+/// размер задаёт сама таблица, а не подпись (`docs/spec/mermaid.md`, §7а).
+/// Узлу без размера здесь он считается по подписи и форме, как всегда.
 FlowGeometry placeFlowchart(
   FlowchartDiagram diagram,
   FlowLayering layering,
   DiagramTextMeasure measure, {
   FlowMetrics metrics = const FlowMetrics(),
-}) => _Geometry(diagram, layering, measure, metrics).run();
+  Map<String, Size> sizes = const {},
+}) => _Geometry(diagram, layering, measure, metrics, sizes).run();
 
 class _Geometry {
-  _Geometry(this.diagram, this.layering, this.measure, this.metrics);
+  _Geometry(this.diagram, this.layering, this.measure, this.metrics, this.sizes);
 
   final FlowchartDiagram diagram;
   final FlowLayering layering;
   final DiagramTextMeasure measure;
   final FlowMetrics metrics;
+  final Map<String, Size> sizes;
 
   /// Сколько раз подтягиваем узлы к медиане соседей.
   static const int _passes = 4;
@@ -256,7 +262,7 @@ class _Geometry {
     for (final node in diagram.nodes) {
       final run = measure.run(node.text.join('\n'), DiagramTextRole.note);
       _text[node.id] = run;
-      _shapeSize[node.id] = _sizeOf(node.shape, run.size);
+      _shapeSize[node.id] = sizes[node.id] ?? _sizeOf(node.shape, run.size);
     }
   }
 
