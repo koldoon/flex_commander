@@ -145,15 +145,46 @@ void main() {
 
     test('длинное ребро идёт через перегиб', () {
       final l = down('A --> B --> C\nA --> C\n');
-      // У каждого конца — точка на границе и точка по нормали к ней; у
-      // длинного ребра сверх того одна точка перегиба посередине.
+      // У каждого конца — точка на границе и две по нормали к ней; у длинного
+      // ребра сверх того одна точка перегиба посередине.
       final lengths = [for (final path in arrowsOf(l)) path.points.length]..sort();
 
-      expect(lengths, [4, 4, 5]);
+      expect(lengths, [6, 6, 7]);
     });
   });
 
   group('подграфы', () {
+    test('ребро, которому ничто не мешает, — прямое', () {
+      // `tracks --> covers` внутри `library.sqlite` шло волной: разведение
+      // рамок сдвигало его перегибы в одних слоях дальше, чем в других.
+      final diagram = parseFlowchart(_betweenFiles);
+      final layering = layerFlowchart(diagram);
+      final geometry = placeFlowchart(diagram, layering, measure);
+      final edge = diagram.edges.indexWhere((e) => e.from == 'tracks' && e.to == 'lcovers');
+      final chain = layering.chains[edge];
+      expect(chain.cells.length, greaterThan(2), reason: 'ребро длинное — иначе проверять нечего');
+
+      final from = geometry.boxes['tracks']!.rect.center;
+      final to = geometry.boxes['lcovers']!.rect.center;
+      final along = (to - from) / (to - from).distance;
+      for (final cell in chain.cells.where((cell) => cell.isBend)) {
+        final off = geometry.bends[cell]! - from;
+        expect((off.dx * along.dy - off.dy * along.dx).abs(), lessThan(1), reason: 'перегиб $cell не на прямой');
+      }
+    });
+
+    test('стрелка подходит к фигуре по прямой, перпендикулярно', () {
+      final l = layout(_betweenFiles);
+      for (final arrow in arrowsOf(l)) {
+        final n = arrow.points.length;
+        final a = arrow.points[n - 3];
+        final b = arrow.points[n - 2];
+        final c = arrow.points[n - 1];
+        final cross = (b.dx - a.dx) * (c.dy - b.dy) - (b.dy - a.dy) * (c.dx - b.dx);
+        expect(cross.abs(), lessThan(1e-6), reason: 'последние три точки — на одной прямой');
+      }
+    });
+
     test('живая схема «Между файлами» — рамки не налезают, чужих внутри нет', () {
       // Подграф `library.sqlite` растянут на всю картинку: его `covers` — в
       // последнем слое. В промежуточных слоях внутрь его рамки вставали узлы

@@ -192,6 +192,7 @@ class _Geometry {
 
     _placeAlong();
     _separateFrames();
+    _straighten(offsets, thickness);
     _centreLayers();
 
     final total = offsets.last + thickness.last;
@@ -582,6 +583,80 @@ class _Geometry {
 
       if (!moved) {
         break;
+      }
+    }
+  }
+
+  /// Длинные рёбра — по прямой, где ничто не мешает.
+  ///
+  /// Каждый перегиб пробует встать на прямую между концами своего ребра — но
+  /// не ближе к соседям по слою, чем зазор, а к ячейке чужого подграфа — ещё
+  /// и поля обеих рамок с заголовком. Порядок в слоях не трогается, значит, и
+  /// новых пересечений нет. Без этого ребро, которому ничто не мешало, шло
+  /// волной: разведение рамок сдвигало его перегибы в одних слоях дальше, чем
+  /// в других. Нашлось на живой схеме.
+  void _straighten(List<double> offsets, List<double> thickness) {
+    final groups = layering.groups;
+    double acrossOf(int layer) => offsets[layer] + thickness[layer] / 2;
+
+    final position = <FlowCell, int>{
+      for (final cells in layering.layers)
+        for (var i = 0; i < cells.length; i++) cells[i]: i,
+    };
+
+    // Поля двух рамок и заголовок — между ячейками разных подграфов.
+    var title = 0.0;
+    if (_horizontal) {
+      for (final group in diagram.subgraphs) {
+        title = math.max(
+          title,
+          measure.run(group.text.join('\n'), DiagramTextRole.blockLabel).size.height + metrics.frameGap,
+        );
+      }
+    }
+    final apart = metrics.frameInset * 2 + title;
+
+    double clearance(FlowCell a, FlowCell b) {
+      final left = groups[a] ?? const <int>[];
+      final right = groups[b] ?? const <int>[];
+      final same =
+          left.length == right.length && [for (var i = 0; i < left.length; i++) left[i] == right[i]].every((x) => x);
+
+      return metrics.cellGap + (same ? 0 : apart);
+    }
+
+    for (var round = 0; round < 3; round++) {
+      for (final chain in layering.chains) {
+        if (chain.selfLoop || chain.cells.length < 3) {
+          continue;
+        }
+        final first = chain.cells.first;
+        final last = chain.cells.last;
+        final from = _along[first]!;
+        final to = _along[last]!;
+        final start = acrossOf(first.layer);
+        final end = acrossOf(last.layer);
+
+        for (final cell in chain.cells.sublist(1, chain.cells.length - 1)) {
+          final share = end == start ? 0.5 : (acrossOf(cell.layer) - start) / (end - start);
+          final wanted = from + (to - from) * share;
+
+          final cells = layering.layers[cell.layer];
+          final at = position[cell]!;
+          var low = -double.infinity;
+          var high = double.infinity;
+          if (at > 0) {
+            final before = cells[at - 1];
+            low = _along[before]! + _alongSize(before) / 2 + clearance(before, cell);
+          }
+          if (at + 1 < cells.length) {
+            final after = cells[at + 1];
+            high = _along[after]! - _alongSize(after) / 2 - clearance(cell, after);
+          }
+          if (low <= high) {
+            _along[cell] = wanted.clamp(low, high);
+          }
+        }
       }
     }
   }

@@ -123,14 +123,27 @@ List<Offset> flowLoop(Rect rect, {double lead = 10, bool straight = false}) {
   ];
 }
 
-/// Круглая петля вправо от [top] к [bottom] шириной не больше [reach] — как
-/// у mermaid: одна дуга по четырём точкам, опоры справа и на четверть высоты
-/// за краями петли. Выходит вправо-вверх и возвращается слева-снизу, без
-/// прямых кусков.
+/// Петля-скоба ⊃ вправо от [top] к [bottom] шириной не больше [reach].
+///
+/// Уходит горизонтально, по прямой на четверть ширины, круглым поворотом
+/// справа и так же горизонтально возвращается: наконечник входит в линию
+/// жизни или фигуру ровно поперёк. Поворот — по двум опорам в углах, а не по
+/// одной вершине: с одной он стягивался в острый «листок». Первая петля шла
+/// по дуге без прямых кусков и возвращалась наискось — направление стрелки
+/// было не разобрать.
 List<Offset> flowRoundLoop(Offset top, Offset bottom, double reach) {
-  final over = (bottom.dy - top.dy) / 4;
+  final step = Offset(reach / 4, 0);
 
-  return [top, Offset(top.dx + reach, top.dy - over), Offset(bottom.dx + reach, bottom.dy + over), bottom];
+  return [
+    top,
+    top + step,
+    top + step * 2,
+    Offset(top.dx + reach, top.dy),
+    Offset(bottom.dx + reach, bottom.dy),
+    bottom + step * 2,
+    bottom + step,
+    bottom,
+  ];
 }
 
 class _Drawing {
@@ -198,7 +211,11 @@ class _Drawing {
       }
       final step = math.min(metrics.lead, (towards - exit).distance / 6);
 
-      return flowLead(exit, flowOutward(geometry.boxes[cell.id]!, exit), step);
+      // По прямой на шаг: у конца у кривой нулевая кривизна, и стрелка
+      // подходит к фигуре под прямым углом на виду, а не только в последней
+      // точке. С одной точкой прямой кусок выходил в шестую долю шага, линия
+      // сразу загибалась, и под острым углом было не понять, куда стрелка.
+      return flowLead(exit, flowOutward(geometry.boxes[cell.id]!, exit), step, straight: true);
     }
 
     final centres = [...points];
