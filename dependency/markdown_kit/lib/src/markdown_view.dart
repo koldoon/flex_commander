@@ -338,10 +338,24 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
       //
       // К правому краю колонки — туда же, куда точка и номер: зазор до текста
       // у всех маркеров один, и колонка читается колонкой.
+      //
+      // Вставкой в текст стилем маркера, а не голым квадратиком. Пункт
+      // выравнивается по базовой линии (`listItemCrossAxisAlignment`), а у
+      // квадратика её нет: строка ставила его нижний край на базовую линию
+      // текста, и флажок висел выше середины строки — у букв под базовой линией
+      // ещё выносные элементы, у квадратика их нет. Вставка «по середине» даёт
+      // настоящую базовую линию и ставит центр флажка в центр строки — как у
+      // флажка с подписью в окне.
       checkboxBuilder:
           (checked) => Padding(
             padding: _styleOf(context).listBulletPadding ?? EdgeInsets.zero,
-            child: Align(alignment: Alignment.centerRight, child: FcCheckboxMark(value: checked)),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Text.rich(
+                WidgetSpan(alignment: PlaceholderAlignment.middle, child: FcCheckboxMark(value: checked)),
+                style: _styleOf(context).listBullet,
+              ),
+            ),
           ),
       // Значок пункта — свой, ради выключки. Показ прижимает номер вправо, а
       // точку центрует в колонке маркера: у точки выходит втрое больший зазор

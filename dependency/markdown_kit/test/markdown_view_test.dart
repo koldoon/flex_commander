@@ -607,6 +607,18 @@ void main() {
       expect(mark, moreOrLessEquals(column, epsilon: 1));
     });
 
+    testWidgets('флажок стоит посередине строки, а не над базовой линией', (tester) async {
+      // Пункты списка выравниваются по базовой линии, а у квадратика своей нет:
+      // строка ставила его нижний край на базовую линию текста, и флажок висел
+      // выше середины строки (по живому показу).
+      await pump(tester, source);
+
+      final mark = tester.getRect(find.byType(FcCheckboxMark).first).center.dy;
+      final line = tester.getRect(find.text('не сделано')).center.dy;
+
+      expect(mark, moreOrLessEquals(line, epsilon: 1));
+    });
+
     testWidgets('отмеченное отмечено, неотмеченное нет', (tester) async {
       await pump(tester, source);
 
