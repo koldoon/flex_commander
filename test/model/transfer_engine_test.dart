@@ -616,6 +616,80 @@ void main() {
     });
   });
 
+  group('корзины нет (spec/trash-unavailable.md)', () {
+    setUp(() => provider.hasTrash = false);
+
+    /// Удаляет в корзину, отвечая на каждый вопрос [answer]; отвечает тем, о
+    /// чём спросили.
+    Future<List<OperationRequest>> removeAnswering(List<String> paths, OperationRequestOption answer) async {
+      final operation = engine.remove();
+      final asked = <OperationRequest>[];
+      operation.requests.listen((request) {
+        asked.add(request);
+        request.respond(answer);
+      });
+      operation.start(RemoveParams([for (final path in paths) await node(path)]));
+      try {
+        await operation.result;
+      } on OperationCanceled {
+        // Отмену проверяют по диску.
+      }
+      return asked;
+    }
+
+    test('спрашивают, а не стирают молча', () async {
+      final asked = await removeAnswering(['/home/notes.txt'], TransferAnswers.deletePermanently);
+
+      expect(asked, hasLength(1));
+      expect(asked.single.message, contains('notes.txt'));
+      expect(asked.single.enterOption, TransferAnswers.deletePermanently);
+      expect(asked.single.escapeOption, TransferAnswers.cancel);
+      // Один объект — вариантов «все» нет: применять их не к чему.
+      expect(asked.single.options, isNot(contains(TransferAnswers.deleteAllPermanently)));
+      expect(provider.deleted, ['/home/notes.txt']);
+    });
+
+    test('«пропустить» оставляет объект на месте', () async {
+      await removeAnswering(['/home/notes.txt'], TransferAnswers.skip);
+
+      expect(provider.deleted, isEmpty);
+      expect(await provider.resolvePath().run('/home/notes.txt'), isNotNull);
+    });
+
+    test('«отменить» не трогает ничего', () async {
+      await removeAnswering(['/home/notes.txt', '/home/docs'], TransferAnswers.cancel);
+
+      expect(provider.deleted, isEmpty);
+    });
+
+    test('«удалить все навсегда» спрашивается один раз', () async {
+      final asked = await removeAnswering(['/home/notes.txt', '/home/docs'], TransferAnswers.deleteAllPermanently);
+
+      expect(asked, hasLength(1));
+      expect(asked.single.options, contains(TransferAnswers.skipAll));
+      expect(provider.deleted, contains('/home/notes.txt'));
+      expect(provider.deleted, contains('/home/docs'));
+    });
+
+    test('«пропустить все» спрашивается один раз', () async {
+      final asked = await removeAnswering(['/home/notes.txt', '/home/docs'], TransferAnswers.skipAll);
+
+      expect(asked, hasLength(1));
+      expect(provider.deleted, isEmpty);
+    });
+
+    test('мимо корзины не спрашивают: об этом спросило подтверждение', () async {
+      final operation = engine.remove();
+      final asked = <OperationRequest>[];
+      operation.requests.listen(asked.add);
+      operation.start(RemoveParams([await node('/home/notes.txt')], toTrash: false));
+      await operation.result;
+
+      expect(asked, isEmpty);
+      expect(provider.deleted, ['/home/notes.txt']);
+    });
+  });
+
   group('ход внутри файла', () {
     test('байты провайдера двигают и его полосу, и общую', () async {
       // Копия средствами провайдера — единственная стратегия, где движок не

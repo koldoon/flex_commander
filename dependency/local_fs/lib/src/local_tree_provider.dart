@@ -576,6 +576,9 @@ class LocalTreeProvider
   @override
   Future<FsNode?> trashEntry(FsNode node) async {
     final landed = await _moveToTrash(entityPathOf(node));
+    if (landed == null) {
+      return null;
+    }
     // Узлом, а не строкой: путь в корзине собирает провайдер, и собирать его
     // второй раз на чужой стороне значило бы повторить правило разведения имён.
     return resolvePath().run(landed);
@@ -594,8 +597,9 @@ class LocalTreeProvider
   /// Перенос, а не удаление: корзина — это каталог `~/.Trash`, и объект должен
   /// оставаться восстановимым. Имя при совпадении разводится суффиксом, как
   /// это делает сама система.
-  /// Отвечает путём, которым объект в корзине и лёг.
-  Future<String> _moveToTrash(String path) async {
+  /// Отвечает путём, которым объект в корзине и лёг; null — объект на другом
+  /// томе, и корзины для него нет (`docs/spec/trash-unavailable.md`).
+  Future<String?> _moveToTrash(String path) async {
     final trash = Directory(p.join(homePath, '.Trash'));
     try {
       if (!await trash.exists()) {
@@ -613,7 +617,11 @@ class LocalTreeProvider
       return target;
     } on FileSystemException catch (error) {
       // Перенос между дисками сам по себе невозможен: корзина живёт на диске
-      // пользователя, а объект может быть на другом.
+      // пользователя, а объект может быть на другом — на сетевой шаре, на
+      // флешке. Беда не в объекте, а в том, что положить его некуда.
+      if (error.osError?.errorCode == (Platform.isWindows ? _errorNotSameDevice : _exdev)) {
+        return null;
+      }
       throw fsErrorFrom(path, error);
     }
   }
@@ -900,3 +908,9 @@ class LocalTreeProvider
     return Directory.current.path;
   }
 }
+
+/// `EXDEV`: переименование между томами — одно и то же на macOS и Linux.
+const int _exdev = 18;
+
+/// `ERROR_NOT_SAME_DEVICE` — то же на Windows.
+const int _errorNotSameDevice = 17;

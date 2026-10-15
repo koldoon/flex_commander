@@ -420,6 +420,8 @@ class TreeTransferEngine implements TreeEditor {
       unawaited(_countSources(nodes, progress));
 
       var skipAll = false;
+      // Ответ «все» на вопрос «корзины нет»: null — ещё не отвечали.
+      OperationRequestOption? withoutTrash;
 
       try {
         for (var i = 0; i < nodes.length; i++) {
@@ -450,6 +452,22 @@ class TreeTransferEngine implements TreeEditor {
               );
               progress.sourceDoneWholly(i);
             } else {
+              if (toTrash) {
+                // Обещали корзину, а её нет: молча стереть значит соврать, а
+                // отказать — оставить человека гадать почему
+                // (`docs/spec/trash-unavailable.md`).
+                final answer = withoutTrash ?? await _askWithoutTrash(op, node, many: nodes.length > 1);
+                if (answer == TransferAnswers.cancel) {
+                  throw const OperationCanceled();
+                }
+                if (answer == TransferAnswers.skipAll || answer == TransferAnswers.deleteAllPermanently) {
+                  withoutTrash = answer;
+                }
+                if (answer == TransferAnswers.skip || answer == TransferAnswers.skipAll) {
+                  progress.sourceDoneWholly(i);
+                  continue;
+                }
+              }
               // Мимо корзины — возвращать неоткуда: одна такая запись делает
               // работу неотменимой целиком (`docs/spec/operation-history.md`,
               // §7). Поштучно внутрь не пишем: там всё равно нечего возвращать.
@@ -1126,6 +1144,30 @@ class TreeTransferEngine implements TreeEditor {
     }());
 
     return walk;
+  }
+
+  /// Спрашивает, удалить ли насовсем то, чему в корзину нельзя.
+  ///
+  /// Enter — удалить: человек уже сказал, что хочет удалить, вопрос только
+  /// уточняет как. Варианты «все» — лишь когда объектов несколько.
+  Future<OperationRequestOption> _askWithoutTrash(TaskOperation<Object?, void> op, FsNode node, {required bool many}) {
+    return op.ask(
+      OperationRequest(
+        message: strings.tr(
+          '«{name}» cannot be moved to Trash, only deleted permanently. Delete it permanently?',
+          args: {'name': node.name},
+        ),
+        options: [
+          TransferAnswers.deletePermanently,
+          if (many) TransferAnswers.deleteAllPermanently,
+          TransferAnswers.skip,
+          if (many) TransferAnswers.skipAll,
+          TransferAnswers.cancel,
+        ],
+        enterOption: TransferAnswers.deletePermanently,
+        escapeOption: TransferAnswers.cancel,
+      ),
+    );
   }
 
   Future<OperationRequestOption> _askAboutFailure(TaskOperation<Object?, void> op, String message) {

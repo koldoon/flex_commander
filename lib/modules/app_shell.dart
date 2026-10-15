@@ -906,6 +906,10 @@ const Map<String, String> _coreRussian = {
   'Skip': 'Пропустить',
   'Skip all': 'Пропустить все',
   'Proceed': 'Начать',
+  'Delete permanently': 'Удалить навсегда',
+  'Delete all permanently': 'Удалить все навсегда',
+  '«{name}» cannot be moved to Trash, only deleted permanently. Delete it permanently?':
+      '«{name}» нельзя отправить в корзину — только удалить навсегда. Удалить навсегда?',
   'Retry': 'Повторить',
   'The link «{name}» points into the directory being copied': 'Ссылка «{name}» ведёт внутрь копируемого каталога',
   'Cannot store the link «{name}» as a link here': 'Здесь нельзя сохранить «{name}» ссылкой',

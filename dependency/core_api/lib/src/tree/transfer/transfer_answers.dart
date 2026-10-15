@@ -25,6 +25,12 @@ abstract final class TransferAnswers {
   /// Пропускать дальше, не спрашивая.
   static const skipAll = OperationRequestOption('skipAll', 'Skip all');
 
+  /// Удалить насовсем то, чему в корзину нельзя (`docs/spec/trash-unavailable.md`).
+  static const deletePermanently = OperationRequestOption('deletePermanently', 'Delete permanently');
+
+  /// Удалять насовсем дальше, не спрашивая.
+  static const deleteAllPermanently = OperationRequestOption('deleteAllPermanently', 'Delete all permanently');
+
   /// Начать работу, о цене которой предупредили.
   static const proceed = OperationRequestOption('proceed', 'Proceed');
 
