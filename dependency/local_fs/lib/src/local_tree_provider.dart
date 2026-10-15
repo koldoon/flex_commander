@@ -584,6 +584,23 @@ class LocalTreeProvider
     return resolvePath().run(landed);
   }
 
+  /// Тот же ли том, что у корзины: перенос между томами невозможен. Сверяется
+  /// каталог объекта — ему и меняют имя; сама корзина может ещё не быть
+  /// заведена, и тогда за неё отвечает домашний каталог.
+  ///
+  /// Спросить систему не вышло — отвечаем «да»: решит попытка переноса, а её
+  /// отказ движок переспросит.
+  @override
+  Future<bool> canTrash(FsNode node) async {
+    final stat = LocalStat.instance;
+    if (stat == null) {
+      return true;
+    }
+    final here = stat.deviceOf(p.dirname(entityPathOf(node)));
+    final trash = stat.deviceOf(p.join(homePath, '.Trash')) ?? stat.deviceOf(homePath);
+    return here == null || trash == null || here == trash;
+  }
+
   @override
   bool isSameEntity(FsNode node, DirectoryNode destination) =>
       p.equals(entityPathOf(node), p.join(physicalPathOf(destination), node.name));

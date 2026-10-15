@@ -678,6 +678,17 @@ void main() {
       expect(provider.deleted, isEmpty);
     });
 
+    test('согласие из подтверждения второй раз не спрашивают', () async {
+      final operation = engine.remove();
+      final asked = <OperationRequest>[];
+      operation.requests.listen(asked.add);
+      operation.start(RemoveParams([await node('/home/notes.txt'), await node('/home/docs')], withoutTrash: true));
+      await operation.result;
+
+      expect(asked, isEmpty);
+      expect(provider.deleted, containsAll(['/home/notes.txt', '/home/docs']));
+    });
+
     test('мимо корзины не спрашивают: об этом спросило подтверждение', () async {
       final operation = engine.remove();
       final asked = <OperationRequest>[];

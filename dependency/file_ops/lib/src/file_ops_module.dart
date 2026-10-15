@@ -183,6 +183,8 @@ const Map<String, String> _russian = {
   'Deleting…': 'Удаление…',
   'Move {what} to Trash?': 'Отправить {what} в корзину?',
   'Delete {what} permanently? This cannot be undone.': 'Удалить {what} навсегда? Это не отменить.',
+  '{what} cannot be moved to Trash. Delete permanently? This cannot be undone.':
+      '{what} нельзя отправить в корзину. Удалить навсегда? Это не отменить.',
 
   // Переименование.
   'Rename': 'Переименовать',
@@ -192,6 +194,11 @@ const Map<String, String> _russian = {
 
 /// Множественные формы: ключ — та форма, которую называют на месте.
 const Map<String, PluralForms> _plurals = {
+  '{n} of them cannot be moved there and will be deleted permanently:': (
+    one: 'Из них {n} туда не попадёт и будет удалён навсегда:',
+    few: 'Из них {n} туда не попадут и будут удалены навсегда:',
+    many: 'Из них {n} туда не попадут и будут удалены навсегда:',
+  ),
   '{n} to rename': (one: '{n} переименуется', few: '{n} переименуются', many: '{n} переименуются'),
   '{n} collisions': (one: '{n} столкновение', few: '{n} столкновения', many: '{n} столкновений'),
   'Copied {n} addresses': (one: 'Скопирован {n} адрес', few: 'Скопировано {n} адреса', many: 'Скопировано {n} адресов'),

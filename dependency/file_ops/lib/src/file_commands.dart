@@ -296,11 +296,21 @@ abstract class RemoveCommandBase extends AppCommand {
     // Аренду на время работы берёт ядро: удаление можно отправить в фон, и
     // панель за это время вправе выйти из архива, в котором оно идёт. Держать
     // источник живым — дело той стороны, где он и живёт.
-    final spec = OperationSpec(
+    //
+    // Сколько целей в корзину не уйдёт: null — ядро ещё не ответило. Окно
+    // встаёт, не дожидаясь, и меняет слова, когда ответ придёт: согласие,
+    // данное на «удалить навсегда», второй раз по ходу работы не спрашивают
+    // (`docs/spec/trash-unavailable.md`).
+    final untrashable = ValueNotifier<List<FileEntry>?>(toTrash ? null : const []);
+    OperationSpec specOf() => OperationSpec(
       kind: FileOperations.remove,
       targets: targetsOf(context),
-      options: {FileOperations.toTrash: toTrash},
+      options: {
+        FileOperations.toTrash: toTrash,
+        if (toTrash && (untrashable.value?.isNotEmpty ?? false)) FileOperations.withoutTrash: true,
+      },
     );
+    final spec = specOf();
 
     // Каталоги, из которых удаляют. Спрашиваются **до** работы: после неё
     // объектов уже нет, и спросить их каталог будет не у кого
@@ -330,7 +340,8 @@ abstract class RemoveCommandBase extends AppCommand {
 
     final view = context.app.view;
     // Считается до окна: внутри `form` в имени `context` уже BuildContext.
-    final confirmation = _confirmationMessageOf(context);
+    final what = _whatOf(context);
+    final total = context.session.targetPaths.length;
     // Один раз: `present` зовут ещё и при возврате работы из фона, а пометку к
     // тому времени уже сняли.
     final title = titleOf(context);
@@ -349,11 +360,29 @@ abstract class RemoveCommandBase extends AppCommand {
           content: FcAsyncRunDialog(
             run: run,
             form:
-                (_) => CommandDialogConfirm(
-                  message: confirmation,
-                  confirmLabel: toTrash ? tr('Delete') : tr('Delete permanently'),
-                  onCancel: run.dismiss,
-                  onConfirm: run.submit,
+                (_) => ValueListenableBuilder<List<FileEntry>?>(
+                  valueListenable: untrashable,
+                  builder: (context, entries, _) {
+                    final count = entries?.length ?? 0;
+                    // Списком — только когда мимо корзины уйдёт **часть**: про
+                    // всё сразу говорит сама фраза, а выбранное из разных
+                    // ветвей дерева иначе не назвать.
+                    final listed = count > 0 && count < total;
+                    final confirm = CommandDialogConfirm(
+                      message: _confirmationMessageOf(what, untrashable: count, total: total),
+                      confirmLabel: toTrash && count < total ? tr('Delete') : tr('Delete permanently'),
+                      fields: [if (listed) CommandDialogField.wide(child: _UntrashableList(entries!))],
+                      onCancel: run.dismiss,
+                      onConfirm: run.submit,
+                    );
+                    if (!listed) {
+                      return confirm;
+                    }
+                    // Ширина — доля экрана, как у находок поиска: пути длинные и
+                    // разные, и окно, облегающее их, прыгало бы.
+                    final factor = FcTheme.of(context).metrics.paletteWidthFactor;
+                    return SizedBox(width: MediaQuery.sizeOf(context).width * factor, child: confirm);
+                  },
                 ),
           ),
           onSubmit: run.submit,
@@ -366,7 +395,8 @@ abstract class RemoveCommandBase extends AppCommand {
 
     run.onStart = () async {
       try {
-        await run.run(context.app.runOperation(), spec, message: tr('Deleting…'));
+        // Собирается в миг согласия: что сказало окно, то работа и знает.
+        await run.run(context.app.runOperation(), specOf(), message: tr('Deleting…'));
       } finally {
         panel.clearMarks(by: MarkChange.work);
         await reloadPanelsAt(context.app, [...sources, panel.currentPath]);
@@ -378,6 +408,9 @@ abstract class RemoveCommandBase extends AppCommand {
     // границы до показа значит оставить щель для удержанной клавиши
     // (`docs/spec/operation-targets.md`, §2).
     unawaited(askSources());
+    if (toTrash) {
+      unawaited(panel.untrashableTargets().then((entries) => untrashable.value = entries));
+    }
   }
 
   /// Заголовок собирается как в референсе: действие и то, над чем оно идёт.
@@ -404,11 +437,24 @@ abstract class RemoveCommandBase extends AppCommand {
     return slash < 0 ? trimmed : trimmed.substring(slash + 1);
   }
 
-  String _confirmationMessageOf(CommandContext context) {
-    final what = _whatOf(context);
-    return toTrash
-        ? tr('Move {what} to Trash?', args: {'what': what})
-        : tr('Delete {what} permanently? This cannot be undone.', args: {'what': what});
+  /// [untrashable] — сколько из [total] целей в корзину не уйдёт: о них окно
+  /// говорит прямо, а не оставляет вопросу по ходу работы.
+  String _confirmationMessageOf(String what, {required int untrashable, required int total}) {
+    if (!toTrash) {
+      return tr('Delete {what} permanently? This cannot be undone.', args: {'what': what});
+    }
+    if (untrashable == 0) {
+      return tr('Move {what} to Trash?', args: {'what': what});
+    }
+    if (untrashable >= total) {
+      return tr('{what} cannot be moved to Trash. Delete permanently? This cannot be undone.', args: {'what': what});
+    }
+    final rest = plural(
+      untrashable,
+      one: '{n} of them cannot be moved there and will be deleted permanently:',
+      other: '{n} of them cannot be moved there and will be deleted permanently:',
+    );
+    return '${tr('Move {what} to Trash?', args: {'what': what})} $rest';
   }
 }
 
@@ -598,6 +644,44 @@ class _RenameFormState extends State<_RenameForm> {
               ),
             ],
           ),
+    );
+  }
+}
+
+/// То, что уйдёт мимо корзины, — путями, на плашке, как находки поиска
+/// (`docs/spec/trash-unavailable.md`, §2).
+///
+/// Только для чтения: выбирать здесь нечего, решение одно на весь список.
+class _UntrashableList extends StatelessWidget {
+  const _UntrashableList(this.entries);
+
+  final List<FileEntry> entries;
+
+  /// Больше — и окно упрётся в край экрана; дальше список прокручивается.
+  static const int _visibleRows = 8;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FcTheme.of(context);
+    final rows = entries.length < _visibleRows ? entries.length : _visibleRows;
+    return FcPlate(
+      child: SizedBox(
+        height: rows * theme.metrics.rowHeight,
+        child: ListView.builder(
+          itemCount: entries.length,
+          itemExtent: theme.metrics.rowHeight,
+          itemBuilder:
+              (context, index) => Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  entries[index].path,
+                  style: theme.dialogTextStyle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+        ),
+      ),
     );
   }
 }

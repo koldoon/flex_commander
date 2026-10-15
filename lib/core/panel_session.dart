@@ -2383,6 +2383,21 @@ class PanelSession {
   /// (`docs/spec/operation-targets.md`, §3).
   List<FileEntry> targetEntriesUnder(FsNode? under) => [for (final node in targetNodesUnder(under)) entryOf(node)];
 
+  /// Те из целей, что не уйдут в корзину (`docs/spec/trash-unavailable.md`).
+  ///
+  /// Источник, который только читает, корзины не даст тоже — но удалить из него
+  /// не даст и команда, и спрашивать за него незачем.
+  Future<List<FileEntry>> untrashableEntriesUnder(FsNode? under) async {
+    final untrashable = <FileEntry>[];
+    for (final node in targetNodesUnder(under)) {
+      final provider = node.provider;
+      if (provider is NodeEditor && !await (provider as NodeEditor).canTrash(node)) {
+        untrashable.add(entryOf(node));
+      }
+    }
+    return untrashable;
+  }
+
   /// Каталог панели так, как его назовёт сама оболочка; пусто — выполнять
   /// здесь негде (внутри архива оболочки нет вовсе).
   String get shellDirectory {

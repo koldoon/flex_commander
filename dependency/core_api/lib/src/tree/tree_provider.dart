@@ -192,6 +192,13 @@ abstract interface class NodeEditor {
   /// (`docs/spec/operation-history.md`, §3). null — корзины у провайдера нет.
   Future<FsNode?> trashEntry(FsNode node);
 
+  /// Уйдёт ли объект в корзину — без попытки перенести.
+  ///
+  /// Спрашивают до работы, чтобы подтверждение сразу сказало правду: «будет
+  /// удалено навсегда» (`docs/spec/trash-unavailable.md`). Ответ — оценка, а не
+  /// обещание: решает всё равно [trashEntry], и его null движок переспросит.
+  Future<bool> canTrash(FsNode node);
+
   /// Тот же самый объект: класть его туда, где он и лежит, нечего.
   /// Вызывается, только когда источник и приёмник одного провайдера.
   bool isSameEntity(FsNode node, DirectoryNode destination);

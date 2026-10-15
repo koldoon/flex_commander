@@ -266,6 +266,18 @@ void main() {
       );
     });
 
+    test('те из целей, что не уйдут в корзину, — значениями', () async {
+      link.tell(const SetMarks(PanelId.left, {'/home/notes.txt', '/home/docs/deep.txt'}, 1));
+      await pumpEventQueue();
+
+      final all = await link.call(const ListUntrashable(PanelId.left, under: null)) as CoreEntries;
+      expect(all.entries, isEmpty, reason: 'корзина есть — в неё уйдёт всё');
+
+      provider.hasTrash = false;
+      final none = await link.call(const ListUntrashable(PanelId.left, under: null)) as CoreEntries;
+      expect(none.entries.map((entry) => entry.name), containsAll(['notes.txt', 'deep.txt']));
+    });
+
     test('цели дожидаются пометки, которую ещё разбирают', () async {
       // Чужой путь панель никогда не показывала: ядро разбирает его само, и
       // просьба, пришедшая в тот же миг, обязана дождаться

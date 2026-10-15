@@ -43,10 +43,14 @@ class TransferParams {
 
 /// Что удалять и куда — в корзину или совсем.
 class RemoveParams {
-  const RemoveParams(this.nodes, {this.toTrash = true, this.journal = Journal.none});
+  const RemoveParams(this.nodes, {this.toTrash = true, this.withoutTrash = false, this.journal = Journal.none});
 
   final List<FsNode> nodes;
   final bool toTrash;
+
+  /// Чему в корзину нельзя, то удалить насовсем, не спрашивая: согласие на это
+  /// уже дали в подтверждении (`docs/spec/trash-unavailable.md`).
+  final bool withoutTrash;
 
   /// Куда писать сделанное; [Journal.none] — не писать.
   final Journal journal;

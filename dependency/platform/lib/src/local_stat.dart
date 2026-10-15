@@ -80,6 +80,25 @@ class LocalStat {
 
   static DateTime _timeOf(int seconds) => DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
 
+  /// Номер тома, на котором лежит объект (`st_dev`); null — объекта нет или
+  /// спросить не вышло.
+  ///
+  /// Переименование возможно только в пределах тома: так узнают заранее, уйдёт
+  /// ли объект в корзину (`docs/spec/trash-unavailable.md`).
+  int? deviceOf(String path) {
+    final native = path.toNativeUtf8();
+    final buffer = calloc<Uint8>(256);
+    try {
+      if (_stat(native, buffer.cast()) != 0) {
+        return null;
+      }
+      return buffer.cast<_Stat>().ref.device;
+    } finally {
+      calloc.free(buffer);
+      calloc.free(native);
+    }
+  }
+
   /// Числа владельца и группы; null — объекта нет или спросить не вышло.
   ({int uid, int gid})? ownerOf(String path) {
     final native = path.toNativeUtf8();

@@ -193,6 +193,9 @@ class WritableZipTreeProvider extends ZipTreeProvider implements NodeEditor, Fil
   Future<FsNode?> trashEntry(FsNode node) async => null;
 
   @override
+  Future<bool> canTrash(FsNode node) async => false;
+
+  @override
   bool isSameEntity(FsNode node, DirectoryNode destination) => pathOf(node.parentDirectory!) == pathOf(destination);
 
   @override

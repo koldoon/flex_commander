@@ -455,6 +455,11 @@ class CoreServer implements CoreHandler {
         await asked.marksSettled;
         return CoreEntries(asked.targetEntriesUnder(_rowOf(asked, under)));
 
+      case ListUntrashable(:final panel, :final under):
+        final asked = session(panel);
+        await asked.marksSettled;
+        return CoreEntries(await asked.untrashableEntriesUnder(_rowOf(asked, under)));
+
       case OpenShell():
         return _shells.open(request);
 

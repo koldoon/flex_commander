@@ -75,6 +75,10 @@ abstract final class FileOperations {
   /// В корзину или совсем.
   static const String toTrash = 'toTrash';
 
+  /// Чему в корзину нельзя — удалить насовсем, не спрашивая по ходу работы:
+  /// подтверждение уже сказало об этом (`docs/spec/trash-unavailable.md`).
+  static const String withoutTrash = 'withoutTrash';
+
   /// Новое имя — для создания каталога и переименования.
   static const String name = 'name';
 

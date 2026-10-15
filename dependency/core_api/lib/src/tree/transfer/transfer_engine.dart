@@ -420,8 +420,9 @@ class TreeTransferEngine implements TreeEditor {
       unawaited(_countSources(nodes, progress));
 
       var skipAll = false;
-      // Ответ «все» на вопрос «корзины нет»: null — ещё не отвечали.
-      OperationRequestOption? withoutTrash;
+      // Ответ «все» на вопрос «корзины нет»: null — ещё не отвечали. Согласие,
+      // данное в подтверждении, — тот же ответ, только заранее.
+      OperationRequestOption? withoutTrash = params.withoutTrash ? TransferAnswers.deleteAllPermanently : null;
 
       try {
         for (var i = 0; i < nodes.length; i++) {

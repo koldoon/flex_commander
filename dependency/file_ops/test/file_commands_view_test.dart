@@ -370,6 +370,43 @@ void main() {
       expect(find.textContaining('cannot be undone'), findsOneWidget);
     });
 
+    testWidgets('корзины нет — окно сразу говорит «навсегда», и второй раз не спрашивают', (tester) async {
+      provider.hasTrash = false;
+      await pumpApp(tester);
+      app.left.setCursorToName('notes.txt');
+      await tester.pump();
+
+      await press(tester, LogicalKeyboardKey.f8);
+
+      expect(find.textContaining('cannot be moved to Trash'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FcButton, 'Delete permanently'));
+      await settle(tester);
+
+      expect(find.textContaining('only deleted permanently'), findsNothing, reason: 'согласие уже дали в окне');
+      expect(namesOf(), isNot(contains('notes.txt')));
+    });
+
+    testWidgets('мимо корзины уйдёт часть — окно называет её списком', (tester) async {
+      provider.untrashable.add('/home/bin/tool');
+      await pumpApp(tester);
+      app.left.setMarks({'/home/notes.txt', '/home/bin/tool'});
+      await tester.pumpAndSettle();
+
+      await press(tester, LogicalKeyboardKey.f8);
+
+      expect(find.textContaining('Move 2 items to Trash?'), findsOneWidget);
+      expect(find.textContaining('1 of them cannot be moved there'), findsOneWidget);
+      expect(find.text('/home/bin/tool'), findsOneWidget, reason: 'названо то, что уйдёт навсегда');
+      expect(find.text('/home/notes.txt'), findsNothing, reason: 'в корзину уйдёт как обычно');
+
+      await tester.tap(find.widgetWithText(FcButton, 'Delete'));
+      await settle(tester);
+
+      expect(find.textContaining('only deleted permanently'), findsNothing, reason: 'согласие уже дали в окне');
+      expect(provider.trashed, ['/home/notes.txt']);
+      expect(await provider.resolvePath().run('/home/bin/tool'), isNull);
+    });
+
     testWidgets('ошибка предлагает пропустить, пропустить все или отменить', (tester) async {
       await pumpApp(tester);
       app.left.setCursorToName('notes.txt');

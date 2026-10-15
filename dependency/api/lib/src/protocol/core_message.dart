@@ -480,6 +480,22 @@ final class ListTargets extends CoreRequest implements PanelRequest {
   final EntryRef? under;
 }
 
+/// Те из целей, что не уйдут в корзину, — значениями.
+///
+/// Спрашивает подтверждение удаления: оно обещает корзину, а объекту на другом
+/// томе или на сервере класть туда некуда, и сказать об этом надо в нём же, а
+/// не вторым вопросом по ходу работы (`docs/spec/trash-unavailable.md`).
+/// Отвечает [CoreEntries]; пусто — в корзину уйдёт всё.
+final class ListUntrashable extends CoreRequest implements PanelRequest {
+  const ListUntrashable(this.panel, {required this.under});
+
+  @override
+  final PanelId panel;
+
+  /// То же, что у [ListTargets]: строка под курсором у спрашивающего.
+  final EntryRef? under;
+}
+
 /// Завести оболочку там, где стоит панель, — или отдать уже заведённую.
 ///
 /// Оболочка **одна на место**, и хозяин ей — ядро: там живёт псевдотерминал,

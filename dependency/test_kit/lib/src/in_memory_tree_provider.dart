@@ -409,6 +409,10 @@ class InMemoryTreeProvider extends InMemoryReadOnlyProvider implements NodeEdito
   bool renames = true;
   bool hasTrash = true;
 
+  /// Пути, которым в корзину нельзя, хотя корзина есть, — как локальному
+  /// объекту на другом томе (`docs/spec/trash-unavailable.md`).
+  final Set<String> untrashable = {};
+
   /// Какими кусками копия провайдера отчитывается о байтах; 0 — не
   /// отчитываться вовсе.
   int copyChunkBytes = 0;
@@ -533,11 +537,14 @@ class InMemoryTreeProvider extends InMemoryReadOnlyProvider implements NodeEdito
   /// дал бы проверить отмену вовсе. Имя при совпадении разводится суффиксом —
   /// тем же правилом, что у локальной ФС.
   @override
+  Future<bool> canTrash(FsNode node) async => hasTrash && !untrashable.contains(p.normalize(physicalPathOf(node)));
+
+  @override
   Future<FsNode?> trashEntry(FsNode node) async {
-    if (!hasTrash) {
+    final path = p.normalize(physicalPathOf(node));
+    if (!hasTrash || untrashable.contains(path)) {
       return null;
     }
-    final path = p.normalize(physicalPathOf(node));
     if (!_entries.containsKey(path)) {
       throw FsError(path, FsErrorKind.notFound);
     }

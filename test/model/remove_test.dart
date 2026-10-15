@@ -48,6 +48,20 @@ void main() {
 
   String trashPath(String name) => p.join(home, '.Trash', name);
 
+  group('уйдёт ли в корзину (spec/trash-unavailable.md)', () {
+    test('на одном томе с корзиной — да', () async {
+      expect(await provider.canTrash((await listRoot())['notes.txt']!), isTrue);
+    });
+
+    test('на другом томе — нет', () async {
+      // `/dev` — своя файловая система, второй том без всякой флешки.
+      final devices = (await provider.resolvePath().run('/dev'))! as DirectoryNode;
+      final listing = await provider.getDirectoryListing().run(ListingParams(devices));
+      final devNull = listing.firstWhere((node) => node.name == 'null');
+      expect(await provider.canTrash(devNull), isFalse);
+    }, skip: !Platform.isMacOS ? 'номер тома читается только на macOS' : false);
+  });
+
   group('удаление в корзину', () {
     test('файл переносится в корзину, а не исчезает', () async {
       final nodes = await listRoot();

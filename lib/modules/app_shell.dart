@@ -110,6 +110,7 @@ class AppShell implements FcBackendModule, FcFrontendModule {
           RemoveParams(
             inputs.targets,
             toTrash: inputs.option<bool>(FileOperations.toTrash) ?? true,
+            withoutTrash: inputs.option<bool>(FileOperations.withoutTrash) ?? false,
             journal: inputs.journal,
           ),
         ),

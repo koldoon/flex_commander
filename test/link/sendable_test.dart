@@ -98,6 +98,7 @@ void main() {
     sendable('оболочка', const LinkRequest(1, OpenShell(panel: PanelId.left)));
     sendable('имена в каталоге', const LinkRequest(1, ListNames(PanelId.left, '/home')));
     sendable('цели значениями', const LinkRequest(1, ListTargets(PanelId.left, under: null)));
+    sendable('цели мимо корзины', const LinkRequest(1, ListUntrashable(PanelId.left, under: null)));
     sendable(
       'цели с названной строкой',
       const LinkRequest(1, ListTargets(PanelId.left, under: EntryRef.inPanel(PanelId.left, 7, path: '/home/a.txt'))),

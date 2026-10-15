@@ -441,6 +441,9 @@ class S3TreeProvider implements TreeProvider, NodeEditor, FileContentProvider, F
   Future<FsNode?> trashEntry(FsNode node) async => null;
 
   @override
+  Future<bool> canTrash(FsNode node) async => false;
+
+  @override
   bool isSameEntity(FsNode node, DirectoryNode destination) =>
       p.posix.equals(remotePathOf(node), p.posix.join(remotePathOf(destination), node.name));
 
