@@ -318,6 +318,36 @@ void main() {
     expect(shownFullscreen(), isNull);
   });
 
+  /// Живой дефект: в быстром просмотре клавиши у файлов, и полный экран,
+  /// включённый мышью, их там и оставлял — стрелка перемотки уводила курсор на
+  /// соседний файл, и ролик пропадал (`docs/spec/video-viewer.md`, §6а).
+  test('полный экран из быстрого просмотра забирает клавиши, выход — возвращает', () async {
+    await start();
+    runtime.app.left.setCursorToName('a.mp4');
+    expect(runtime.commands.dispatch(KeyCombination.parse('Shift-F3')), isTrue);
+    await Future<void>.delayed(QuickViewHost.defaultDelay * 2);
+    await pumpEventQueue();
+    final screen = innermost(runtime.app.view.contentAt(right)!) as VideoViewerScreen;
+    expect(runtime.app.view.activeArea, ViewportPosition.left, reason: 'в быстром просмотре клавиши у файлов');
+
+    // Кнопка на плашке — мышью: клавиши об этом не узнают.
+    await screen.toggleFullScreen();
+    expect(runtime.app.view.activeArea, right, reason: 'во весь экран панелей не видно — клавиши ролику');
+
+    // Стрелки ролик разбирает своим видом, мимо реестра (§7): панель её больше
+    // не берёт, и курсор файлов стоит.
+    expect(runtime.commands.dispatch(KeyCombination.parse('Right')), isFalse, reason: 'стрелка не панели');
+    await Future<void>.delayed(QuickViewHost.defaultDelay * 2);
+    await pumpEventQueue();
+    expect(runtime.app.left.currentEntry?.name, 'a.mp4', reason: 'стрелка — перемотка, а не ход по файлам');
+    expect(innermost(runtime.app.view.contentAt(right)!), same(screen), reason: 'ролик на месте');
+
+    expect(runtime.commands.dispatch(KeyCombination.parse('Esc')), isTrue);
+    await pumpEventQueue();
+    expect(screen.fullScreen, isFalse);
+    expect(runtime.app.view.activeArea, ViewportPosition.left, reason: 'вышли — клавиши вернулись файлам');
+  });
+
   test('окно было в полном экране и до — выход из полного экрана ролика его не трогает', () async {
     await start();
     window.fullScreen = true;

@@ -22,6 +22,7 @@ class VideoViewerScreen extends ChangeNotifier implements MediaScreen, ViewerUnw
     required this.onSettingsChanged,
     this.place = ViewerPlace.fullscreen,
     this.window,
+    this.view,
     this.memory,
     bool autoplay = true,
   }) : _entry = entry,
@@ -62,6 +63,14 @@ class VideoViewerScreen extends ChangeNotifier implements MediaScreen, ViewerUnw
   /// Окно приложения: полный экран ролика — это и полный экран окна (§6а).
   /// null — окна нет (тесты вида), и полный экран только внутри приложения.
   final WindowService? window;
+
+  /// Раскладка приложения: полный экран забирает клавиши у панелей, выход
+  /// отдаёт их обратно (§6а). null — раскладки нет (тесты вида).
+  final ApplicationView? view;
+
+  /// Где были клавиши до полного экрана; null — там же, где ролик, и
+  /// возвращать нечего.
+  ViewportPosition? _keysBefore;
 
   /// Память хозяина: соотношение помнится, пока открыт быстрый просмотр
   /// (§6б). null — открыт во весь экран, и помнить незачем.
@@ -289,6 +298,16 @@ class VideoViewerScreen extends ChangeNotifier implements MediaScreen, ViewerUnw
   Future<void> _enterFullScreen() async {
     _fullScreen = true;
     poke();
+    // Во весь экран панелей не видно, и клавиши обязаны быть у ролика. В
+    // быстром просмотре они у файлов: включённый мышью полный экран оставлял
+    // их там, и стрелка перемотки уводила курсор на соседний файл — ролик
+    // пропадал (§6а).
+    final view = this.view;
+    final here = view?.positionOf(this);
+    if (view != null && here != null && view.activeArea != here) {
+      _keysBefore = view.activeArea;
+      view.setFocus(here);
+    }
     notifyListeners();
     final window = this.window;
     if (window != null && !await window.isFullScreen()) {
@@ -300,6 +319,12 @@ class VideoViewerScreen extends ChangeNotifier implements MediaScreen, ViewerUnw
   Future<void> _leaveFullScreen() async {
     _fullScreen = false;
     poke();
+    // Клавиши — туда, где были: вышли из полного экрана, а не ушли в ролик.
+    final before = _keysBefore;
+    _keysBefore = null;
+    if (before != null && !_disposed) {
+      view?.setFocus(before);
+    }
     if (!_disposed) {
       notifyListeners();
     }
