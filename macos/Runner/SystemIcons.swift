@@ -100,6 +100,15 @@ final class SystemIcons {
 
     QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { thumbnail, _ in
       guard let image = thumbnail?.cgImage else {
+        // Ролик, которого система не знает (`.mkv`, `.webm`), — кадр достаёт
+        // `ffmpeg` (`docs/spec/file-thumbnails.md`, §13).
+        if FfmpegVideo.makesThumbnail(path) {
+          Task {
+            let data = await FfmpegVideo.thumbnail(path, side: side)
+            DispatchQueue.main.async { result(data.map { FlutterStandardTypedData(bytes: $0) }) }
+          }
+          return
+        }
         // Ошибка здесь — обычное дело: у архива, каталога и текста миниатюры
         // нет вовсе, и стоит этот отказ единицы миллисекунд.
         DispatchQueue.main.async { result(nil) }

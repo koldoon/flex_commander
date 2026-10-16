@@ -1,4 +1,5 @@
 import AVFoundation
+import CryptoKit
 import Foundation
 import VideoToolbox
 
@@ -170,6 +171,77 @@ final class FfmpegVideo {
   static func prefersFfmpeg(_ path: String) -> Bool {
     ["mpg", "mpeg", "vob", "m1v", "m2v"].contains((path as NSString).pathExtension.lowercased())
       && locate() != nil
+  }
+
+  // MARK: - Миниатюра — кадр
+
+  /// Ролики, кадр которых достаёт `ffmpeg`, когда Quick Look отказал
+  /// (`docs/spec/file-thumbnails.md`, §13). Те же, что берёт просмотрщик видео,
+  /// плюс `vob`: Quick Look видит в них то же, что AVFoundation, — ничего.
+  private static let videoExtensions: Set<String> = [
+    "mp4", "m4v", "mov", "qt", "avi", "mkv", "webm", "flv", "wmv", "3gp", "3g2", "mpg", "mpeg", "mts", "m2ts", "vob",
+  ]
+
+  /// Стоит ли спрашивать `ffmpeg`: файл — ролик, и `ffmpeg` есть.
+  static func makesThumbnail(_ path: String) -> Bool {
+    videoExtensions.contains((path as NSString).pathExtension.lowercased()) && locate() != nil
+  }
+
+  /// Кадр ролика png, вписанный в квадрат [side]; nil — не вышло.
+  ///
+  /// Кадр — с десятой части длительности: первый у роликов часто чёрный или
+  /// заставка. Своего кеша у Quick Look для нас нет, а кадр стоит 80–540 мс
+  /// (проба: 1080p TS с шары — дольше всех), поэтому ответ кладётся на диск
+  /// — в `Caches`, ключом путь, размер, время изменения и сторона.
+  static func thumbnail(_ path: String, side: Int) async -> Data? {
+    guard let tools = locate() else {
+      return nil
+    }
+    let cached = thumbnailCache(path, side: side)
+    if let cached = cached, let data = try? Data(contentsOf: cached) {
+      return data
+    }
+    let duration = (try? await probe(path, with: tools.ffprobe))?.duration ?? 0
+    let scale = "scale=\(side):\(side):force_original_aspect_ratio=decrease"
+    func frame(at seconds: Double) async -> Data? {
+      let data = try? await run(
+        tools.ffmpeg,
+        [
+          "-nostdin", "-loglevel", "error", "-ss", String(format: "%.3f", seconds), "-i", path, "-an", "-sn",
+          "-frames:v", "1", "-vf", scale, "-f", "image2pipe", "-c:v", "png", "-",
+        ])
+      return data?.isEmpty == false ? data : nil
+    }
+    // Короткий или битый в середине — с самого начала. Не `??`: `await` в
+    // нём не собирается.
+    var found = await frame(at: duration * 0.1)
+    if found == nil {
+      found = await frame(at: 0)
+    }
+    guard let data = found else {
+      return nil
+    }
+    if let cached = cached {
+      try? FileManager.default.createDirectory(
+        at: cached.deletingLastPathComponent(), withIntermediateDirectories: true)
+      try? data.write(to: cached, options: .atomic)
+    }
+    return data
+  }
+
+  /// Где лежит кадр этого файла этого размера; nil — файла нет.
+  private static func thumbnailCache(_ path: String, side: Int) -> URL? {
+    guard
+      let attributes = try? FileManager.default.attributesOfItem(atPath: path),
+      let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+    else {
+      return nil
+    }
+    let size = attributes[.size] as? Int ?? 0
+    let modified = (attributes[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+    let key = SHA256.hash(data: Data("\(path)|\(size)|\(modified)|\(side)".utf8))
+      .map { String(format: "%02x", $0) }.joined()
+    return caches.appendingPathComponent("flex_commander/video-thumbnails/\(key).png")
   }
 
   // MARK: - Где ffmpeg
@@ -350,7 +422,18 @@ final class FfmpegVideo {
     return false
   }
 
+  /// Вывод процесса: пишет читатель, читает конец — после него, через
+  /// `DispatchGroup`.
+  private final class Output: @unchecked Sendable {
+    var data = Data()
+  }
+
   /// Запустить и дождаться вывода.
+  ///
+  /// Конец процесса — по `terminationHandler`, а не `waitUntilExit`: тот
+  /// крутит цикл событий своей нити и ждёт весть о конце там, а она туда не
+  /// приходит, если процесс запускали с другой. Процесс давно кончился, а
+  /// ожидание стоит вечно (поймано пробой миниатюр 17 октября 2026).
   private static func run(_ tool: URL, _ arguments: [String]) async throws -> Data {
     try await withCheckedThrowingContinuation { continuation in
       let process = Process()
@@ -360,20 +443,32 @@ final class FfmpegVideo {
       process.standardOutput = pipe
       process.standardError = FileHandle.nullDevice
       process.standardInput = FileHandle.nullDevice
+
+      // Вывод читается до конца отдельно: иначе полный канал остановил бы
+      // процесс, и конца бы не было вовсе.
+      let reading = DispatchGroup()
+      let output = Output()
+      reading.enter()
+      DispatchQueue.global(qos: .userInitiated).async {
+        output.data = pipe.fileHandleForReading.readDataToEndOfFile()
+        reading.leave()
+      }
+      process.terminationHandler = { ended in
+        reading.notify(queue: .global(qos: .userInitiated)) {
+          if ended.terminationStatus == 0 {
+            continuation.resume(returning: output.data)
+          } else {
+            continuation.resume(throwing: Failure.unplayable)
+          }
+        }
+      }
       do {
         try process.run()
       } catch {
+        process.terminationHandler = nil
+        // Читатель ждёт конца канала: закрыть его, чтобы он ушёл.
+        try? pipe.fileHandleForWriting.close()
         continuation.resume(throwing: Failure.unplayable)
-        return
-      }
-      DispatchQueue.global(qos: .userInitiated).async {
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        if process.terminationStatus == 0 {
-          continuation.resume(returning: data)
-        } else {
-          continuation.resume(throwing: Failure.unplayable)
-        }
       }
     }
   }
