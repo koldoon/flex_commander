@@ -58,6 +58,7 @@ class ChannelSystemVideo implements SystemVideo {
     position: _duration(answer['position']),
     playing: answer['playing'] == true,
     ended: answer['ended'] == true,
+    ready: answer['ready'] == null ? null : _duration(answer['ready']),
   );
 
   @override

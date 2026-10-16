@@ -110,6 +110,11 @@ class VideoViewerScreen extends ChangeNotifier implements MediaScreen, ViewerUnw
   ValueListenable<Duration> get positionListenable => _position;
   final ValueNotifier<Duration> _position = ValueNotifier(Duration.zero);
 
+  /// До куда ролик уже готов; null — весь (`video-via-ffmpeg.md`, §4). Рядом
+  /// с позицией: будит только плашку, где его и рисуют.
+  ValueListenable<Duration?> get readyListenable => _ready;
+  final ValueNotifier<Duration?> _ready = ValueNotifier(null);
+
   @override
   bool get playing => _playing;
   bool _playing = false;
@@ -150,6 +155,7 @@ class VideoViewerScreen extends ChangeNotifier implements MediaScreen, ViewerUnw
     }
     final changed = state.playing != _playing || state.ended != _ended;
     _position.value = state.position;
+    _ready.value = state.ready;
     _ended = state.ended;
     if (state.playing != _playing) {
       _playing = state.playing;
@@ -185,7 +191,11 @@ class VideoViewerScreen extends ChangeNotifier implements MediaScreen, ViewerUnw
   Future<void> togglePlay() => _playing ? pause() : play();
 
   Future<void> seekTo(Duration target) async {
-    final duration = player.duration;
+    // Дальше готового — некуда: ролик ещё перепаковывается, и бегунок встаёт
+    // на край готового, а не прыгает назад, когда плеер откажет
+    // (`video-via-ffmpeg.md`, §4).
+    final ready = _ready.value;
+    final duration = ready == null || ready > player.duration ? player.duration : ready;
     final clamped = target < Duration.zero ? Duration.zero : (target > duration ? duration : target);
     _position.value = clamped;
     _ended = false;
@@ -372,6 +382,7 @@ class VideoViewerScreen extends ChangeNotifier implements MediaScreen, ViewerUnw
     // (§4, §7).
     unawaited(player.close().whenComplete(source.dispose));
     _position.dispose();
+    _ready.dispose();
     super.dispose();
   }
 }

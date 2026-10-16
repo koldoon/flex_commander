@@ -115,6 +115,40 @@ final class FfmpegVideo {
     return FfmpegVideo(directory: directory, root: root, process: process, answer: answer)
   }
 
+  /// До куда ролик уже готов, в секундах; nil — готов весь: список закончен
+  /// (§4). Это и рисует полоса перемотки поверх фона, как «загруженное» у
+  /// онлайн-плееров.
+  ///
+  /// Сумма длительностей сегментов в списке. Список перечитывается, только
+  /// когда вырос, — состояние спрашивают четыре раза в секунду.
+  func ready() -> Double? {
+    let list = directory.appendingPathComponent(FfmpegVideo.playlist)
+    let size = (try? FileManager.default.attributesOfItem(atPath: list.path)[.size] as? Int) ?? 0
+    readyLock.lock()
+    defer { readyLock.unlock() }
+    if size == readySize {
+      return readyCache
+    }
+    guard let text = try? String(contentsOf: list, encoding: .utf8) else {
+      return readyCache
+    }
+    readySize = size
+    if text.contains("#EXT-X-ENDLIST") {
+      readyCache = nil
+      return nil
+    }
+    var total = 0.0
+    for line in text.split(separator: "\n") where line.hasPrefix("#EXTINF:") {
+      total += Double(line.dropFirst("#EXTINF:".count).split(separator: ",").first ?? "") ?? 0
+    }
+    readyCache = total
+    return total
+  }
+
+  private let readyLock = NSLock()
+  private var readySize = -1
+  private var readyCache: Double? = 0
+
   /// Остановить `ffmpeg` и убрать каталог (§2, п. 6).
   func stop() {
     LoopbackServer.shared.withdraw(root)

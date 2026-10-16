@@ -195,6 +195,7 @@ final class SystemVideo {
     await MainActor.run {
       let player = VideoPlayer(asset: AVURLAsset(url: started.url), textures: self.textures)
       player.onClose = { started.stop() }
+      player.ready = { started.ready() }
       let handle = self.register(player)
       var opened = started.answer
       opened["handle"] = handle

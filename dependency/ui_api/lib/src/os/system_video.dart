@@ -167,7 +167,7 @@ class SystemVideoInfo {
 
 /// Где плеер сейчас.
 class SystemVideoState {
-  const SystemVideoState({required this.position, required this.playing, required this.ended});
+  const SystemVideoState({required this.position, required this.playing, required this.ended, this.ready});
 
   final Duration position;
 
@@ -175,4 +175,9 @@ class SystemVideoState {
 
   /// Доиграл до конца.
   final bool ended;
+
+  /// До куда ролик уже готов; null — весь. Ролик, который `ffmpeg` ещё
+  /// перепаковывает, готов не весь, и перемотка дальше готового не идёт
+  /// (`docs/spec/video-via-ffmpeg.md`, §4).
+  final Duration? ready;
 }

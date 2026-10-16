@@ -61,6 +61,9 @@ abstract class FakeMediaPlayer implements SystemMediaPlayer {
 
   Duration position = Duration.zero;
   bool playing = false;
+
+  /// До куда ролик готов; null — весь (`video-via-ffmpeg.md`, §4).
+  Duration? ready;
   bool closed = false;
 
   /// Доиграл: поставить — значит и сообщить, как раннер по концу ролика.
@@ -81,7 +84,7 @@ abstract class FakeMediaPlayer implements SystemMediaPlayer {
   /// ходу времени и по концу.
   void push() {
     if (!closed) {
-      _states.add(SystemVideoState(position: position, playing: playing, ended: ended));
+      _states.add(SystemVideoState(position: position, playing: playing, ended: ended, ready: ready));
     }
   }
 
@@ -114,7 +117,7 @@ abstract class FakeMediaPlayer implements SystemMediaPlayer {
 
   @override
   Future<SystemVideoState?> state() async =>
-      closed ? null : SystemVideoState(position: position, playing: playing, ended: ended);
+      closed ? null : SystemVideoState(position: position, playing: playing, ended: ended, ready: ready);
 
   @override
   Future<void> close() async {

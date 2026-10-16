@@ -359,6 +359,32 @@ void main() {
     expect(runtime.app.view.activeArea, ViewportPosition.left, reason: 'вышли — клавиши вернулись файлам');
   });
 
+  /// Ролик ещё перепаковывается: перемотка дальше готового встаёт на край
+  /// готового, а не уходит туда, где кадров ещё нет (`video-via-ffmpeg.md`, §4).
+  test('готов не весь — перемотка встаёт на край готового', () async {
+    await start();
+    await view('a.mp4');
+    final screen = shownFullscreen()! as VideoViewerScreen;
+    final player = system.opened.single;
+
+    player
+      ..ready = const Duration(seconds: 10)
+      ..push();
+    await pumpEventQueue();
+    expect(screen.readyListenable.value, const Duration(seconds: 10));
+
+    await screen.seekTo(const Duration(seconds: 30));
+    expect(player.calls.last, 'seek 10000');
+
+    // Готов весь — перемотка снова до конца.
+    player
+      ..ready = null
+      ..push();
+    await pumpEventQueue();
+    await screen.seekTo(const Duration(seconds: 30));
+    expect(player.calls.last, 'seek 30000');
+  });
+
   test('окно было в полном экране и до — выход из полного экрана ролика его не трогает', () async {
     await start();
     window.fullScreen = true;

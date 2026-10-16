@@ -200,13 +200,15 @@ class _VideoViewerViewState extends State<VideoViewerView> {
                     opacity: screen.controlsVisible ? 1 : 0,
                     duration: const Duration(milliseconds: 200),
                     child: Center(
-                      // Позиция будит только плашку (`audio-viewer.md`, §7.5).
-                      child: ValueListenableBuilder<Duration>(
-                        valueListenable: screen.positionListenable,
+                      // Позиция и готовое будят только плашку
+                      // (`audio-viewer.md`, §7.5).
+                      child: ListenableBuilder(
+                        listenable: Listenable.merge([screen.positionListenable, screen.readyListenable]),
                         builder:
-                            (context, position, _) => MediaControls(
+                            (context, _) => MediaControls(
                               playing: screen.playing,
-                              position: position,
+                              position: screen.positionListenable.value,
+                              ready: screen.readyListenable.value,
                               duration: screen.player.duration,
                               muted: screen.settings.muted,
                               volume: screen.settings.volume,

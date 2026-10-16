@@ -30,6 +30,7 @@ class MediaControls extends StatelessWidget {
     super.key,
     required this.playing,
     required this.position,
+    this.ready,
     required this.duration,
     required this.muted,
     required this.volume,
@@ -45,6 +46,11 @@ class MediaControls extends StatelessWidget {
 
   final bool playing;
   final Duration position;
+
+  /// До куда ролик уже готов; null — весь. Рисуется поверх фона полосы, как
+  /// «загруженное» у онлайн-плееров (`docs/spec/video-via-ffmpeg.md`, §4).
+  final Duration? ready;
+
   final Duration duration;
   final bool muted;
   final double volume;
@@ -70,6 +76,9 @@ class MediaControls extends StatelessWidget {
     final metrics = theme.metrics;
     final text = theme.uiStyle.copyWith(color: ink, fontFeatures: const [FontFeature.tabularFigures()]);
     final played = duration.inMicroseconds <= 0 ? 0.0 : position.inMicroseconds / duration.inMicroseconds;
+    final ready = this.ready;
+    final prepared =
+        ready == null || duration.inMicroseconds <= 0 ? null : ready.inMicroseconds / duration.inMicroseconds;
     final fullScreen = this.fullScreen;
 
     return Container(
@@ -93,6 +102,7 @@ class MediaControls extends StatelessWidget {
               ink: ink,
               key: const ValueKey('media.scrub'),
               value: played,
+              ready: prepared,
               onChanged: (fraction) => onSeek(duration * fraction),
             ),
           ),
@@ -150,12 +160,15 @@ class _IconButton extends StatelessWidget {
 
 /// Полоса с бегунком: перемотка и громкость. Щелчок переносит, протяжка ведёт.
 class _Bar extends StatelessWidget {
-  const _Bar({super.key, required this.ink, required this.value, required this.onChanged});
+  const _Bar({super.key, required this.ink, required this.value, this.ready, required this.onChanged});
 
   final Color ink;
 
   /// Где бегунок, от 0 до 1.
   final double value;
+
+  /// До куда готово, от 0 до 1; null — всё.
+  final double? ready;
 
   final ValueChanged<double> onChanged;
 
@@ -165,6 +178,9 @@ class _Bar extends StatelessWidget {
 
   /// Пустая часть полосы — цвет значков, прозрачнее.
   static const double _trackAlpha = 0.3;
+
+  /// Готовая часть — между пустой и пройденной.
+  static const double _readyAlpha = 0.55;
 
   @override
   Widget build(BuildContext context) {
@@ -185,7 +201,7 @@ class _Bar extends StatelessWidget {
             child: SizedBox(
               height: _height,
               width: width,
-              child: CustomPaint(painter: _BarPainter(value.clamp(0.0, 1.0), ink)),
+              child: CustomPaint(painter: _BarPainter(value.clamp(0.0, 1.0), ink, ready: ready?.clamp(0.0, 1.0))),
             ),
           ),
         );
@@ -195,11 +211,13 @@ class _Bar extends StatelessWidget {
 }
 
 class _BarPainter extends CustomPainter {
-  const _BarPainter(this.value, this.ink);
+  const _BarPainter(this.value, this.ink, {this.ready});
 
   final Color ink;
 
   final double value;
+
+  final double? ready;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -213,7 +231,21 @@ class _BarPainter extends CustomPainter {
       y + _Bar._thickness / 2,
       const Radius.circular(_Bar._thickness / 2),
     );
+    // Готово не всё — поверх фона готовое, поверх готового пройденное.
+    final ready = this.ready;
     canvas.drawRRect(track, Paint()..color = ink.withValues(alpha: _Bar._trackAlpha));
+    if (ready != null) {
+      canvas.drawRRect(
+        RRect.fromLTRBR(
+          left,
+          track.top,
+          left + (right - left) * ready,
+          track.bottom,
+          const Radius.circular(_Bar._thickness / 2),
+        ),
+        Paint()..color = ink.withValues(alpha: _Bar._readyAlpha),
+      );
+    }
     final x = left + (right - left) * value;
     canvas.drawRRect(
       RRect.fromLTRBR(left, track.top, x, track.bottom, const Radius.circular(_Bar._thickness / 2)),
@@ -223,5 +255,5 @@ class _BarPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_BarPainter old) => old.value != value || old.ink != ink;
+  bool shouldRepaint(_BarPainter old) => old.value != value || old.ink != ink || old.ready != ready;
 }

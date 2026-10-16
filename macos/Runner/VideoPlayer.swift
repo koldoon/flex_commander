@@ -38,6 +38,14 @@ final class VideoPlayer: NSObject, FlutterTexture, AVPlayerItemOutputPullDelegat
   /// (`docs/spec/video-via-ffmpeg.md`, §2).
   var onClose: (() -> Void)?
 
+  /// До куда ролик уже готов, в секундах; nil — весь (или ролик системный).
+  /// Есть у роликов через `ffmpeg` (`docs/spec/video-via-ffmpeg.md`, §4).
+  var ready: (() -> Double?)?
+
+  /// Такт, который шлёт состояние, пока ролик готовится, — и на паузе: иначе
+  /// полоса готового стояла бы до пуска.
+  private var preparing: Timer?
+
   init(asset: AVAsset, textures: FlutterTextureRegistry?, spectrumOf track: AVAssetTrack? = nil) {
     self.textures = textures
     let item = AVPlayerItem(asset: asset)
@@ -161,6 +169,20 @@ final class VideoPlayer: NSObject, FlutterTexture, AVPlayerItemOutputPullDelegat
   /// Слать состояние в [send]: раз в четверть секунды, пока идёт время, — система
   /// зовёт и на пуске, остановке и перемотке, — и сразу по концу.
   func report(_ send: @escaping ([String: Any]) -> Void) {
+    if ready != nil {
+      preparing = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] timer in
+        guard let self = self else {
+          timer.invalidate()
+          return
+        }
+        let state = self.state()
+        send(state)
+        // Готов весь — дальше шлёт обычный наблюдатель времени.
+        if state["ready"] == nil {
+          timer.invalidate()
+        }
+      }
+    }
     timeObserver = player.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 4), queue: .main) {
       [weak self] _ in
       guard let self = self else { return }
@@ -184,15 +206,21 @@ final class VideoPlayer: NSObject, FlutterTexture, AVPlayerItemOutputPullDelegat
     let position = player.currentTime().seconds
     let duration = player.currentItem?.duration.seconds ?? 0
     let ended = duration.isFinite && duration > 0 && position >= duration - 0.01
-    return [
+    var state: [String: Any] = [
       "position": position.isFinite ? position : 0,
       "playing": player.rate != 0,
       "ended": ended,
     ]
+    if let ready = ready?() {
+      state["ready"] = ready
+    }
+    return state
   }
 
   /// Отпустить: звук смолкает, такт останавливается, текстура снимается.
   func close() {
+    preparing?.invalidate()
+    preparing = nil
     if let observer = timeObserver {
       player.removeTimeObserver(observer)
       timeObserver = nil
