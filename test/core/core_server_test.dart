@@ -270,12 +270,18 @@ void main() {
       link.tell(const SetMarks(PanelId.left, {'/home/notes.txt', '/home/docs/deep.txt'}, 1));
       await pumpEventQueue();
 
-      final all = await link.call(const ListUntrashable(PanelId.left, under: null)) as CoreEntries;
-      expect(all.entries, isEmpty, reason: 'корзина есть — в неё уйдёт всё');
+      final all = await link.call(const ListUntrashable(PanelId.left, under: null)) as CoreTree;
+      expect(all.rows, isEmpty, reason: 'корзина есть — в неё уйдёт всё');
+      expect(all.chosen, 0);
 
       provider.hasTrash = false;
-      final none = await link.call(const ListUntrashable(PanelId.left, under: null)) as CoreEntries;
-      expect(none.entries.map((entry) => entry.name), containsAll(['notes.txt', 'deep.txt']));
+      final none = await link.call(const ListUntrashable(PanelId.left, under: null)) as CoreTree;
+      expect(none.chosen, 2);
+      // Деревом: общий каталог, под ним ветвь, откуда второй объект.
+      expect(
+        [for (final row in none.rows) '${row.level} ${row.name}'],
+        ['0 home', '1 docs', '2 deep.txt', '1 notes.txt'],
+      );
     });
 
     test('цели дожидаются пометки, которую ещё разбирают', () async {

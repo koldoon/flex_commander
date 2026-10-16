@@ -469,9 +469,9 @@ class SessionMirror extends ChangeNotifier implements Session {
   }
 
   @override
-  Future<List<FileEntry>> untrashableTargets() async {
+  Future<({List<FileEntry> rows, int count})> untrashableTargets() async {
     final reply = await _link.call(ListUntrashable(id, under: currentRef));
-    return reply is CoreEntries ? reply.entries : const [];
+    return reply is CoreTree ? (rows: reply.rows, count: reply.chosen) : (rows: const <FileEntry>[], count: 0);
   }
 
   // --- подписи ---

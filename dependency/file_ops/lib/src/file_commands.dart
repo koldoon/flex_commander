@@ -301,13 +301,15 @@ abstract class RemoveCommandBase extends AppCommand {
     // встаёт, не дожидаясь, и меняет слова, когда ответ придёт: согласие,
     // данное на «удалить навсегда», второй раз по ходу работы не спрашивают
     // (`docs/spec/trash-unavailable.md`).
-    final untrashable = ValueNotifier<List<FileEntry>?>(toTrash ? null : const []);
+    final untrashable = ValueNotifier<({List<FileEntry> rows, int count})?>(
+      toTrash ? null : (rows: const <FileEntry>[], count: 0),
+    );
     OperationSpec specOf() => OperationSpec(
       kind: FileOperations.remove,
       targets: targetsOf(context),
       options: {
         FileOperations.toTrash: toTrash,
-        if (toTrash && (untrashable.value?.isNotEmpty ?? false)) FileOperations.withoutTrash: true,
+        if (toTrash && (untrashable.value?.count ?? 0) > 0) FileOperations.withoutTrash: true,
       },
     );
     final spec = specOf();
@@ -361,10 +363,10 @@ abstract class RemoveCommandBase extends AppCommand {
           content: FcAsyncRunDialog(
             run: run,
             form:
-                (_) => ValueListenableBuilder<List<FileEntry>?>(
+                (_) => ValueListenableBuilder<({List<FileEntry> rows, int count})?>(
                   valueListenable: untrashable,
-                  builder: (context, entries, _) {
-                    final count = entries?.length ?? 0;
+                  builder: (context, untrashed, _) {
+                    final count = untrashed?.count ?? 0;
                     // Списком — только когда мимо корзины уйдёт **часть**: про
                     // всё сразу говорит сама фраза, а выбранное из разных
                     // ветвей дерева иначе не назвать.
@@ -375,7 +377,7 @@ abstract class RemoveCommandBase extends AppCommand {
                       fields: [
                         if (listed)
                           CommandDialogField.wide(
-                            child: _UntrashableTree(app: app, panel: panel.id, entries: entries!),
+                            child: _UntrashableTree(app: app, panel: panel.id, rows: untrashed!.rows),
                           ),
                       ],
                       onCancel: run.dismiss,
@@ -415,7 +417,7 @@ abstract class RemoveCommandBase extends AppCommand {
     // (`docs/spec/operation-targets.md`, §2).
     unawaited(askSources());
     if (toTrash) {
-      unawaited(panel.untrashableTargets().then((entries) => untrashable.value = entries));
+      unawaited(panel.untrashableTargets().then((found) => untrashable.value = found));
     }
   }
 
@@ -662,11 +664,13 @@ class _RenameFormState extends State<_RenameForm> {
 /// ни вкладки, ни источника у списка нет. Только для чтения — решение одно на
 /// весь список.
 class _UntrashableTree extends StatefulWidget {
-  const _UntrashableTree({required this.app, required this.panel, required this.entries});
+  const _UntrashableTree({required this.app, required this.panel, required this.rows});
 
   final Application app;
   final PanelId panel;
-  final List<FileEntry> entries;
+
+  /// Строки дерева, как их сложило ядро: у него узлы и их настоящие каталоги.
+  final List<FileEntry> rows;
 
   @override
   State<_UntrashableTree> createState() => _UntrashableTreeState();
@@ -676,7 +680,7 @@ class _UntrashableTreeState extends State<_UntrashableTree> {
   /// Больше — и окно упрётся в край экрана; дальше список прокручивается.
   static const int _visibleRows = 8;
 
-  late final SnapshotSession _snapshot = SnapshotSession(id: widget.panel, entries: entryTreeRows(widget.entries));
+  late final SnapshotSession _snapshot = SnapshotSession(id: widget.panel, entries: widget.rows);
 
   @override
   void dispose() {

@@ -485,7 +485,8 @@ final class ListTargets extends CoreRequest implements PanelRequest {
 /// Спрашивает подтверждение удаления: оно обещает корзину, а объекту на другом
 /// томе или на сервере класть туда некуда, и сказать об этом надо в нём же, а
 /// не вторым вопросом по ходу работы (`docs/spec/trash-unavailable.md`).
-/// Отвечает [CoreEntries]; пусто — в корзину уйдёт всё.
+/// Отвечает [CoreTree] — деревом, чтобы было видно, из каких ветвей; пусто — в
+/// корзину уйдёт всё.
 final class ListUntrashable extends CoreRequest implements PanelRequest {
   const ListUntrashable(this.panel, {required this.under});
 
@@ -639,6 +640,20 @@ final class CoreEntries extends CoreReply {
   const CoreEntries(this.entries);
 
   final List<FileEntry> entries;
+}
+
+/// Выбранное деревом: строки сжатого дерева и сколько среди них самих
+/// выбранных — остальное их каталоги (`docs/spec/trash-unavailable.md`, §4а).
+///
+/// Строки готовы к показу: глубину и склейку проставило ядро, у которого узлы,
+/// а та сторона их только рисует.
+final class CoreTree extends CoreReply {
+  const CoreTree(this.rows, {required this.chosen});
+
+  final List<FileEntry> rows;
+
+  /// Сколько выбранных; ноль — строк нет вовсе.
+  final int chosen;
 }
 
 /// Атрибуты объекта — те, что источник о нём знает.

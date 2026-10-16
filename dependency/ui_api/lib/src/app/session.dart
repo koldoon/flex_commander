@@ -311,9 +311,10 @@ abstract interface class Session implements ViewportState {
   /// окно вставало сразу (`docs/spec/operation-targets.md`, §2).
   Future<List<FileEntry>> allTargets();
 
-  /// Те из целей, что не уйдут в корзину, — просьбой к ядру
-  /// (`docs/spec/trash-unavailable.md`).
-  Future<List<FileEntry>> untrashableTargets();
+  /// Те из целей, что не уйдут в корзину, — просьбой к ядру: строками
+  /// сжатого дерева, откуда каждая, и сколько их самих
+  /// (`docs/spec/trash-unavailable.md`, §4а).
+  Future<({List<FileEntry> rows, int count})> untrashableTargets();
 
   /// Строка под курсором — ссылкой для ядра; null — строки нет или это «..».
   ///

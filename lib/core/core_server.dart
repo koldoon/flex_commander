@@ -458,7 +458,8 @@ class CoreServer implements CoreHandler {
       case ListUntrashable(:final panel, :final under):
         final asked = session(panel);
         await asked.marksSettled;
-        return CoreEntries(await asked.untrashableEntriesUnder(_rowOf(asked, under)));
+        final untrashable = await asked.untrashableNodesUnder(_rowOf(asked, under));
+        return CoreTree(chosenTreeRows(untrashable), chosen: untrashable.length);
 
       case OpenShell():
         return _shells.open(request);

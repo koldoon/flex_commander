@@ -245,7 +245,7 @@ class SnapshotSession extends ChangeNotifier implements Session {
   Future<List<FileEntry>> allTargets() async => const [];
 
   @override
-  Future<List<FileEntry>> untrashableTargets() async => const [];
+  Future<({List<FileEntry> rows, int count})> untrashableTargets() async => (rows: const <FileEntry>[], count: 0);
 
   @override
   EntryRef? get currentRef => null;

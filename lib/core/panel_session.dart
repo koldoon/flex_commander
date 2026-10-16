@@ -2387,16 +2387,10 @@ class PanelSession {
   ///
   /// Источник, который только читает, корзины не даст тоже — но удалить из него
   /// не даст и команда, и спрашивать за него незачем.
-  Future<List<FileEntry>> untrashableEntriesUnder(FsNode? under) async {
-    final untrashable = <FileEntry>[];
-    for (final node in targetNodesUnder(under)) {
-      final provider = node.provider;
-      if (provider is NodeEditor && !await (provider as NodeEditor).canTrash(node)) {
-        untrashable.add(entryOf(node));
-      }
-    }
-    return untrashable;
-  }
+  Future<List<FsNode>> untrashableNodesUnder(FsNode? under) async => [
+    for (final node in targetNodesUnder(under))
+      if (node.provider case final NodeEditor editor when !await editor.canTrash(node)) node,
+  ];
 
   /// Каталог панели так, как его назовёт сама оболочка; пусто — выполнять
   /// здесь негде (внутри архива оболочки нет вовсе).
