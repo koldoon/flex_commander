@@ -45,6 +45,7 @@ export 'src/panel/file_color_rule.dart';
 export 'src/panel/file_icon_rule.dart';
 export 'src/panel/rows_kind.dart';
 export 'src/panel/sort_spec.dart';
+export 'src/panel/tree_rows.dart';
 
 // --- Настройки ---
 export 'src/serialization.dart';

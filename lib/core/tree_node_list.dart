@@ -508,64 +508,51 @@ class TreeNodeList implements NodeList {
     bool openOf(_Branch branch) =>
         (branch.node is DirectoryNode || branch.mounted != null) && _expanded.contains(branch.node.pathString);
 
-    void walk(List<_Branch> shown, int level) {
-      // Корни идут в том порядке, в каком их дали: их выбрали — человек в
-      // избранном, поиск в находках, панель в обычном дереве, — и правило
-      // сортировки их не переставляет. Раскладывается **содержимое** ветвей.
-      if (level > 0) {
-        final compare = order.compare;
-        if (compare != null) {
-          shown.sort((a, b) => compare(a.node, b.node));
-        }
+    // Корни идут в том порядке, в каком их дали: их выбрали — человек в
+    // избранном, поиск в находках, панель в обычном дереве, — и правило
+    // сортировки их не переставляет. Раскладывается **содержимое** ветвей.
+    List<_Branch>? childrenOf(_Branch branch, int level) {
+      if (branch.children == null) {
+        return null;
       }
-      for (final top in shown) {
-        var branch = top;
-        // Дети строки, если их уже отобрали, проходя цепочку: второй раз
-        // отбирать незачем.
-        List<_Branch>? kids;
-        final absorbed = <FsNode>[];
-
-        // Цепочка: раскрытый прочитанный каталог с единственным показанным
-        // подкаталогом поглощается им (§2). Корни не склеиваются — их выбрали
-        // нарочно; ссылки и архивы цепочку обрывают — их сами не раскрывают.
-        if (compact && level > 0) {
-          while (branch.node is DirectoryNode && openOf(branch) && branch.children != null) {
-            final inside = _shownIn(branch, level + 1, includeHidden: order.includeHidden);
-            if (inside.length != 1 || inside.single.node is! DirectoryNode) {
-              kids = inside;
-              break;
-            }
-            absorbed.add(branch.node);
-            branch = inside.single;
-          }
-        }
-
-        final node = branch.node;
-        final open = openOf(branch);
-        node
-          ..level = level
-          ..isOpen = open
-          // «Раскрывается» — про саму строку, и у архива оно верно всегда;
-          // «есть ли внутри ветви» — про содержимое, и у архива с одними
-          // файлами внутри оно ложно. Спутать их значит потерять знак
-          // раскрытия ровно в тот миг, когда архив открыли (§4б).
-          ..mountsAsBranch = node is! DirectoryNode && _isBranch(node)
-          ..hasBranches = branch.hasBranches ?? _branchesIn(branch, order.includeHidden);
-        if (absorbed.isNotEmpty) {
-          // Голова — имена поглощённых по порядку: начало цепочки первым.
-          _heads[node] = absorbed.map((it) => it.name).join('/');
-          for (final it in absorbed) {
-            _absorbed[it.pathString] = node;
-          }
-        }
-        rows.add(node);
-        if (open) {
-          walk(kids ?? _shownIn(branch, level + 1, includeHidden: order.includeHidden), level + 1);
-        }
+      final shown = _shownIn(branch, level, includeHidden: order.includeHidden);
+      final compare = order.compare;
+      if (compare != null) {
+        shown.sort((a, b) => compare(a.node, b.node));
       }
+      return shown;
     }
 
-    walk(_shown(_roots, 0, includeHidden: order.includeHidden), 0);
+    // Обход и склейка — общие с окном удаления (`treeRows`); здесь только то,
+    // как строки ложатся в узлы. Ссылки и архивы цепочку обрывают: каталогом
+    // для обхода считается только настоящий каталог.
+    for (final row in treeRows(
+      _shown(_roots, 0, includeHidden: order.includeHidden),
+      childrenOf: childrenOf,
+      isOpen: openOf,
+      isDirectory: (branch) => branch.node is DirectoryNode,
+      compact: compact,
+    )) {
+      final branch = row.branch;
+      final node = branch.node;
+      node
+        ..level = row.level
+        ..isOpen = row.open
+        // «Раскрывается» — про саму строку, и у архива оно верно всегда;
+        // «есть ли внутри ветви» — про содержимое, и у архива с одними
+        // файлами внутри оно ложно. Спутать их значит потерять знак
+        // раскрытия ровно в тот миг, когда архив открыли (§4б).
+        ..mountsAsBranch = node is! DirectoryNode && _isBranch(node)
+        ..hasBranches = branch.hasBranches ?? _branchesIn(branch, order.includeHidden);
+      if (row.absorbed.isNotEmpty) {
+        // Голова — имена поглощённых по порядку: начало цепочки первым.
+        _heads[node] = row.absorbed.map((it) => it.node.name).join('/');
+        for (final it in row.absorbed) {
+          _absorbed[it.node.pathString] = node;
+        }
+      }
+      rows.add(node);
+    }
     return rows;
   }
 }
