@@ -39,6 +39,8 @@
 		6D9B49AA3BFA76B6BF8AA1BD /* SystemVideo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2962696404642EAA4ABB24CF /* SystemVideo.swift */; };
 		F76B9D1ECB45FD7043ABF691 /* VideoPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C56AF1F0615AA29D6ECB936 /* VideoPlayer.swift */; };
 		876F1F70D531B3C523E2793E /* SpectrumTap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F8A5CD515522C1AEEC14EC6 /* SpectrumTap.swift */; };
+		BD6CFF2B6EF5B3D69E5B58B0 /* LoopbackServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7191554401F411219659D700 /* LoopbackServer.swift */; };
+		16CFEB9E90640AB54AF1E20D /* FfmpegVideo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0075C36E4E80FE809FE85A65 /* FfmpegVideo.swift */; };
 		78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */ = {isa = PBXBuildFile; productRef = 78A3181F2AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage */; };
 /* End PBXBuildFile section */
 
@@ -95,6 +97,8 @@
 		2962696404642EAA4ABB24CF /* SystemVideo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemVideo.swift; sourceTree = "<group>"; };
 		8C56AF1F0615AA29D6ECB936 /* VideoPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayer.swift; sourceTree = "<group>"; };
 		0F8A5CD515522C1AEEC14EC6 /* SpectrumTap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectrumTap.swift; sourceTree = "<group>"; };
+		7191554401F411219659D700 /* LoopbackServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoopbackServer.swift; sourceTree = "<group>"; };
+		0075C36E4E80FE809FE85A65 /* FfmpegVideo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FfmpegVideo.swift; sourceTree = "<group>"; };
 		33CEB47222A05771004F2AC0 /* Flutter-Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Flutter-Debug.xcconfig"; sourceTree = "<group>"; };
 		33CEB47422A05771004F2AC0 /* Flutter-Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Flutter-Release.xcconfig"; sourceTree = "<group>"; };
 		33CEB47722A0578A004F2AC0 /* Flutter-Generated.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = "Flutter-Generated.xcconfig"; path = "ephemeral/Flutter-Generated.xcconfig"; sourceTree = "<group>"; };
@@ -204,6 +208,8 @@
 				2962696404642EAA4ABB24CF /* SystemVideo.swift */,
 				8C56AF1F0615AA29D6ECB936 /* VideoPlayer.swift */,
 				0F8A5CD515522C1AEEC14EC6 /* SpectrumTap.swift */,
+				7191554401F411219659D700 /* LoopbackServer.swift */,
+				0075C36E4E80FE809FE85A65 /* FfmpegVideo.swift */,
 				33E51913231747F40026EE4D /* DebugProfile.entitlements */,
 				33E51914231749380026EE4D /* Release.entitlements */,
 				33CC11242044D66E0003C045 /* Resources */,
@@ -403,6 +409,8 @@
 				6D9B49AA3BFA76B6BF8AA1BD /* SystemVideo.swift in Sources */,
 				F76B9D1ECB45FD7043ABF691 /* VideoPlayer.swift in Sources */,
 				876F1F70D531B3C523E2793E /* SpectrumTap.swift in Sources */,
+				BD6CFF2B6EF5B3D69E5B58B0 /* LoopbackServer.swift in Sources */,
+				16CFEB9E90640AB54AF1E20D /* FfmpegVideo.swift in Sources */,
 				33CC10F12044A3C60003C045 /* AppDelegate.swift in Sources */,
 				335BBD1B22A9A15E00E9071D /* GeneratedPluginRegistrant.swift in Sources */,
 			);

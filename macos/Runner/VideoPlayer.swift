@@ -34,6 +34,10 @@ final class VideoPlayer: NSObject, FlutterTexture, AVPlayerItemOutputPullDelegat
   /// Спектр того, что играет; nil — его не просили (видео) или тап не завёлся.
   let spectrum: SpectrumTap?
 
+  /// Что отпустить вместе с плеером: `ffmpeg`, который готовит ему ролик
+  /// (`docs/spec/video-via-ffmpeg.md`, §2).
+  var onClose: (() -> Void)?
+
   init(asset: AVAsset, textures: FlutterTextureRegistry?, spectrumOf track: AVAssetTrack? = nil) {
     self.textures = textures
     let item = AVPlayerItem(asset: asset)
@@ -214,5 +218,7 @@ final class VideoPlayer: NSObject, FlutterTexture, AVPlayerItemOutputPullDelegat
     if let textures = textures {
       textures.unregisterTexture(textureId)
     }
+    onClose?()
+    onClose = nil
   }
 }

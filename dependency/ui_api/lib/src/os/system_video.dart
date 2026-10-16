@@ -30,12 +30,16 @@ sealed class SystemVideoOpened {
 final class SystemVideoRefused extends SystemVideoOpened {
   const SystemVideoRefused(this.reason);
 
-  /// Почему: [unplayable], [noVideo] или [noAudio] — их переводит
-  /// просмотрщик; прочее — как сказала система.
+  /// Почему: [unplayable], [needsFfmpeg], [noVideo] или [noAudio] — их
+  /// переводит просмотрщик; прочее — как сказала система.
   final String reason;
 
   /// Формат системе не по силам.
   static const String unplayable = 'unplayable';
+
+  /// Системе не по силам, а сыграл бы `ffmpeg` — но его на машине нет
+  /// (`docs/spec/video-via-ffmpeg.md`, §5).
+  static const String needsFfmpeg = 'needsFfmpeg';
 
   /// Видеодорожки нет: в контейнере только звук.
   static const String noVideo = 'noVideo';

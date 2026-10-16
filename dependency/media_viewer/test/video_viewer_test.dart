@@ -107,6 +107,17 @@ void main() {
     expect(runtime.app.toasts.current?.message, contains('mkv'));
   });
 
+  test('нет ffmpeg — сказано, как его поставить (video-via-ffmpeg.md, §5)', () async {
+    await start();
+    system.refuse = (path) => path.endsWith('.mkv') ? SystemVideoRefused.needsFfmpeg : null;
+
+    await view('c.mkv');
+
+    expect(shownFullscreen(), isNull);
+    expect(runtime.app.toasts.current?.message, contains('mkv'));
+    expect(runtime.app.toasts.current?.message, contains('brew install ffmpeg'));
+  });
+
   test('видео нет, только звук — так и сказано', () async {
     await start();
     system.refuse = (_) => SystemVideoRefused.noVideo;

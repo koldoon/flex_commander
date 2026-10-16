@@ -204,6 +204,12 @@ class MediaViewer implements FcFrontendModule {
         await source.dispose();
         throw ViewerRefused(switch (reason) {
           SystemVideoRefused.noVideo => strings.tr('There is no video in this file, only sound'),
+          // Сыграл бы `ffmpeg`, но его нет — сказать, как его поставить
+          // (`docs/spec/video-via-ffmpeg.md`, §5).
+          SystemVideoRefused.needsFfmpeg => strings.tr(
+            'macOS does not play this format ({format}) — ffmpeg would: brew install ffmpeg',
+            args: {'format': extensionOf(request.entry.name).toLowerCase()},
+          ),
           _ => _unplayable(strings, request.entry),
         });
       case final SystemVideoPlayer player:
@@ -341,6 +347,8 @@ const Map<String, String> _russian = {
       'Проигрывать звук нечем; откройте файл системой (Cmd-O)',
   'macOS does not play this format ({format}) — Cmd-O opens it with the system':
       'macOS не проигрывает этот формат ({format}); Cmd-O откроет файл системой',
+  'macOS does not play this format ({format}) — ffmpeg would: brew install ffmpeg':
+      'macOS не проигрывает этот формат ({format}); его сыграет ffmpeg: brew install ffmpeg',
   'There is no video in this file, only sound': 'В этом файле нет видео, только звук',
   'There is no sound in this file': 'В этом файле нет звука',
 };

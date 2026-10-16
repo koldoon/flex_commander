@@ -19,6 +19,7 @@ final class SystemVideo {
   init(registrar: FlutterPluginRegistrar) {
     textures = registrar.textures
     channel = FlutterMethodChannel(name: SystemVideo.channelName, binaryMessenger: registrar.messenger)
+    FfmpegVideo.sweepLeftovers()
     channel.setMethodCallHandler { [weak self] call, result in
       guard let self = self else {
         result(FlutterMethodNotImplemented)
@@ -120,9 +121,11 @@ final class SystemVideo {
       do {
         let (playable, duration) = try await asset.load(.isPlayable, .duration)
         let video = try await asset.loadTracks(withMediaType: .video).first
-        guard playable else {
-          answer = ["refused": "unplayable"]
-          await MainActor.run { result(answer) }
+        // Система не играет — пробует `ffmpeg` (`docs/spec/video-via-ffmpeg.md`).
+        // Видеодорожка, которая не играется (VP9 в mp4), — то же самое.
+        let videoPlays = try await video?.load(.isPlayable) ?? true
+        guard playable, videoPlays else {
+          await self.openViaFfmpeg(path, result)
           return
         }
         guard let video = video else {
@@ -157,7 +160,8 @@ final class SystemVideo {
           "bitRate": bitRate,
         ]
       } catch {
-        await MainActor.run { result(["refused": "unplayable"]) }
+        // «Cannot Open»: контейнер системе неизвестен (`.mkv`, `.webm`, `.avi`).
+        await self.openViaFfmpeg(path, result)
         return
       }
       await MainActor.run {
@@ -168,6 +172,34 @@ final class SystemVideo {
         opened["texture"] = player.textureId
         result(opened)
       }
+    }
+  }
+
+  /// Ролик, которого система не играет: `ffmpeg` готовит HLS, играет тот же
+  /// плеер по loopback (`docs/spec/video-via-ffmpeg.md`, §2). Сведения — у
+  /// `ffprobe`; закрыли плеер — `ffmpeg` встаёт, каталог убирается.
+  private func openViaFfmpeg(_ path: String, _ result: @escaping FlutterResult) async {
+    let started: FfmpegVideo
+    do {
+      started = try await FfmpegVideo.start(path)
+    } catch FfmpegVideo.Failure.needsFfmpeg {
+      await MainActor.run { result(["refused": "needsFfmpeg"]) }
+      return
+    } catch FfmpegVideo.Failure.noVideo {
+      await MainActor.run { result(["refused": "noVideo"]) }
+      return
+    } catch {
+      await MainActor.run { result(["refused": "unplayable"]) }
+      return
+    }
+    await MainActor.run {
+      let player = VideoPlayer(asset: AVURLAsset(url: started.url), textures: self.textures)
+      player.onClose = { started.stop() }
+      let handle = self.register(player)
+      var opened = started.answer
+      opened["handle"] = handle
+      opened["texture"] = player.textureId
+      result(opened)
     }
   }
 
