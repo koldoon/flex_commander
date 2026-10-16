@@ -24,12 +24,23 @@ final class SpectrumTap {
   // Общее со звуковой нитью — под замком. `os_unfair_lock`, а не `NSLock`: он
   // передаёт приоритет держателю, а главная нить держит его микросекунды.
   private let lock: os_unfair_lock_t
-  /// Последние `ringSize` сэмплов моно — на длинное окно; `written` — куда
-  /// ляжет следующий. Размер — константой: звуковая нить не трогает объектов.
-  private static let ringSize = 1 << 13
+  /// Последние `ringSize` сэмплов моно; `written` — куда ляжет следующий.
+  /// Размер — константой: звуковая нить не трогает объектов.
+  ///
+  /// Втрое больше длинного окна (§7.7): тап получает звук **впрок**, на
+  /// 120–215 мс раньше, чем его слышно, и в кольце должны поместиться и это
+  /// опережение, и длинное окно позади звучащего сейчас.
+  private static let ringSize = 1 << 15
   private let ring: UnsafeMutablePointer<Float>
   private var written = 0
   private var sampleRate: Float = 44100
+  /// Время трека, на котором кончается самый свежий сэмпл кольца, в секундах;
+  /// NaN — неизвестно.
+  private var newestTime = Double.nan
+
+  /// Плеер, по часам которого ставится окно (§7.7). Слабо: тап живёт в миксе
+  /// дорожки, и держать плеер ему незачем.
+  private weak var item: AVPlayerItem?
 
   // Только звуковая нить — и `prepare` до неё.
   private var scratch: UnsafeMutablePointer<Float>?
@@ -104,7 +115,7 @@ final class SpectrumTap {
 
   init() {
     let n = SpectrumTap.ringSize
-    precondition(long.size == n)
+    precondition(long.size <= n)
     lock = .allocate(capacity: 1)
     lock.initialize(to: os_unfair_lock())
     ring = .allocate(capacity: n)
@@ -141,22 +152,44 @@ final class SpectrumTap {
     Unmanaged<SpectrumTap>.fromOpaque(tap).takeUnretainedValue().compute()
   }
 
+  /// Окно ставится по часам этого плеера: конец — на том, что звучит сейчас.
+  func follow(_ item: AVPlayerItem) {
+    self.item = item
+  }
+
   /// Полосы того, что звучит сейчас, 0…1, — в `levels`.
   func compute() {
     let n = SpectrumTap.ringSize
     let floatSize = MemoryLayout<Float>.stride
+    // Часы — до замка: держать его надо микросекунды. `CMTimebase` спрашивать
+    // можно с любой нити.
+    let now = item?.timebase.map { CMTimeGetSeconds(CMTimebaseGetTime($0)) } ?? .nan
     os_unfair_lock_lock(lock)
-    memcpy(history, ring + written, (n - written) * floatSize)
-    memcpy(history + (n - written), ring, written * floatSize)
     let rate = sampleRate
+    // Оба окна кончаются на том, что звучит **сейчас** (§7.7): пачки приходят
+    // раз в 85 мс и впрок, и окно по самому свежему сэмплу стояло бы между
+    // ними на месте, опережая звук. Часов нет или сдвиг не положителен
+    // (перемотка, тишина в начале) — по самому свежему, как раньше.
+    var ahead = 0
+    let lag = (newestTime - now) * Double(rate)
+    if lag.isFinite, lag > 0 {
+      ahead = min(Int(lag), n - long.size)
+    }
+    // Из кольца — только нужный хвост: длинное окно и опережение за ним.
+    // Ложится в конец `history`, так что окна читают его как раньше.
+    let need = long.size + ahead
+    let from = (written - need + n) % n
+    let head = min(need, n - from)
+    memcpy(history + (n - need), ring + from, head * floatSize)
+    memcpy(history + (n - need) + head, ring, (need - head) * floatSize)
     os_unfair_lock_unlock(lock)
 
     if rate != binsRate {
       bins = SpectrumTap.bins(sampleRate: rate, short: short.size, long: long.size)
       binsRate = rate
     }
-    // Оба окна кончаются на самом свежем сэмпле: короткое — хвост длинного.
-    let end = UnsafePointer(history + n)
+    // Короткое окно — хвост длинного; оба кончаются перед опережением.
+    let end = UnsafePointer(history + n - ahead)
     short.run(endingAt: end)
     long.run(endingAt: end)
     // В каждой полосе — наибольший модуль, в масштабе своего окна.
@@ -224,11 +257,14 @@ final class SpectrumTap {
       },
       unprepare: nil,
       process: { tap, frames, _, bufferList, framesOut, flagsOut in
-        guard MTAudioProcessingTapGetSourceAudio(tap, frames, bufferList, flagsOut, nil, framesOut) == noErr else {
+        // Диапазон времени пачки: по нему окно ставится на звучащее сейчас
+        // (§7.7).
+        var range = CMTimeRange()
+        guard MTAudioProcessingTapGetSourceAudio(tap, frames, bufferList, flagsOut, &range, framesOut) == noErr else {
           return
         }
         Unmanaged<SpectrumTap>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).takeUnretainedValue()
-          .consume(bufferList, frames: Int(framesOut.pointee))
+          .consume(bufferList, frames: Int(framesOut.pointee), from: CMTimeGetSeconds(range.start))
       }
     )
     var tap: MTAudioProcessingTap?
@@ -260,7 +296,7 @@ final class SpectrumTap {
   }
 
   /// Звуковая нить: сэмплы — в моно, моно — в кольцо.
-  private func consume(_ list: UnsafeMutablePointer<AudioBufferList>, frames: Int) {
+  private func consume(_ list: UnsafeMutablePointer<AudioBufferList>, frames: Int, from start: Double) {
     guard isFloat, let mono = scratch else {
       return
     }
@@ -292,11 +328,12 @@ final class SpectrumTap {
         vDSP_vsma(data.assumingMemoryBound(to: Float.self), 1, &share, mono, 1, mono, 1, length)
       }
     }
-    write(mono, count)
+    write(mono, count, from: start)
   }
 
-  /// Звуковая нить: блок — в кольцо, двумя копиями под замком.
-  private func write(_ samples: UnsafePointer<Float>, _ count: Int) {
+  /// Звуковая нить: блок — в кольцо, двумя копиями под замком; [start] — время
+  /// трека первого сэмпла блока.
+  private func write(_ samples: UnsafePointer<Float>, _ count: Int, from start: Double) {
     let n = SpectrumTap.ringSize
     let floatSize = MemoryLayout<Float>.stride
     // Блок длиннее окна — нужен только хвост.
@@ -307,6 +344,9 @@ final class SpectrumTap {
     memcpy(ring + written, source, head * floatSize)
     memcpy(ring, source + head, (length - head) * floatSize)
     written = (written + length) % n
+    // Частота читается под тем же замком, что и пишется: `prepare` идёт до
+    // звуковой нити, но читать её без замка — та же гонка.
+    newestTime = start.isFinite ? start + Double(count) / Double(sampleRate) : .nan
     os_unfair_lock_unlock(lock)
   }
 }

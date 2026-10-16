@@ -43,6 +43,7 @@ final class VideoPlayer: NSObject, FlutterTexture, AVPlayerItemOutputPullDelegat
       let tap = SpectrumTap()
       if let mix = tap.audioMix(for: track) {
         item.audioMix = mix
+        tap.follow(item)
         spectrum = tap
       } else {
         spectrum = nil

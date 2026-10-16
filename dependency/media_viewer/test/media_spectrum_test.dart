@@ -97,15 +97,17 @@ void main() {
       expect(player.spectrumCalls, 0);
     });
 
-    testWidgets('играет — спрашивает не чаще 60 раз в секунду', (tester) async {
+    testWidgets('играет — спрашивает на каждом кадре', (tester) async {
       final player = await pump(tester, playing: true);
+      final before = player.spectrumCalls;
 
       for (var i = 0; i < 120; i++) {
         await tester.pump(const Duration(milliseconds: 8));
       }
 
-      // Секунда кадров по 8 мс (120 Гц) — около 60 запросов, а не 120.
-      expect(player.spectrumCalls, inInclusiveRange(50, 62));
+      // Секунда кадров по 8 мс (120 Гц) — 120 запросов: окно у раннера на
+      // каждом свое, по часам плеера (`docs/spec/audio-viewer.md`, §7.7).
+      expect(player.spectrumCalls - before, 120);
 
       // Встали — опадает и затихает: тикер не держит кадры.
       await pump(tester, playing: false, player: player);

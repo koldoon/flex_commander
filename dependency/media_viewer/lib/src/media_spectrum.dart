@@ -64,19 +64,15 @@ class SpectrumMotion {
 /// Спектр того, что играет, — как в Winamp: тонкие полоски с пиками
 /// (`docs/spec/audio-viewer.md`, §7).
 ///
-/// Спрашивает плеер по тикеру **только пока играет**, не чаще 60 раз в
-/// секунду, — синхронно, прямо в такте (§7.5). На паузе полосы опадают, и
+/// Спрашивает плеер на **каждом такте** тикера, только пока играет, —
+/// синхронно, прямо в такте (§7.5). Раннер ставит окно по часам плеера, так
+/// что каждый кадр получает свой спектр (§7.7). На паузе полосы опадают, и
 /// тикер встаёт.
 class MediaSpectrum extends StatefulWidget {
   const MediaSpectrum({super.key, required this.player, required this.playing});
 
   final SystemAudioPlayer player;
   final bool playing;
-
-  /// Не чаще этого спрашивать плеер — 60 раз в секунду: раннер считает спектр
-  /// по запросу, из последних сэмплов, так что свежесть задаёт этот опрос
-  /// (`audio-viewer.md`, §7.1).
-  static const Duration pollEvery = Duration(milliseconds: 16);
 
   @override
   State<MediaSpectrum> createState() => _MediaSpectrumState();
@@ -88,7 +84,6 @@ class _MediaSpectrumState extends State<MediaSpectrum> with SingleTickerProvider
   late final Ticker _ticker = createTicker(_tick);
 
   Duration _last = Duration.zero;
-  Duration _askedAt = -MediaSpectrum.pollEvery;
   List<double>? _target;
 
   @override
@@ -111,7 +106,6 @@ class _MediaSpectrumState extends State<MediaSpectrum> with SingleTickerProvider
   void _wake() {
     if (!_ticker.isActive && (widget.playing || !_motion.resting)) {
       _last = Duration.zero;
-      _askedAt = -MediaSpectrum.pollEvery;
       unawaited(_ticker.start());
     }
   }
@@ -119,8 +113,9 @@ class _MediaSpectrumState extends State<MediaSpectrum> with SingleTickerProvider
   void _tick(Duration elapsed) {
     final dt = elapsed - _last;
     _last = elapsed;
-    if (widget.playing && elapsed - _askedAt >= MediaSpectrum.pollEvery) {
-      _askedAt = elapsed;
+    // На каждом такте: вызов стоит десятки микросекунд, а окно у раннера
+    // каждый раз своё — по часам плеера (`audio-viewer.md`, §7.7).
+    if (widget.playing) {
       _target = widget.player.spectrum();
     }
     // Полосы стоят — кадр не перерисовывается.
