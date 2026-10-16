@@ -8,8 +8,8 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
 /// Движение полос спектра — отдельно от рисования (`docs/spec/audio-viewer.md`,
-/// §7.2): полоса поднимается сразу и опускается плавно, пик держится и падает
-/// с ускорением.
+/// §7.2, §7.8): полоса поднимается быстро, но не скачком, и опускается
+/// плавно; пик держится и падает с ускорением.
 class SpectrumMotion {
   SpectrumMotion(int bands)
     : levels = Float64List(bands),
@@ -19,6 +19,18 @@ class SpectrumMotion {
 
   /// Полная высота опадает за столько.
   static const Duration fall = Duration(milliseconds: 300);
+
+  /// Постоянная времени подъёма: за неё полоса проходит 63% пути к новому
+  /// значению, за пять — почти весь (§7.8).
+  ///
+  /// Не скачком: спектр свежий на каждом кадре (§7.7), и случайный выброс по
+  /// краям шкалы — тарелки наверху, узкие бины внизу — втыкал бы столбик
+  /// вверх, а тот оседал бы пилой. Удар барабана при этом виден сразу.
+  static const Duration attack = Duration(milliseconds: 35);
+
+  /// Ближе этого к цели — уже на месте: экспонента цели не достигает, а стоящим
+  /// полосам кадр не нужен (§7.5).
+  static const double _close = 0.001;
 
   /// Пик держится наверху столько.
   static const Duration hold = Duration(milliseconds: 500);
@@ -37,11 +49,18 @@ class SpectrumMotion {
   bool step(Duration elapsed, List<double>? target) {
     final dt = elapsed.inMicroseconds / Duration.microsecondsPerSecond;
     final drop = dt * Duration.microsecondsPerSecond / fall.inMicroseconds;
+    // По времени, а не по кадрам: на 60 и 120 Гц движение одно и то же.
+    final rise = 1 - math.exp(-elapsed.inMicroseconds / attack.inMicroseconds);
     var moved = false;
     for (var i = 0; i < levels.length; i++) {
       final (level, peak) = (levels[i], peaks[i]);
       final wanted = target == null || i >= target.length ? 0.0 : target[i].clamp(0.0, 1.0).toDouble();
-      levels[i] = wanted >= levels[i] ? wanted : math.max(wanted, levels[i] - drop);
+      if (wanted >= levels[i]) {
+        final next = levels[i] + (wanted - levels[i]) * rise;
+        levels[i] = wanted - next < _close ? wanted : next;
+      } else {
+        levels[i] = math.max(wanted, levels[i] - drop);
+      }
       if (levels[i] >= peaks[i]) {
         peaks[i] = levels[i];
         _hold[i] = hold.inMicroseconds / Duration.microsecondsPerSecond;

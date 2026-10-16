@@ -14,8 +14,33 @@ void main() {
   group('движение полос', () {
     const frame = Duration(milliseconds: 16);
 
-    test('полоса поднимается сразу', () {
-      final motion = SpectrumMotion(2)..step(frame, [0.8, 0.2]);
+    /// Столько хватает, чтобы подъём дошёл до цели.
+    const settled = Duration(seconds: 1);
+
+    test('полоса поднимается быстро, но не скачком (§7.8)', () {
+      final motion = SpectrumMotion(1)..step(SpectrumMotion.attack, [1]);
+      // За постоянную времени — 63% пути: выброс в один кадр не втыкает
+      // столбик до верха.
+      expect(motion.levels.single, closeTo(0.632, 0.01));
+
+      motion.step(SpectrumMotion.attack * 4, [1]);
+      expect(motion.levels.single, closeTo(1, 0.01), reason: 'за пять постоянных — почти до конца');
+    });
+
+    test('подъём одинаков на 60 и 120 Гц', () {
+      final at60 = SpectrumMotion(1);
+      final at120 = SpectrumMotion(1);
+      for (var i = 0; i < 6; i++) {
+        at60.step(const Duration(microseconds: 16667), [1]);
+        at120
+          ..step(const Duration(microseconds: 8333), [1])
+          ..step(const Duration(microseconds: 8334), [1]);
+      }
+      expect(at120.levels.single, closeTo(at60.levels.single, 0.001));
+    });
+
+    test('доходит до цели и встаёт', () {
+      final motion = SpectrumMotion(2)..step(settled, [0.8, 0.2]);
 
       expect(motion.levels, [0.8, 0.2]);
       expect(motion.peaks, [0.8, 0.2]);
@@ -24,14 +49,14 @@ void main() {
     test('стоят полосы — кадр не нужен (§7.5)', () {
       final motion = SpectrumMotion(2);
 
-      expect(motion.step(frame, [0.5, 0.2]), isTrue);
+      expect(motion.step(settled, [0.5, 0.2]), isTrue);
       expect(motion.step(frame, [0.5, 0.2]), isFalse, reason: 'тот же спектр — рисовать нечего');
       expect(motion.step(frame, [0.6, 0.2]), isTrue);
       expect(SpectrumMotion(1).step(frame, null), isFalse, reason: 'опавший на паузе не рисуется');
     });
 
     test('опускается плавно: полная высота — за SpectrumMotion.fall', () {
-      final motion = SpectrumMotion(1)..step(frame, [1]);
+      final motion = SpectrumMotion(1)..step(settled, [1]);
 
       motion.step(SpectrumMotion.fall ~/ 2, [0]);
       expect(motion.levels.single, closeTo(0.5, 0.01), reason: 'за половину срока — половина высоты');
@@ -41,7 +66,7 @@ void main() {
     });
 
     test('пик держится, потом падает с ускорением', () {
-      final motion = SpectrumMotion(1)..step(frame, [1]);
+      final motion = SpectrumMotion(1)..step(settled, [1]);
 
       motion.step(SpectrumMotion.hold ~/ 2, [0]);
       expect(motion.peaks.single, 1, reason: 'пока держится — стоит наверху');
