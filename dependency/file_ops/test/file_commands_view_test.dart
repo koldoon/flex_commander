@@ -9,6 +9,7 @@ import 'package:fc_file_ops/fc_file_ops.dart';
 import 'package:fc_navigation/fc_navigation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Провайдер, у которого копирование можно замедлить.
@@ -386,8 +387,14 @@ void main() {
       expect(namesOf(), isNot(contains('notes.txt')));
     });
 
-    testWidgets('мимо корзины уйдёт часть — окно называет её списком', (tester) async {
+    testWidgets('мимо корзины уйдёт часть — окно называет её деревом', (tester) async {
       provider.untrashable.add('/home/bin/tool');
+      // Со всеми модулями: дерево рисует вид панели, а виды объявляет модуль
+      // панелей.
+      final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
+      await tester.runAsync(() async {
+        app = (await testApp(provider: provider, modules: featureModules(), settings: settings)).app;
+      });
       await pumpApp(tester);
       app.left.setMarks({'/home/notes.txt', '/home/bin/tool'});
       await tester.pumpAndSettle();
@@ -396,8 +403,10 @@ void main() {
 
       expect(find.textContaining('Move 2 items to Trash?'), findsOneWidget);
       expect(find.textContaining('1 of them cannot be moved there'), findsOneWidget);
-      expect(find.text('/home/bin/tool'), findsOneWidget, reason: 'названо то, что уйдёт навсегда');
-      expect(find.text('/home/notes.txt'), findsNothing, reason: 'в корзину уйдёт как обычно');
+      // Деревом: корень — откуда, под ним — что (`docs/spec/trash-unavailable.md`, §4а).
+      expect(find.text('/home/bin'), findsOneWidget, reason: 'видно, из какой ветви');
+      expect(find.text('tool'), findsWidgets, reason: 'названо то, что уйдёт навсегда');
+      expect(find.text('notes.txt'), findsNothing, reason: 'в корзину уйдёт как обычно');
 
       await tester.tap(find.widgetWithText(FcButton, 'Delete'));
       await settle(tester);

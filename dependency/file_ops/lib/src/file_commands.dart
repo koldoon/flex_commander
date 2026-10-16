@@ -341,6 +341,7 @@ abstract class RemoveCommandBase extends AppCommand {
     final view = context.app.view;
     // Считается до окна: внутри `form` в имени `context` уже BuildContext.
     final what = _whatOf(context);
+    final app = context.app;
     final total = context.session.targetPaths.length;
     // Один раз: `present` зовут ещё и при возврате работы из фона, а пометку к
     // тому времени уже сняли.
@@ -371,7 +372,12 @@ abstract class RemoveCommandBase extends AppCommand {
                     final confirm = CommandDialogConfirm(
                       message: _confirmationMessageOf(what, untrashable: count, total: total),
                       confirmLabel: toTrash && count < total ? tr('Delete') : tr('Delete permanently'),
-                      fields: [if (listed) CommandDialogField.wide(child: _UntrashableList(entries!))],
+                      fields: [
+                        if (listed)
+                          CommandDialogField.wide(
+                            child: _UntrashableTree(app: app, panel: panel.id, entries: entries!),
+                          ),
+                      ],
                       onCancel: run.dismiss,
                       onConfirm: run.submit,
                     );
@@ -648,39 +654,48 @@ class _RenameFormState extends State<_RenameForm> {
   }
 }
 
-/// То, что уйдёт мимо корзины, — путями, на плашке, как находки поиска
-/// (`docs/spec/trash-unavailable.md`, §2).
+/// То, что уйдёт мимо корзины, — сжатым деревом, на плашке, как находки
+/// поиска (`docs/spec/trash-unavailable.md`, §4а): видно, из какой ветви
+/// каждый объект.
 ///
-/// Только для чтения: выбирать здесь нечего, решение одно на весь список.
-class _UntrashableList extends StatelessWidget {
-  const _UntrashableList(this.entries);
+/// Вид — стандартный, из реестра видов панели; рисует он снимок, а не панель:
+/// ни вкладки, ни источника у списка нет. Только для чтения — решение одно на
+/// весь список.
+class _UntrashableTree extends StatefulWidget {
+  const _UntrashableTree({required this.app, required this.panel, required this.entries});
 
+  final Application app;
+  final PanelId panel;
   final List<FileEntry> entries;
 
+  @override
+  State<_UntrashableTree> createState() => _UntrashableTreeState();
+}
+
+class _UntrashableTreeState extends State<_UntrashableTree> {
   /// Больше — и окно упрётся в край экрана; дальше список прокручивается.
   static const int _visibleRows = 8;
+
+  late final SnapshotSession _snapshot = SnapshotSession(id: widget.panel, entries: entryTreeRows(widget.entries));
+
+  @override
+  void dispose() {
+    _snapshot.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
-    final rows = entries.length < _visibleRows ? entries.length : _visibleRows;
+    final views = widget.app.panelViews;
+    final spec = views.byId(_snapshot.view) ?? views.available.firstOrNull;
+    final rows = _snapshot.entries.length < _visibleRows ? _snapshot.entries.length : _visibleRows;
     return FcPlate(
+      tight: true,
+      // Строкой больше — на заголовок вида.
       child: SizedBox(
-        height: rows * theme.metrics.rowHeight,
-        child: ListView.builder(
-          itemCount: entries.length,
-          itemExtent: theme.metrics.rowHeight,
-          itemBuilder:
-              (context, index) => Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  entries[index].path,
-                  style: theme.dialogTextStyle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-        ),
+        height: (rows + 1) * theme.metrics.rowHeight,
+        child: spec == null ? const SizedBox.shrink() : spec.build(context, _snapshot),
       ),
     );
   }
