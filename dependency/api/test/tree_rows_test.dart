@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Ветвь для обхода: имя, каталог ли и дети; null — не прочитана.
 class _Node {
-  _Node(this.name, {this.children, this.directory = true, this.open = true});
+  _Node(this.name, {this.children, this.open = true}) : directory = true;
 
   _Node.file(this.name) : children = null, directory = false, open = false;
 

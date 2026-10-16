@@ -14,6 +14,8 @@ export 'src/app/panels_at.dart';
 export 'src/app/tree_trace.dart';
 export 'src/app/application.dart';
 export 'src/app/session.dart';
+export 'src/app/entry_tree.dart';
+export 'src/app/snapshot_session.dart';
 export 'src/app/panel.dart';
 export 'src/app/panel_header_spec.dart';
 export 'src/app/panel_steps.dart';

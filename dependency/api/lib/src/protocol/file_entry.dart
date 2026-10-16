@@ -193,6 +193,38 @@ class FileEntry {
     id: value,
   );
 
+  /// Та же строка на своём месте в дереве: глубина, раскрытость и голова
+  /// цепочки. Так складывает строки [treeRows] тот, у кого дерево из значений,
+  /// а не из узлов (`docs/spec/trash-unavailable.md`, §4а).
+  FileEntry inTree({required int level, required bool isOpen, required bool hasBranches, String chainHead = ''}) =>
+      FileEntry(
+        name: name,
+        kind: kind,
+        path: path,
+        realPath: realPath,
+        directoryPath: directoryPath,
+        size: size,
+        modified: modified,
+        created: created,
+        accessed: accessed,
+        attributes: attributes,
+        executable: executable,
+        broken: broken,
+        linkToDirectory: linkToDirectory,
+        reference: reference,
+        scheme: scheme,
+        level: level,
+        isOpen: isOpen,
+        hasBranches: hasBranches,
+        mountsAsBranch: mountsAsBranch,
+        chainHead: chainHead,
+        displayPath: displayPath,
+        sizeIsFinal: sizeIsFinal,
+        canStream: canStream,
+        canReceive: canReceive,
+        id: id,
+      );
+
   /// Имена каталогов, поглощённых строкой сжатого дерева, через `/`: `src/main`
   /// у строки `java`. Пусто — строка стоит сама по себе.
   ///
