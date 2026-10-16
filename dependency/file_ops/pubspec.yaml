@@ -48,4 +48,9 @@ dev_dependencies:
   flex_commander:
     path: ../..
 
+  # Только для проверок: список мимо корзины рисует вид панели, и тест смотрит
+  # на его курсор (`docs/spec/trash-unavailable.md`, §4а).
+  fc_panels:
+    path: ../panels
+
   path: ^1.9.1

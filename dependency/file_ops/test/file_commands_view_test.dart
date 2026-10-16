@@ -9,7 +9,9 @@ import 'package:fc_file_ops/fc_file_ops.dart';
 import 'package:fc_navigation/fc_navigation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:fc_panels/fc_panels.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
+import 'package:flex_commander/view/dialogs/dialog_frame.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Провайдер, у которого копирование можно замедлить.
@@ -407,6 +409,30 @@ void main() {
       expect(find.text('/home/bin'), findsOneWidget, reason: 'видно, из какой ветви');
       expect(find.text('tool'), findsWidgets, reason: 'названо то, что уйдёт навсегда');
       expect(find.text('notes.txt'), findsNothing, reason: 'в корзину уйдёт как обычно');
+
+      // Окно со списком тянется и помнит себя под своим именем (§4б).
+      final frame = tester.widget<DialogFrame>(find.byType(DialogFrame));
+      expect(frame.resizable, isTrue);
+      expect(frame.id, RemoveCommandBase.untrashableDialogId);
+      // Своя высота — треть экрана: 621 / 3.
+      expect(tester.getSize(find.byType(TreeView)).height, closeTo(621 / 3, 2));
+
+      // `Tab` доводит фокус до списка — как до любого поля окна.
+      bool treeFocused() => FocusManager.instance.primaryFocus?.debugLabel == 'untrashable tree';
+      for (var i = 0; i < 6 && !treeFocused(); i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+      }
+      expect(treeFocused(), isTrue, reason: 'до списка доходят по Tab');
+
+      // Клавиши — списку, когда фокус у него: щелчок, потом стрелка.
+      final tree = tester.widget<TreeView>(find.byType(TreeView)).panel;
+      await tester.tap(find.byType(TreeView));
+      await tester.pump();
+      final before = tree.cursorIndex;
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(tree.cursorIndex, before + 1, reason: 'стрелка ведёт курсор по списку');
 
       await tester.tap(find.widgetWithText(FcButton, 'Delete'));
       await settle(tester);

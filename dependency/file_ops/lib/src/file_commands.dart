@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
@@ -253,6 +254,11 @@ class RemovePermanentlyCommand extends RemoveCommandBase {
 /// Реализует [AsyncCommand]: прогресс виден и снаружи окна — это задел на
 /// фоновое выполнение, когда операции будут показываться общим списком.
 abstract class RemoveCommandBase extends AppCommand {
+  /// Имя окна, когда мимо корзины уходит часть: под ним помнятся его размер и
+  /// место (`docs/spec/trash-unavailable.md`, §4б). Внешний контракт — оно
+  /// лежит в `settings.json`.
+  static const String untrashableDialogId = 'file.remove.untrashable';
+
   /// Согласие удалять, заданное заранее: сценарию спрашивать некого.
   static const String confirmedParam = 'confirmed';
 
@@ -350,12 +356,34 @@ abstract class RemoveCommandBase extends AppCommand {
     final title = titleOf(context);
     late final FcAsyncRun run;
 
+    // Мимо корзины уйдёт часть — список деревом (§4а).
+    bool listedNow() {
+      final count = untrashable.value?.count ?? 0;
+      return count > 0 && count < total;
+    }
+
+    // Окно стоит и ещё не закрыто: подменить его есть что.
+    var open = false;
+
     void present() {
       late final String dialogId;
-      run.close = () => view.closeDialog(dialogId);
+      run.close = () {
+        open = false;
+        view.closeDialog(dialogId);
+      };
+      // Тянется и помнит размер только окно со списком: у вопроса в две строки
+      // тянуть нечего, а запомненная высота списка растянула бы и его
+      // (`docs/spec/trash-unavailable.md`, §4б).
+      final listed = listedNow();
+      open = true;
       dialogId = view.showDialog(
         DialogSpec(
           title: title,
+          id: listed ? untrashableDialogId : null,
+          resizable: listed,
+          // Со списком ширину назначает окно само, долей экрана, как у находок:
+          // ленивый список о своей ширине не отвечает.
+          ownWidth: listed,
           takesFocus: true,
           // Вопрос по ходу работы, ход дела и разбор ошибки — общие для всех
           // длительных работ, их берёт на себя окно. Своё здесь только одно:
@@ -377,6 +405,9 @@ abstract class RemoveCommandBase extends AppCommand {
                       fields: [
                         if (listed)
                           CommandDialogField.wide(
+                            // Растянули окно — прибавка достаётся списку: ради
+                            // него и тянут.
+                            expands: true,
                             child: _UntrashableTree(app: app, panel: panel.id, rows: untrashed!.rows),
                           ),
                       ],
@@ -417,7 +448,18 @@ abstract class RemoveCommandBase extends AppCommand {
     // (`docs/spec/operation-targets.md`, §2).
     unawaited(askSources());
     if (toTrash) {
-      unawaited(panel.untrashableTargets().then((found) => untrashable.value = found));
+      unawaited(
+        panel.untrashableTargets().then((found) {
+          untrashable.value = found;
+          // Окно встало раньше ответа и тянуться не умеет: раз список нужен,
+          // оно подменяется тянущимся. Только пока не ответили — идущую работу
+          // окном не трогают.
+          if (open && listedNow() && !run.isBusy) {
+            run.close?.call();
+            present();
+          }
+        }),
+      );
     }
   }
 
@@ -677,15 +719,47 @@ class _UntrashableTree extends StatefulWidget {
 }
 
 class _UntrashableTreeState extends State<_UntrashableTree> {
-  /// Больше — и окно упрётся в край экрана; дальше список прокручивается.
-  static const int _visibleRows = 8;
+  /// Меньше — и это уже не список: столько строк видно всегда.
+  static const int _minRows = 4;
 
   late final SnapshotSession _snapshot = SnapshotSession(id: widget.panel, entries: widget.rows);
 
+  /// Фокус списка: по `Tab` и щелчку, как у находок поиска.
+  final FocusNode _focus = FocusNode(debugLabel: 'untrashable tree');
+
   @override
   void dispose() {
+    _focus.dispose();
     _snapshot.dispose();
     super.dispose();
+  }
+
+  /// Стрелки, страницы и края водят курсор по снимку.
+  ///
+  /// Ловит их список, а не реестр команд: пока окно открыто, клавиши
+  /// принадлежат ему (`screens.md`). Автоповтор — наравне с нажатием: удержание
+  /// стрелки обязано вести курсор, как в панели и в находках.
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    switch (event.logicalKey) {
+      case LogicalKeyboardKey.arrowDown:
+        _snapshot.moveCursor(1);
+      case LogicalKeyboardKey.arrowUp:
+        _snapshot.moveCursor(-1);
+      case LogicalKeyboardKey.pageDown:
+        _snapshot.moveCursorPage(1);
+      case LogicalKeyboardKey.pageUp:
+        _snapshot.moveCursorPage(-1);
+      case LogicalKeyboardKey.home:
+        _snapshot.setCursorToFirst();
+      case LogicalKeyboardKey.end:
+        _snapshot.setCursorToLast();
+      default:
+        return KeyEventResult.ignored;
+    }
+    return KeyEventResult.handled;
   }
 
   @override
@@ -693,13 +767,32 @@ class _UntrashableTreeState extends State<_UntrashableTree> {
     final theme = FcTheme.of(context);
     final views = widget.app.panelViews;
     final spec = views.byId(_snapshot.view) ?? views.available.firstOrNull;
-    final rows = _snapshot.entries.length < _visibleRows ? _snapshot.entries.length : _visibleRows;
-    return FcPlate(
-      tight: true,
-      // Строкой больше — на заголовок вида.
-      child: SizedBox(
-        height: (rows + 1) * theme.metrics.rowHeight,
-        child: spec == null ? const SizedBox.shrink() : spec.build(context, _snapshot),
+    // Своя высота — пока окно не растянули: треть экрана, но не меньше четырёх
+    // строк и заголовка вида. Растянули — высоту назначает рама, и поле со
+    // списком берёт её целиком (`docs/spec/dialog-resize.md`, §6).
+    final step = theme.metrics.rowHeight;
+    final third = MediaQuery.sizeOf(context).height / 3;
+    final least = (_minRows + 1) * step;
+    return Focus(
+      focusNode: _focus,
+      onKeyEvent: _onKey,
+      child: Listener(
+        onPointerDown: (_) => _focus.requestFocus(),
+        child: ListenableBuilder(
+          listenable: _focus,
+          // Курсор светится, только когда клавиши у списка: иначе он обещал бы
+          // стрелкам то, что у них заберёт кнопка.
+          builder:
+              (context, child) =>
+                  KeysScope(takesKeys: _focus.hasFocus && (KeysScope.maybeOf(context) ?? true), child: child!),
+          child: FcPlate(
+            tight: true,
+            child: SizedBox(
+              height: third > least ? third : least,
+              child: spec == null ? const SizedBox.shrink() : spec.build(context, _snapshot),
+            ),
+          ),
+        ),
       ),
     );
   }
