@@ -201,6 +201,47 @@ final class VideoPlayer: NSObject, FlutterTexture, AVPlayerItemOutputPullDelegat
     }
   }
 
+  /// Переподключать вывод кадров после перемотки — у роликов через `ffmpeg`.
+  ///
+  /// После перемотки к началу растущего списка `EVENT` вывод перестаёт
+  /// получать кадры: время идёт, звук идёт, кадров нет; переподключённый —
+  /// получает снова (проба 17 октября 2026: 0 кадров против 119 за 4 с).
+  var reattachesAfterSeek = false
+
+  /// Снять и снова поставить вывод кадров — и разбудить такт.
+  func reattachOutput() {
+    guard let output = output, let item = player.currentItem else {
+      return
+    }
+    item.remove(output)
+    item.add(output)
+    outputMediaDataWillChange(output)
+  }
+
+  /// Дождаться, пока ролик готов к показу, и встать на его начало
+  /// (`docs/spec/video-via-ffmpeg.md`, §2, п. 7). Готовности нет за пять
+  /// секунд — как есть: плеер разберётся сам, а показ не ждёт вечно.
+  func rewindWhenReady() async {
+    for _ in 0..<250 {
+      let status = await MainActor.run { player.currentItem?.status ?? .failed }
+      if status == .readyToPlay {
+        break
+      }
+      if status == .failed {
+        return
+      }
+      try? await Task.sleep(nanoseconds: 20_000_000)
+    }
+    await withCheckedContinuation { (done: CheckedContinuation<Void, Never>) in
+      DispatchQueue.main.async {
+        self.player.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero) { _ in
+          self.reattachOutput()
+          done.resume()
+        }
+      }
+    }
+  }
+
   /// Где плеер сейчас — для плашки времени.
   func state() -> [String: Any] {
     let position = player.currentTime().seconds

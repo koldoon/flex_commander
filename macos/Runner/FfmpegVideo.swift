@@ -163,6 +163,15 @@ final class FfmpegVideo {
     }
   }
 
+  /// MPEG-PS — `.mpg` VCD и DVD. Система его играет, но индекса у него нет, и
+  /// перемотка дочитывает файл до места, **держа главную нить**: 81 с на
+  /// 690 МБ с шары (проба 17 октября 2026). Приложение замирает целиком.
+  /// Поэтому такие файлы идут через `ffmpeg` сразу, если он есть (§2а).
+  static func prefersFfmpeg(_ path: String) -> Bool {
+    ["mpg", "mpeg", "vob", "m1v", "m2v"].contains((path as NSString).pathExtension.lowercased())
+      && locate() != nil
+  }
+
   // MARK: - Где ffmpeg
 
   /// Свой `ffmpeg` человека (§5): Homebrew на Apple Silicon и на Intel, затем
@@ -305,7 +314,15 @@ final class FfmpegVideo {
         "-force_key_frames", "expr:gte(t,n_forced*2)",
       ]
     }
-    arguments += copiesAudio(audio) ? ["-c:a", "copy"] : ["-c:a", "aac", "-b:a", "192k"]
+    // AAC из MPEG-TS идёт с заголовками ADTS, а в mp4 его кладут без них:
+    // без фильтра `ffmpeg` падает на первом звуковом пакете, и плееру достаётся
+    // битый сегмент (CoreMedia −12642, `.mp4`, который на деле TS, — живьём
+    // 17 октября 2026). На AAC без ADTS фильтр ничего не делает.
+    if copiesAudio(audio) {
+      arguments += ["-c:a", "copy"] + (audio == "aac" ? ["-bsf:a", "aac_adtstoasc"] : [])
+    } else {
+      arguments += ["-c:a", "aac", "-b:a", "192k"]
+    }
     arguments += [
       "-f", "hls", "-hls_segment_type", "fmp4", "-hls_playlist_type", "event", "-hls_time", "2",
       "-hls_segment_filename", directory.appendingPathComponent("segment%d.m4s").path,

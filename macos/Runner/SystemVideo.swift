@@ -81,6 +81,11 @@ final class SystemVideo {
       // Без допуска: иначе система встаёт на ближайший опорный кадр, и шаг
       // на кадр не работает.
       player.player.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero) { _ in
+        // У ролика через `ffmpeg` вывод кадров после перемотки глохнет
+        // (`docs/spec/video-via-ffmpeg.md`, §2, п. 8).
+        if player.reattachesAfterSeek {
+          player.reattachOutput()
+        }
         result(nil)
       }
     case "step":
@@ -117,6 +122,12 @@ final class SystemVideo {
   private func open(_ path: String, _ result: @escaping FlutterResult) {
     let asset = AVURLAsset(url: URL(fileURLWithPath: path))
     Task {
+      // MPEG-PS система играет, но перемотка в нём держит главную нить
+      // минутами (`docs/spec/video-via-ffmpeg.md`, §2а).
+      if FfmpegVideo.prefersFfmpeg(path) {
+        await self.openViaFfmpeg(path, result)
+        return
+      }
       let answer: [String: Any]
       do {
         let (playable, duration) = try await asset.load(.isPlayable, .duration)
@@ -192,10 +203,19 @@ final class SystemVideo {
       await MainActor.run { result(["refused": "unplayable"]) }
       return
     }
+    let player = await MainActor.run {
+      VideoPlayer(asset: AVURLAsset(url: started.url), textures: self.textures)
+    }
+    // С начала: список растёт, и плеер играет его, как прямой эфир, — с края.
+    // Перепаковка с шары успевает к открытию на минуты вперёд, и ролик начинался
+    // с 215-й секунды (проба 17 октября 2026); `#EXT-X-START` плеер у такого
+    // списка не соблюдает. Поэтому ждём готовности и ставим на ноль сами — до
+    // того, как Dart скажет «пуск».
+    await player.rewindWhenReady()
     await MainActor.run {
-      let player = VideoPlayer(asset: AVURLAsset(url: started.url), textures: self.textures)
       player.onClose = { started.stop() }
       player.ready = { started.ready() }
+      player.reattachesAfterSeek = true
       let handle = self.register(player)
       var opened = started.answer
       opened["handle"] = handle

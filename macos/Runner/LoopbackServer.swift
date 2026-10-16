@@ -126,12 +126,9 @@ final class LoopbackServer: @unchecked Sendable {
       return
     }
     let file = directory.appendingPathComponent(parts[1])
-    guard var body = try? Data(contentsOf: file, options: .mappedIfSafe) else {
+    guard let body = try? Data(contentsOf: file, options: .mappedIfSafe) else {
       send(connection, status: "404 Not Found", headers: [:], body: Data())
       return
-    }
-    if file.pathExtension == "m3u8" {
-      body = LoopbackServer.fromStart(body)
     }
     var headers = ["Content-Type": LoopbackServer.type(of: file), "Accept-Ranges": "bytes"]
     // Плеер просит кусок — отдать кусок.
@@ -153,16 +150,6 @@ final class LoopbackServer: @unchecked Sendable {
     var message = Data(head.utf8)
     message.append(body)
     connection.send(content: message, completion: .contentProcessed { _ in connection.cancel() })
-  }
-
-  /// Список — с начала: к открытию в нём может быть уже несколько сегментов, и
-  /// список `EVENT` плеер иначе играет с края, как прямой эфир (§2).
-  private static func fromStart(_ playlist: Data) -> Data {
-    var text = String(decoding: playlist, as: UTF8.self)
-    if !text.contains("#EXT-X-START"), let line = text.range(of: "#EXTM3U\n") {
-      text.insert(contentsOf: "#EXT-X-START:TIME-OFFSET=0,PRECISE=YES\n", at: line.upperBound)
-    }
-    return Data(text.utf8)
   }
 
   private static func isPlainName(_ name: String) -> Bool {
