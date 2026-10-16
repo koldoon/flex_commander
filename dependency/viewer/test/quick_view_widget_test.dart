@@ -125,6 +125,29 @@ void main() {
   );
 
   testWidgets(
+    'щелчок по показу забирает ввод, щелчок по файлам — возвращает',
+    (tester) async => withDesktopPlatform(() async {
+      await pumpApp(tester);
+      runtime.app.left.setCursorToName('notes.txt');
+      runtime.commands.dispatch(KeyCombination.parse('Shift-F3'));
+      await settleQuickView(tester);
+      expect(runtime.app.view.activeArea, ViewportPosition.left);
+
+      // Как щелчок по панели (`docs/spec/quick-view.md`, §5): тронули мышью —
+      // и клавиши туда же.
+      await tester.tap(find.byType(FcTextView));
+      await tester.pumpAndSettle();
+      expect(runtime.app.view.activeArea, ViewportPosition.right);
+      expect(tester.widget<FcTextView>(find.byType(FcTextView)).focused, isTrue);
+
+      await tester.tap(find.byType(FileTable));
+      await tester.pumpAndSettle();
+      expect(runtime.app.view.activeArea, ViewportPosition.left);
+      expect(runtime.app.left.currentEntry?.name, isNotNull);
+    }),
+  );
+
+  testWidgets(
     'под курсором каталог — о нём и рассказывают, а не отговариваются словом',
     (tester) async => withDesktopPlatform(() async {
       await pumpApp(tester);

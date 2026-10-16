@@ -18,6 +18,23 @@ class QuickViewView extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = AppScope.read(context);
 
+    // Щелчок в показ уводит туда ввод — как щелчок по панели
+    // (`docs/spec/quick-view.md`, §5). `Listener`, а не жест: он слышит любое
+    // нажатие и не спорит с жестами показа — потянутая полоса перемотки тоже
+    // считается.
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) {
+        final at = app.view.positionOf(host);
+        if (at != null && app.view.activeArea != at) {
+          app.view.setFocus(at);
+        }
+      },
+      child: _shown(context, app),
+    );
+  }
+
+  Widget _shown(BuildContext context, Application app) {
     return ListenableBuilder(
       listenable: Listenable.merge([host, app.view]),
       builder: (context, _) {
