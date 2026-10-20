@@ -41,6 +41,7 @@ class FileEntry {
     this.realPath = '',
     this.canStream = false,
     this.canReceive = false,
+    this.canWrite = false,
     this.level = 0,
     this.isOpen = false,
     this.hasBranches = false,
@@ -132,6 +133,14 @@ class FileEntry {
   final bool canStream;
   final bool canReceive;
 
+  /// Умеет ли источник **этой строки** её менять: удалить, перенести.
+  ///
+  /// Тот же факт, что [canStream] и [canReceive], и ради того же: у находок
+  /// источник панели — проекция поиска, писать в неё нельзя, а сами находки —
+  /// настоящие файлы, и их перенос и удаление решаются о них
+  /// (`docs/spec/file-search.md`, §13.2).
+  final bool canWrite;
+
   /// То же значение с новым размером.
   ///
   /// Нужно посчитанным каталогам: их размер приезжает отдельным событием, и
@@ -161,6 +170,7 @@ class FileEntry {
     sizeIsFinal: isFinal,
     canStream: canStream,
     canReceive: canReceive,
+    canWrite: canWrite,
     id: id,
   );
 
@@ -190,6 +200,7 @@ class FileEntry {
     sizeIsFinal: sizeIsFinal,
     canStream: canStream,
     canReceive: canReceive,
+    canWrite: canWrite,
     id: value,
   );
 
@@ -222,6 +233,7 @@ class FileEntry {
         sizeIsFinal: sizeIsFinal,
         canStream: canStream,
         canReceive: canReceive,
+        canWrite: canWrite,
         id: id,
       );
 

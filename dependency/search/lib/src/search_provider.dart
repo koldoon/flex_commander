@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:flutter/foundation.dart';
@@ -44,6 +46,7 @@ class SearchProvider
         PanelSourceTitle,
         PanelFilledByWork,
         PanelSourceChanges,
+        PanelRechecksOnReload,
         RealPathSource {
   SearchProvider(this.address, {required String title}) : sourceTitle = title {
     _root = DirectoryNode(provider: this, name: title);
@@ -83,6 +86,9 @@ class SearchProvider
   final List<FsNode> _found = [];
 
   List<FsNode> get found => List.unmodifiable(_found);
+
+  /// Ветвь, в которую легла находка: убирать её, когда она ушла (§13.3).
+  final Map<FsNode, DirectoryNode> _homeOf = Map.identity();
 
   /// Список прибавился: панель узнаёт об этом от источника, а не по таймеру.
   final ValueNotifier<int> _changes = ValueNotifier<int>(0);
@@ -125,12 +131,76 @@ class SearchProvider
     final children = <DirectoryNode, List<FsNode>>{};
     for (final node in found) {
       _found.add(node);
-      children.putIfAbsent(_branchFor(node, children), () => []).add(node);
+      final home = _branchFor(node, children);
+      _homeOf[node] = home;
+      children.putIfAbsent(home, () => []).add(node);
     }
     for (final entry in children.entries) {
       entry.key.nodes = [...entry.key.nodes, ...entry.value];
     }
     _changes.value++;
+  }
+
+  /// Сколько находок спрашивать разом: по одной — долго на тысячах, все сразу —
+  /// тысячи вопросов к источнику в один миг.
+  static const int _recheckBatch = 32;
+
+  /// Убрать находки, которых на месте больше нет: их перенесли или удалили
+  /// (`docs/spec/file-search.md`, §13.3). Ветвь, в которой не осталось ничего,
+  /// уходит тоже. Есть ли — спрашивается у провайдера самой находки.
+  @override
+  Future<void> recheck() async {
+    final gone = <FsNode>[];
+    final all = List.of(_found);
+    for (var from = 0; from < all.length; from += _recheckBatch) {
+      final batch = all.sublist(from, math.min(from + _recheckBatch, all.length));
+      final present = await Future.wait([
+        for (final node in batch)
+          node.provider.resolvePath().run(node.pathString).then((it) => it != null, onError: (_) => false),
+      ]);
+      for (var i = 0; i < batch.length; i++) {
+        if (!present[i]) {
+          gone.add(batch[i]);
+        }
+      }
+    }
+    if (gone.isEmpty) {
+      return;
+    }
+    final leaving = Set<FsNode>.identity()..addAll(gone);
+    _found.removeWhere(leaving.contains);
+    for (final node in gone) {
+      final home = _homeOf.remove(node);
+      if (home != null) {
+        home.nodes = [
+          for (final child in home.nodes)
+            if (!identical(child, node)) child,
+        ];
+        _dropIfEmpty(home);
+      }
+    }
+    _changes.value++;
+  }
+
+  /// Пустая ветвь уходит из своей — и так вверх, пока не встретится непустая.
+  /// Корень остаётся всегда: он — сам список.
+  void _dropIfEmpty(DirectoryNode branch) {
+    var current = branch;
+    while (!identical(current, _root) && current.nodes.isEmpty) {
+      final parent = current.parent;
+      if (parent is! DirectoryNode) {
+        return;
+      }
+      parent.nodes = [
+        for (final child in parent.nodes)
+          if (!identical(child, current)) child,
+      ];
+      _kids[parent]?.remove(current.name);
+      _kids.remove(current);
+      _branches.remove(_insideOf(current));
+      _mirrors.remove(current);
+      current = parent;
+    }
   }
 
   /// Обход начат — даже если пока ничего не нашлось.

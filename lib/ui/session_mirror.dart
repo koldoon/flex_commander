@@ -346,6 +346,15 @@ class SessionMirror extends ChangeNotifier implements Session {
   @override
   bool get hasTargets => targetPaths.isNotEmpty;
 
+  @override
+  bool get targetsWritable {
+    if (source.canWrite) {
+      return true;
+    }
+    final visible = targets;
+    return visible.isNotEmpty && visible.length == targetPaths.length && visible.every((entry) => entry.canWrite);
+  }
+
   /// Посчитанные размеры каталогов по путям — то, что панель успела узнать.
   ///
   /// Одно место на всех: и строки списка, и ветви дерева берут число отсюда.

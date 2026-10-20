@@ -62,6 +62,7 @@ FileEntry entryValueOf(FsNode node, {String chainHead = ''}) {
     // и спрашивать об этом панель бессмысленно (`docs/roadmap.md`, З2).
     canStream: node.provider.canStream,
     canReceive: node.provider.canReceive,
+    canWrite: node.provider.canWrite,
     realPath: switch (node.provider) {
       final RealPathSource source => source.realPathOf(node),
       _ => node.provider.capabilities.realFileSystem ? node.pathString : '',

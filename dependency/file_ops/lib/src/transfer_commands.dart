@@ -108,7 +108,9 @@ abstract class TransferCommandBase extends AppCommand {
     final target = context.target;
     // Занятая цель принять ничего не может: она сама сейчас читает. Проверять
     // надо обе панели — источник проверен выше, а копируем мы в соседнюю.
-    if (target == null || target.busy || !target.source.canWrite || (moves && !panel.source.canWrite)) {
+    // Терять объекты при переносе должны **они сами**: у находок источник
+    // панели — проекция, а находки — настоящие файлы (`file-search.md`, §13).
+    if (target == null || target.busy || !target.source.canWrite || (moves && !panel.targetsWritable)) {
       return false;
     }
     // Помеченное считается **всё**, где бы оно ни лежало: пометить можно и из

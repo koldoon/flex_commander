@@ -268,7 +268,9 @@ abstract class RemoveCommandBase extends AppCommand {
   @override
   bool isExecutable(CommandContext context) {
     final panel = context.session;
-    if (panel.busy || !panel.source.canWrite) {
+    // Удалять должны уметь **цели**: у находок источник панели — проекция, а
+    // находки — настоящие файлы (`docs/spec/file-search.md`, §13).
+    if (panel.busy || !panel.targetsWritable) {
       return false;
     }
     // Помеченное считается **всё**, где бы оно ни лежало: пометить можно и из
@@ -295,7 +297,7 @@ abstract class RemoveCommandBase extends AppCommand {
   @override
   Future<void> execute(CommandContext context) async {
     final panel = context.session;
-    if (!panel.source.canWrite || !panel.hasTargets) {
+    if (!panel.targetsWritable || !panel.hasTargets) {
       return;
     }
 

@@ -1208,6 +1208,12 @@ class PanelSession {
     if (dir == null) {
       return;
     }
+    // Находки сверяются с настоящим: перенесённого и удалённого в них быть не
+    // должно (`docs/spec/file-search.md`, §13.3).
+    final current = provider;
+    if (current is PanelRechecksOnReload) {
+      await (current as PanelRechecksOnReload).recheck();
+    }
     cache?.forget(dir);
     // И посчитанное тоже: перечитывание — ответ на «показалось не то».
     _forgetMeasured(dir.pathString);

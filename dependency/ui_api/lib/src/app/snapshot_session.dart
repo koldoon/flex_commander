@@ -242,6 +242,9 @@ class SnapshotSession extends ChangeNotifier implements Session {
   bool get hasTargets => false;
 
   @override
+  bool get targetsWritable => false;
+
+  @override
   Future<List<FileEntry>> allTargets() async => const [];
 
   @override

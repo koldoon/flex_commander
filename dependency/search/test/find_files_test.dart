@@ -801,6 +801,78 @@ void main() {
     expect(edit.isExecutable(CommandContext.of(app)), isTrue, reason: 'находка — настоящий файл своего источника');
   });
 
+  /// Живой дефект: перенос и удаление спрашивали, можно ли писать в источник
+  /// **панели**, а у находок это проекция поиска — `F6` и `F8` молчали над
+  /// настоящими файлами (`docs/spec/file-search.md`, §13).
+  group('перенос и удаление из находок (§13)', () {
+    late InMemoryTreeProvider files;
+
+    setUp(() async {
+      files = InMemoryTreeProvider([
+        FakeEntry.directory('/home'),
+        FakeEntry.directory('/home/lib'),
+        FakeEntry.directory('/home/out'),
+        FakeEntry.file('/home/lib/util.dart', size: 1),
+        FakeEntry.file('/home/lib/main.dart', size: 1),
+      ]);
+      final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home/out'));
+      app = (await testApp(provider: files, modules: featureModules(), settings: settings)).app;
+    });
+
+    /// Дать работе дойти до конца: она идёт в настоящем времени.
+    Future<void> settleWork(WidgetTester tester) async {
+      for (var turn = 0; turn < 8; turn++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+        await tester.pumpAndSettle();
+      }
+    }
+
+    Iterable<String> foundNames() => app.left.entries.map((entry) => entry.name);
+
+    testWidgets('F6 переносит находку, и находки её больше не показывают', (tester) async {
+      await pumpApp(tester);
+      await openWindow(tester);
+      await search(tester, '*.dart');
+      await press(tester, 'To panel');
+      app.left.setCursorToName('util.dart');
+      await tester.pumpAndSettle();
+
+      final move = app.commands.create('file.move')!;
+      expect(move.isExecutable(CommandContext.of(app)), isTrue, reason: 'находка — настоящий файл своего источника');
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.f6);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await settleWork(tester);
+
+      expect(await files.resolvePath().run('/home/out/util.dart'), isNotNull, reason: 'переехал');
+      expect(await files.resolvePath().run('/home/lib/util.dart'), isNull);
+      expect(foundNames(), isNot(contains('util.dart')), reason: 'ушедшего в находках нет');
+      expect(foundNames(), contains('main.dart'), reason: 'оставшееся на месте');
+    });
+
+    testWidgets('F8 удаляет находку, и находки её больше не показывают', (tester) async {
+      await pumpApp(tester);
+      await openWindow(tester);
+      await search(tester, '*.dart');
+      await press(tester, 'To panel');
+      app.left.setCursorToName('main.dart');
+      await tester.pumpAndSettle();
+
+      final remove = app.commands.create('file.remove')!;
+      expect(remove.isExecutable(CommandContext.of(app)), isTrue);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.f8);
+      await tester.pumpAndSettle();
+      await press(tester, 'Delete');
+      await settleWork(tester);
+
+      expect(await files.resolvePath().run('/home/lib/main.dart'), isNull);
+      expect(foundNames(), isNot(contains('main.dart')));
+      expect(foundNames(), contains('util.dart'));
+    });
+  });
+
   testWidgets('Enter на ветви сворачивает её, а панель остаётся в находках', (tester) async {
     // Ветвь — показ, а не место: стоять в ней человек не просил, и `Enter`
     // здесь про раскрытие (`docs/spec/file-search.md`, §4а, Н2).
