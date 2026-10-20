@@ -347,12 +347,17 @@ class SessionMirror extends ChangeNotifier implements Session {
   bool get hasTargets => targetPaths.isNotEmpty;
 
   @override
-  bool get targetsWritable {
-    if (source.canWrite) {
-      return true;
-    }
+  bool get targetsWritable => source.canWrite || _eachVisibleTarget((entry) => entry.canWrite);
+
+  @override
+  bool get targetsRenamable =>
+      (source.canWrite && source.capabilities.canRename) || _eachVisibleTarget((entry) => entry.canRename);
+
+  /// Все цели видны строками этого списка, и каждая умеет [able]. Помеченное
+  /// вне видимого проверить нечем — тогда нет.
+  bool _eachVisibleTarget(bool Function(FileEntry entry) able) {
     final visible = targets;
-    return visible.isNotEmpty && visible.length == targetPaths.length && visible.every((entry) => entry.canWrite);
+    return visible.isNotEmpty && visible.length == targetPaths.length && visible.every(able);
   }
 
   /// Посчитанные размеры каталогов по путям — то, что панель успела узнать.

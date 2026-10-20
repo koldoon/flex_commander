@@ -45,11 +45,9 @@ class MultiRenameCommand extends AppCommand {
   @override
   bool isExecutable(CommandContext context) {
     final panel = context.session;
-    return !panel.busy &&
-        panel.source.canWrite &&
-        panel.source.capabilities.canRename &&
-        panel.source.contentKind == SourceInfo.files &&
-        panel.hasTargets;
+    // Переименовывать должны уметь **цели**: у находок источник панели —
+    // проекция, а находки — настоящие файлы (`docs/spec/file-search.md`, §13.6).
+    return !panel.busy && panel.targetsRenamable && panel.source.contentKind == SourceInfo.files && panel.hasTargets;
   }
 
   @override

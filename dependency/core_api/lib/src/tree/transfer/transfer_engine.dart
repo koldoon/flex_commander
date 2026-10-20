@@ -6,6 +6,7 @@ import 'package:fc_api/fc_api.dart';
 import '../fs_node.dart';
 import '../journal.dart';
 import '../measured_sizes.dart';
+import '../tree_changes.dart';
 import '../size_walk.dart';
 import '../tree_provider.dart';
 import '../operation_params.dart';
@@ -38,7 +39,8 @@ enum TransferStrategy {
 ///
 /// Состояния у движка нет: он ничей и создаётся где угодно.
 class TreeTransferEngine implements TreeEditor {
-  const TreeTransferEngine({this.clock = DateTime.now, Strings? strings, this.sizes}) : _strings = strings;
+  const TreeTransferEngine({this.clock = DateTime.now, Strings? strings, this.sizes, this.changes})
+    : _strings = strings;
 
   /// Посчитанные размеры каталогов — общие с панелями.
   ///
@@ -47,6 +49,10 @@ class TreeTransferEngine implements TreeEditor {
   /// готовым, идущий обход дожидается, и только на «никто не считал» заводится
   /// свой (`docs/spec/directory-sizes.md`, §12.3а).
   final MeasuredSizes? sizes;
+
+  /// Куда сообщать, что стало с узлами: переименованное — тем, кто держит
+  /// узлы у себя (`docs/spec/file-search.md`, §13.6). null — некому.
+  final TreeChanges? changes;
 
   /// Строки на языке человека: вопросы по ходу работы задаёт движок.
   ///
@@ -112,6 +118,10 @@ class TreeTransferEngine implements TreeEditor {
           modified: journalModifiedOf(node),
         ),
       );
+      // Тем, кто держит узел у себя (находки), — что он теперь другой.
+      if (renamed != null) {
+        changes?.renamed(node, renamed);
+      }
       return renamed ?? node;
     });
   }

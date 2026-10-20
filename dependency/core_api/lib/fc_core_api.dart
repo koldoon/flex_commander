@@ -11,6 +11,7 @@ library;
 // --- Дерево и источники ---
 export 'src/tree/entry_value.dart';
 export 'src/tree/chosen_tree.dart';
+export 'src/tree/tree_changes.dart';
 export 'src/tree/fs_node.dart';
 export 'src/tree/journal.dart';
 export 'src/tree/node_path.dart';

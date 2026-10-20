@@ -64,7 +64,11 @@ class FileSearch implements FcBackendModule, FcFrontendModule {
         // Тем же словом, что и полоска работы: список и работа — одно и то же,
         // и звать их по-разному незачем. «Found:» не годится — так начинается
         // счётчик находок в окне, и два разных смысла читались бы как один.
-        return SearchProvider(address, title: strings.tr('Find {what}', args: {'what': address.what}));
+        return SearchProvider(
+          address,
+          title: strings.tr('Find {what}', args: {'what': address.what}),
+          changes: registry.services.resolve<TreeChanges>(),
+        );
       }),
     );
   }

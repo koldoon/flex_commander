@@ -196,6 +196,10 @@ class CoreContainer extends DI {
       },
     );
 
+    // Что стало с узлами — одна лента на ядро: пишет движок, слушают те, кто
+    // держит чужие узлы у себя (`docs/spec/file-search.md`, §13.6).
+    bind<TreeChanges>(to: (c) => TreeChanges());
+
     // Колонки, объявленные ядровыми половинами модулей: ядру от них нужно
     // сравнение (`docs/spec/column-registry.md`, §3.4).
     bind<ColumnSorting>(to: (c) => ColumnSortingRegistry(backend.services, backend.columns));

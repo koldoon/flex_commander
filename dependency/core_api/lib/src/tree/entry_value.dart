@@ -63,6 +63,7 @@ FileEntry entryValueOf(FsNode node, {String chainHead = ''}) {
     canStream: node.provider.canStream,
     canReceive: node.provider.canReceive,
     canWrite: node.provider.canWrite,
+    canRename: node.provider.canWrite && node.provider.capabilities.canRename,
     realPath: switch (node.provider) {
       final RealPathSource source => source.realPathOf(node),
       _ => node.provider.capabilities.realFileSystem ? node.pathString : '',

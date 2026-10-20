@@ -312,6 +312,11 @@ abstract interface class Session implements ViewportState {
   /// нечем — тогда нельзя, как и было.
   bool get targetsWritable;
 
+  /// Можно ли переименовать цели — тем же правилом, что [targetsWritable]:
+  /// умеет источник панели или каждая видимая цель сама
+  /// ([FileEntry.canRename], `docs/spec/file-search.md`, §13.6).
+  bool get targetsRenamable;
+
   /// Цели значениями — **все**, включая помеченное в других каталогах.
   ///
   /// Просьбой к ядру: значения чужих строк живут там. Спрашивают их те, кому

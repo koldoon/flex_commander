@@ -96,7 +96,11 @@ class AppShell implements FcBackendModule, FcFrontendModule {
     // посчитала или считает, и второй обход того же дерева движку не нужен
     // (`docs/spec/directory-sizes.md`, §12).
     registry.service<TreeEditor>(
-      (services) => TreeTransferEngine(strings: services.resolve<Strings>(), sizes: services.resolve<MeasuredSizes>()),
+      (services) => TreeTransferEngine(
+        strings: services.resolve<Strings>(),
+        sizes: services.resolve<MeasuredSizes>(),
+        changes: services.resolve<TreeChanges>(),
+      ),
     );
 
     registry.operation(FileOperations.copy, (services) => _transfer(moves: false));

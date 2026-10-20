@@ -42,6 +42,7 @@ class FileEntry {
     this.canStream = false,
     this.canReceive = false,
     this.canWrite = false,
+    this.canRename = false,
     this.level = 0,
     this.isOpen = false,
     this.hasBranches = false,
@@ -141,6 +142,13 @@ class FileEntry {
   /// (`docs/spec/file-search.md`, §13.2).
   final bool canWrite;
 
+  /// Умеет ли источник **этой строки** менять ей имя одним действием.
+  ///
+  /// Отдельно от [canWrite]: архив менять умеет, а переименование в нём —
+  /// пересборка целиком, и его не дают (`spec/rename.md`, §4). Ради находок —
+  /// так же, как [canWrite] (`docs/spec/file-search.md`, §13.6).
+  final bool canRename;
+
   /// То же значение с новым размером.
   ///
   /// Нужно посчитанным каталогам: их размер приезжает отдельным событием, и
@@ -171,6 +179,7 @@ class FileEntry {
     canStream: canStream,
     canReceive: canReceive,
     canWrite: canWrite,
+    canRename: canRename,
     id: id,
   );
 
@@ -201,6 +210,7 @@ class FileEntry {
     canStream: canStream,
     canReceive: canReceive,
     canWrite: canWrite,
+    canRename: canRename,
     id: value,
   );
 
@@ -234,6 +244,7 @@ class FileEntry {
         canStream: canStream,
         canReceive: canReceive,
         canWrite: canWrite,
+        canRename: canRename,
         id: id,
       );
 

@@ -510,6 +510,10 @@ abstract class RemoveCommandBase extends AppCommand {
   }
 }
 
+/// Умеет ли переименовать [entry] источник панели — или сама строка.
+bool _renames(Session panel, FileEntry entry) =>
+    (panel.source.canWrite && panel.source.capabilities.canRename) || entry.canRename;
+
 /// Переименование объекта под курсором.
 ///
 /// Отдельная команда, а не свойство переноса: у `F6` приёмником может быть
@@ -540,25 +544,24 @@ class RenameCommand extends AppCommand {
   @override
   bool isExecutable(CommandContext context) {
     final panel = context.session;
-    if (panel.busy || !panel.source.canWrite) {
+    final entry = context.entry;
+    // «..» — не объект, а способ выйти наверх.
+    if (panel.busy || entry == null || entry.isParent) {
       return false;
     }
     // Переименовать можно только то, что провайдер умеет переименовывать одним
     // действием: в архиве за этим пряталась бы пересборка целиком, а о ней
-    // полагается спрашивать (`spec/rename.md`, §4).
-    if (!panel.source.capabilities.canRename) {
-      return false;
-    }
-    final entry = context.entry;
-    // «..» — не объект, а способ выйти наверх.
-    return entry != null && !entry.isParent;
+    // полагается спрашивать (`spec/rename.md`, §4). Спрашивается источник
+    // панели — или сама строка: у находок источник панели — проекция, а
+    // находка — настоящий файл (`docs/spec/file-search.md`, §13.6).
+    return _renames(panel, entry);
   }
 
   @override
   Future<void> execute(CommandContext context) async {
     final panel = context.session;
     final entry = context.entry;
-    if (entry == null || entry.isParent || !panel.source.canWrite) {
+    if (entry == null || entry.isParent || !_renames(panel, entry)) {
       return;
     }
 
@@ -578,7 +581,9 @@ class RenameCommand extends AppCommand {
       // ищем его по **новому** — иначе курсор прыгает в начало ровно тогда,
       // когда человек смотрит на результат. Вторая панель, стоящая здесь же,
       // показывала бы прежнее имя, поэтому перечитываются обе.
-      await reloadPanelsAt(context.app, [entry.directoryPath]);
+      // Находки — тоже: переименованная лежит в них под новым именем, и её
+      // строку надо пересобрать (`docs/spec/file-search.md`, §13.6).
+      await reloadPanelsAt(context.app, [entry.directoryPath, panel.currentPath]);
       panel.setCursorToName(name);
     }
 

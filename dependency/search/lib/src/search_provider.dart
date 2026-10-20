@@ -47,9 +47,38 @@ class SearchProvider
         PanelFilledByWork,
         PanelSourceChanges,
         PanelRechecksOnReload,
+        ProviderLifecycle,
         RealPathSource {
-  SearchProvider(this.address, {required String title}) : sourceTitle = title {
+  SearchProvider(this.address, {required String title, TreeChanges? changes}) : sourceTitle = title {
     _root = DirectoryNode(provider: this, name: title);
+    // Переименованная находка остаётся находкой — под новым именем
+    // (`docs/spec/file-search.md`, §13.6).
+    _stopListening = changes?.onRenamed(_renamed);
+  }
+
+  /// Как перестать слушать переименования; null — не слушали.
+  void Function()? _stopListening;
+
+  @override
+  Future<void> dispose() async {
+    _stopListening?.call();
+    _stopListening = null;
+  }
+
+  /// Своя находка переименована: на её место — новый узел, в той же ветви и на
+  /// том же месте. Чужие узлы — не наши, и их не трогаем.
+  void _renamed(FsNode from, FsNode to) {
+    final at = _found.indexWhere((node) => identical(node, from));
+    if (at < 0) {
+      return;
+    }
+    _found[at] = to;
+    final home = _homeOf.remove(from);
+    if (home != null) {
+      _homeOf[to] = home;
+      home.nodes = [for (final child in home.nodes) identical(child, from) ? to : child];
+    }
+    _changes.value++;
   }
 
   /// Настоящий каталог, который показывает корень проекции: тот, в котором

@@ -851,6 +851,41 @@ void main() {
       expect(foundNames(), contains('main.dart'), reason: 'оставшееся на месте');
     });
 
+    testWidgets('Shift-F6 переименовывает находку, и она остаётся в находках под новым именем (§13.6)', (tester) async {
+      await pumpApp(tester);
+      await openWindow(tester);
+      await search(tester, '*.dart');
+      await press(tester, 'To panel');
+      app.left.setCursorToName('util.dart');
+      await tester.pumpAndSettle();
+
+      final rename = app.commands.create('file.rename')!;
+      expect(rename.isExecutable(CommandContext.of(app)), isTrue, reason: 'находка — настоящий файл своего источника');
+
+      await rename.executeWith({'name': 'tools.dart'});
+      await settleWork(tester);
+
+      expect(await files.resolvePath().run('/home/lib/tools.dart'), isNotNull, reason: 'переименован');
+      expect(await files.resolvePath().run('/home/lib/util.dart'), isNull);
+      expect(foundNames(), contains('tools.dart'), reason: 'находка осталась — под новым именем');
+      expect(foundNames(), isNot(contains('util.dart')));
+      expect(app.left.currentEntry?.name, 'tools.dart', reason: 'курсор на переименованном');
+    });
+
+    testWidgets('источник находки не переименовывает одним действием — Shift-F6 закрыт', (tester) async {
+      // Как архив, в который заходит поиск: менять умеет, а переименование —
+      // пересборка целиком (`spec/rename.md`, §4).
+      files.capabilities = const ProviderCapabilities(canRename: false);
+      await pumpApp(tester);
+      await openWindow(tester);
+      await search(tester, '*.dart');
+      await press(tester, 'To panel');
+      app.left.setCursorToName('util.dart');
+      await tester.pumpAndSettle();
+
+      expect(app.commands.create('file.rename')!.isExecutable(CommandContext.of(app)), isFalse);
+    });
+
     testWidgets('F8 удаляет находку, и находки её больше не показывают', (tester) async {
       await pumpApp(tester);
       await openWindow(tester);
