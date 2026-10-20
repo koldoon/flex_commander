@@ -510,9 +510,10 @@ abstract class RemoveCommandBase extends AppCommand {
   }
 }
 
-/// Умеет ли переименовать [entry] источник панели — или сама строка.
+/// Умеет ли переименовать [entry]: пишет источник панели — решает он (строка и
+/// есть его), не пишет (находки) — сама строка.
 bool _renames(Session panel, FileEntry entry) =>
-    (panel.source.canWrite && panel.source.capabilities.canRename) || entry.canRename;
+    panel.source.canWrite ? panel.source.capabilities.canRename : entry.canRename;
 
 /// Переименование объекта под курсором.
 ///

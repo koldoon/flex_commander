@@ -349,9 +349,11 @@ class SessionMirror extends ChangeNotifier implements Session {
   @override
   bool get targetsWritable => source.canWrite || _eachVisibleTarget((entry) => entry.canWrite);
 
+  /// Пишет источник панели — решает он: строки и есть его, и их факт мог
+  /// устареть. Не пишет (находки) — решают сами строки.
   @override
   bool get targetsRenamable =>
-      (source.canWrite && source.capabilities.canRename) || _eachVisibleTarget((entry) => entry.canRename);
+      source.canWrite ? source.capabilities.canRename : _eachVisibleTarget((entry) => entry.canRename);
 
   /// Все цели видны строками этого списка, и каждая умеет [able]. Помеченное
   /// вне видимого проверить нечем — тогда нет.
