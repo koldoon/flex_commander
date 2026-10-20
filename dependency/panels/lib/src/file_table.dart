@@ -186,11 +186,39 @@ class _FileTableState extends State<FileTable> {
     final first = _scrolledDirectory == null;
     _scrolledDirectory = panel.currentPath;
     _lastCursorIndex = panel.cursorIndex;
-    _scroll = ScrollController(initialScrollOffset: first ? panel.scrollOffset : _cursorOffset());
+    // Вернулись в каталог, где уже были, — он стоит как стоял, если курсор при
+    // этом виден (`docs/spec/scroll-memory.md`).
+    _scroll = ScrollController(
+      initialScrollOffset: first ? panel.scrollOffset : _rememberedOffset() ?? _cursorOffset(),
+    );
 
     // Прежний контроллер ещё привязан к списку, который сейчас на экране:
     // отпускать его можно только после того, как список сменится.
     WidgetsBinding.instance.addPostFrameCallback((_) => previous.dispose());
+    // Начальное смещение конца прокрутки не шлёт — сказать, где встали, самим:
+    // иначе у сессии осталась бы прокрутка прежнего каталога, и после
+    // перезапуска список встал бы не туда (`docs/spec/scroll-memory.md`, §4).
+    if (!first) {
+      final placed = _scroll;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && identical(_scroll, placed) && placed.hasClients) {
+          widget.panel.setScrollOffset(placed.offset);
+        }
+      });
+    }
+  }
+
+  /// Как стоял этот каталог, когда из него ушли; null — не помнит, или курсор
+  /// при этой прокрутке за краем: память не уводит его с экрана.
+  double? _rememberedOffset() {
+    final remembered = widget.panel.rememberedScroll(widget.panel.currentPath);
+    if (remembered == null || _listHeight <= 0 || _rowHeight <= 0) {
+      return null;
+    }
+    final top = widget.panel.cursorIndex * _rowHeight;
+    final total = widget.panel.entries.length * _rowHeight;
+    final offset = remembered.clamp(0.0, math.max(0.0, total - _listHeight)).toDouble();
+    return top >= offset && top + _rowHeight <= offset + _listHeight ? offset : null;
   }
 
   /// Куда прокрутить новый список, чтобы курсор был виден.

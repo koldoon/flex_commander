@@ -647,8 +647,37 @@ class SessionMirror extends ChangeNotifier implements Session {
   @override
   double get scrollOffset => _scroll ?? _state.scroll;
 
+  /// Как стояли каталоги, где уже были в этой сессии: путь → вид и смещение
+  /// (`docs/spec/scroll-memory.md`, §3). Пишется на каждой прокрутке — последняя
+  /// и есть та, с которой из каталога ушли. Порядок вставки — порядок свежести:
+  /// старое уходит первым.
+  final Map<String, ({String view, double offset})> _scrolls = {};
+
+  /// Сколько каталогов помнить: записи мелкие, но память сессии не растёт без
+  /// конца.
+  static const int _scrollsLimit = 200;
+
+  @override
+  double? rememberedScroll(String path) {
+    final remembered = _scrolls[path];
+    // Смещение таблицы и смещение значков — разные числа: чужой вид не годится.
+    return remembered != null && remembered.view == view ? remembered.offset : null;
+  }
+
   @override
   void setScrollOffset(double offset) {
+    final path = currentPath;
+    // Только когда показанные строки — того самого каталога. При входе список
+    // приезжает раньше пути: вид на миг рисует строки нового каталога под
+    // старым путём, докручивает к курсору на «..» — и без этой проверки
+    // записал бы ноль на родителя (поймано тестом).
+    if (path.isNotEmpty && _listing.generation == _state.generation) {
+      _scrolls.remove(path);
+      _scrolls[path] = (view: view, offset: offset);
+      if (_scrolls.length > _scrollsLimit) {
+        _scrolls.remove(_scrolls.keys.first);
+      }
+    }
     _scroll = offset;
     // Ядру всё равно говорим: это оно складывает снимок, который переживёт
     // перезапуск.

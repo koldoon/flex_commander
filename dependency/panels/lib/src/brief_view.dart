@@ -77,6 +77,23 @@ class _BriefViewState extends State<BriefView> {
   /// Курсор, к которому прокрутка уже подведена из сообщения панели.
   int _followedCursor = -1;
 
+  /// Каталог, разложенный последним; null — ещё ни одного. Контроллер у вида
+  /// один на все каталоги, и смену каталога узнают отсюда.
+  String? _laidDirectory;
+
+  /// Встать так, как стоял этот каталог, когда из него ушли — если столбец с
+  /// курсором при этом виден целиком: память не уводит курсор с экрана.
+  void _restoreScroll(double remembered) {
+    if (!mounted || !_scroll.hasClients || _columnWidth <= 0 || _viewWidth <= 0 || _rows <= 0) {
+      return;
+    }
+    final offset = remembered.clamp(0.0, _scroll.position.maxScrollExtent).toDouble();
+    final left = (widget.panel.cursorIndex ~/ _rows) * _columnWidth;
+    if (left >= offset && left + _columnWidth <= offset + _viewWidth) {
+      _scroll.jumpTo(offset);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -358,6 +375,22 @@ class _BriefViewState extends State<BriefView> {
               _viewWidth = available;
               if (resized) {
                 WidgetsBinding.instance.addPostFrameCallback((_) => _pinCursorColumn(wasCursorAt));
+              }
+
+              // Новый каталог, где уже были, — встаёт как стоял
+              // (`docs/spec/scroll-memory.md`). После кадра: пределы прокрутки
+              // известны только у разложенного списка. И до докрутки к курсору
+              // ниже — та поправит, если память его не показала.
+              if (_laidDirectory != panel.currentPath && entries.isNotEmpty) {
+                final first = _laidDirectory == null;
+                _laidDirectory = panel.currentPath;
+                // Запомненное — **сейчас**, до любой докрутки: она тоже пишет
+                // память, и к концу кадра вместо прежнего места там лежал бы
+                // её результат (поймано тестом).
+                final remembered = first ? null : panel.rememberedScroll(panel.currentPath);
+                if (remembered != null) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) => _restoreScroll(remembered));
+                }
               }
 
               // Курсор мог уехать за край чужими руками — стрелкой, поиском,

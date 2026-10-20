@@ -195,9 +195,33 @@ class _IconsViewState extends State<IconsView> {
       return;
     }
     final previous = _scroll;
-    _scroll = ScrollController(initialScrollOffset: _cursorOffset(count));
+    // Вернулись в каталог, где уже были, — он стоит как стоял, если ряд с
+    // курсором при этом виден (`docs/spec/scroll-memory.md`).
+    _scroll = ScrollController(initialScrollOffset: _rememberedOffset(count) ?? _cursorOffset(count));
     // Прежний ещё привязан к списку на экране: отпускать после кадра.
     WidgetsBinding.instance.addPostFrameCallback((_) => previous.dispose());
+    // Начальное смещение конца прокрутки не шлёт — сказать, где встали, самим
+    // (`docs/spec/scroll-memory.md`, §4).
+    final placed = _scroll;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && identical(_scroll, placed) && placed.hasClients) {
+        widget.panel.setScrollOffset(placed.offset);
+      }
+    });
+  }
+
+  /// Как стоял этот каталог, когда из него ушли; null — не помнит, или ряд с
+  /// курсором при этой прокрутке за краем.
+  double? _rememberedOffset(int count) {
+    final remembered = widget.panel.rememberedScroll(widget.panel.currentPath);
+    if (remembered == null || _rowHeight <= 0 || _viewHeight <= 0 || _columns <= 0) {
+      return null;
+    }
+    final rows = (count / _columns).ceil();
+    final extent = math.max(0.0, _top + rows * _rowHeight + _gap - _viewHeight);
+    final offset = remembered.clamp(0.0, extent).toDouble();
+    final top = _top + (widget.panel.cursorIndex ~/ _columns) * _rowHeight;
+    return top >= offset && top + _rowHeight <= offset + _viewHeight ? offset : null;
   }
 
   /// Куда прокрутить новый список из [count] плиток, чтобы ряд с курсором был

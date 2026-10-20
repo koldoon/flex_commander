@@ -97,6 +97,9 @@ class SnapshotSession extends ChangeNotifier implements Session {
   @override
   void setScrollOffset(double offset) => _scrollOffset = offset;
 
+  @override
+  double? rememberedScroll(String path) => null;
+
   // --- где стоит: в корне снимка, и уйти отсюда некуда ---
 
   @override
