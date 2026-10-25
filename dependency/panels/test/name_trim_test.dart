@@ -1,5 +1,6 @@
 import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
@@ -98,8 +99,9 @@ void main() {
   /// набирали в неё обрезанное серединой — оно переносится по-другому, вторая
   /// строка не влезала и срезалась.
   testWidgets('в сетке обрезанное серединой имя видно целиком', (tester) async {
-    // Подобрано под Ahem: в две строки, и вторая у необрезанного короче.
-    const solid = 'yosemit yyyyyy.png';
+    // Подобрано под Ahem: в две строки не влезает даже переносом по буквам —
+    // иначе резать было бы нечего (`docs/spec/name-trim.md`, §4а).
+    const solid = 'yosemit yyyyyy yyyyyyyy yyyyyyyy.png';
     final runtime = await testApp(
       provider: InMemoryTreeProvider([FakeEntry.directory('/home'), FakeEntry.file('/home/$solid', size: 10)])
         ..home = '/home',
@@ -116,10 +118,14 @@ void main() {
     await tester.pumpAndSettle();
 
     // Обе панели смотрят в один каталог — берётся сетка левой.
-    final name = find.byWidgetPredicate((widget) => widget is Text && (widget.data ?? '').startsWith('yosemit')).first;
+    // Между знаками — невидимые места переноса (§4а): сравниваем то, что видно.
+    final name =
+        find
+            .byWidgetPredicate((widget) => widget is Text && withoutBreaks(widget.data ?? '').startsWith('yosemit'))
+            .first;
     final shown = tester.widget<Text>(name).data!;
-    expect(shown, contains('…'));
-    expect(shown, endsWith('.png'), reason: 'ради хвоста серединой и режут');
+    expect(withoutBreaks(shown), contains('…'));
+    expect(withoutBreaks(shown), endsWith('.png'), reason: 'ради хвоста серединой и режут');
 
     final paragraph = tester.renderObject<RenderParagraph>(find.descendant(of: name, matching: find.byType(RichText)));
     expect(paragraph.didExceedMaxLines, isFalse, reason: 'обрезанное имя должно влезть в свои строки целиком');

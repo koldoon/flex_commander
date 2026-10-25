@@ -175,7 +175,7 @@ class IconTile extends StatelessWidget {
     final shown =
         nameSide == FcTrimSide.middle
             ? trimTextMiddle(entry.name, measured, room, scaler, maxLines: nameLines)
-            : entry.name;
+            : wrapAnywhereIfNeeded(entry.name, measured, room, scaler, maxLines: nameLines);
     final taken = math.min(room, textWidestLine(shown, measured, room, scaler, maxLines: nameLines));
 
     final Widget text = Padding(

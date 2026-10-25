@@ -334,7 +334,7 @@ void main() {
     await tester.pumpAndSettle();
     await panel.enterCurrent();
     await tester.pumpAndSettle();
-    expect(find.text('невероятно-длинное-имя-которое-не-помещается-никак'), findsWidgets);
+    expect(nameText('невероятно-длинное-имя-которое-не-помещается-никак'), findsWidgets);
 
     expect(tester.getRect(find.byType(IconTile).first).width, short, reason: 'ритм сетки тот же');
   });
@@ -396,7 +396,7 @@ void main() {
     }
 
     for (final label in ['a.txt', 'b.txt', 'имя подлиннее прочих.txt', 'c.txt']) {
-      final text = find.text(label).first;
+      final text = nameText(label).first;
       final tile = find.ancestor(of: text, matching: find.byType(IconTile)).first;
       expect(
         tester.getRect(text).center.dx,
@@ -463,3 +463,9 @@ void main() {
     expect(panel.currentEntry?.name, name(3));
   });
 }
+
+/// Имя на плитке — без невидимых мест переноса: длинное имя переносится где
+/// угодно, и в тексте между знаками стоит пробел нулевой ширины
+/// (`docs/spec/name-trim.md`, §4а). `find.text` ищет точное совпадение.
+Finder nameText(String label) =>
+    find.byWidgetPredicate((widget) => widget is Text && withoutBreaks(widget.data ?? '') == label);

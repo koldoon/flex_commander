@@ -114,14 +114,18 @@ class FcTrimmedText extends StatelessWidget {
       // Имя сокращается **целиком**, сколько бы строк ему ни отвели: дыра в
       // середине имени одна, а не по одной на строку.
       final shown = trimTextMiddle(text, measured, width, scaler, maxLines: maxLines);
-      return _wrapped(context, _plain(shown), trimmed: shown != text);
+      // Места переноса — не обрезка: имя видно целиком, и подсказка не нужна.
+      return _wrapped(context, _plain(shown), trimmed: withoutBreaks(shown) != text);
     }
 
     if (maxLines > 1) {
       // Несколько строк — и мерка другая: помещается ли текст в отведённые
       // строки, а не в одну. Ту же меру завела многострочная строка состояния.
-      final fits = spanFitsLines(TextSpan(text: text, style: measured), width, scaler, maxLines: maxLines);
-      return _wrapped(context, _plain(text), trimmed: !fits);
+      // По словам не влезло — переносим где угодно: первая строка не пустует,
+      // и многоточие встаёт только там, где имя и правда длиннее (§4а).
+      final shown = wrapAnywhereIfNeeded(text, measured, width, scaler, maxLines: maxLines);
+      final fits = spanFitsLines(TextSpan(text: shown, style: measured), width, scaler, maxLines: maxLines);
+      return _wrapped(context, _plain(shown), trimmed: !fits);
     }
 
     return _wrapped(context, _plain(text), trimmed: !textFits(text, measured, width, scaler));

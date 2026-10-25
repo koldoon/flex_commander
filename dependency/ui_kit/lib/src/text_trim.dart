@@ -205,6 +205,35 @@ String trimTextHead(String value, TextStyle style, double maxWidth, TextScaler s
   return _trimByLetters(value, style, maxWidth, scaler);
 }
 
+/// Невидимое место переноса — пробел нулевой ширины (U+200B).
+///
+/// Им имя разрешают переносить **в любом месте** (`docs/spec/name-trim.md`,
+/// §4а). Рисуется он ничем, и в подсказку не идёт: подсказка — само имя.
+const String anyBreak = '\u200B';
+
+/// [text] без невидимых мест переноса — то, что видит человек.
+String withoutBreaks(String text) => text.replaceAll(anyBreak, '');
+
+/// То же имя с местом переноса между каждыми двумя знаками.
+String _breakableAnywhere(Iterable<String> letters) => letters.join(anyBreak);
+
+/// Имя в [maxLines] строк — переносом по словам, а не влезло — переносом
+/// где угодно (`docs/spec/name-trim.md`, §4а).
+///
+/// По словам `Dose - Стрелки.mp3` в две строки плитки не входит: первая —
+/// `Dose -`, а `Стрелки.mp3` целиком во вторую не влезает. А по буквам —
+/// `Dose - Стрел` / `ки.mp3` — входит, и резать в нём нечего. Так переносит и
+/// Finder. Одна строка — как было: переносить в ней некуда.
+String wrapAnywhereIfNeeded(String value, TextStyle style, double maxWidth, TextScaler scaler, {int maxLines = 1}) {
+  if (maxLines <= 1 || maxWidth.isInfinite || maxWidth <= 0) {
+    return value;
+  }
+  if (spanFitsLines(TextSpan(text: value, style: style), maxWidth, scaler, maxLines: maxLines)) {
+    return value;
+  }
+  return _breakableAnywhere(value.characters);
+}
+
 /// Обрезает имя **посередине**: `Отчёт за третий…ный.xlsx`.
 ///
 /// Второй способ сократить имя, и выбирают его настройкой
@@ -241,11 +270,23 @@ String trimTextMiddle(String value, TextStyle style, double maxWidth, TextScaler
   }
 
   final letters = value.characters.toList();
+  // В несколько строк — сперва целиком, переносом где угодно: влезает так —
+  // резать нечего (§4а). Без этого многоточие становилось **единственным**
+  // местом переноса посреди слова, и ради него вырезалась одна буква: `Ст…` в
+  // конце первой строки, `елки.mp3` во второй — живьём 25 октября 2026.
+  final anywhere = maxLines > 1;
+  if (anywhere) {
+    final whole = _breakableAnywhere(letters);
+    if (fits(whole)) {
+      return whole;
+    }
+  }
+
   String shown(int keep) {
     // Нечётный знак достаётся голове: читают слева направо, и начало важнее.
-    final head = (keep + 1) ~/ 2;
-    final tail = keep ~/ 2;
-    return '${letters.take(head).join()}…${tail == 0 ? '' : letters.skip(letters.length - tail).join()}';
+    final head = letters.take((keep + 1) ~/ 2);
+    final tail = keep ~/ 2 == 0 ? const <String>[] : letters.skip(letters.length - keep ~/ 2);
+    return anywhere ? '${_breakableAnywhere(head)}…${_breakableAnywhere(tail)}' : '${head.join()}…${tail.join()}';
   }
 
   // Самое длинное показанное, которое ещё помещается.

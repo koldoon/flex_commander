@@ -96,6 +96,56 @@ void main() {
       expect(trimTextMiddle(name, style, double.infinity, scaler), name);
     });
 
+    group('в несколько строк — сперва перенос где угодно (`name-trim.md`, §4а)', () {
+      // Живьём 25 октября 2026: в плитке в две строки `Dose - Стрелки.mp3`
+      // превращалось в `Dose - Ст…` / `елки.mp3` — ради многоточия вырезалась одна
+      // буква, а целиком имя влезало, перенеси его посреди слова.
+      const tile = 'Dose - Стрелки.mp3';
+
+      /// Ширина, при которой по словам не влезает, а по буквам — да.
+      double roomFor(String text) {
+        for (var room = widthOf(text) / 2; room < widthOf(text); room += 1) {
+          final words = spanFitsLines(TextSpan(text: text, style: style), room, scaler, maxLines: 2);
+          final letters = spanFitsLines(
+            TextSpan(text: text.characters.join(anyBreak), style: style),
+            room,
+            scaler,
+            maxLines: 2,
+          );
+          if (!words && letters) {
+            return room;
+          }
+        }
+        fail('для «$text» нет ширины, где по словам не влезает, а по буквам влезает');
+      }
+
+      test('места переноса не занимают места', () {
+        expect(widthOf('Стрелки'.characters.join(anyBreak)), widthOf('Стрелки'));
+      });
+
+      test('влезает по буквам — не режем: показано всё имя', () {
+        final room = roomFor(tile);
+        final shown = trimTextMiddle(tile, style, room, scaler, maxLines: 2);
+
+        expect(shown, isNot(contains('…')));
+        expect(withoutBreaks(shown), tile);
+        expect(spanFitsLines(TextSpan(text: shown, style: style), room, scaler, maxLines: 2), isTrue);
+      });
+
+      test('хвостом — так же: перенос где угодно, а не многоточие', () {
+        final room = roomFor(tile);
+        final shown = wrapAnywhereIfNeeded(tile, style, room, scaler, maxLines: 2);
+
+        expect(withoutBreaks(shown), tile);
+        expect(spanFitsLines(TextSpan(text: shown, style: style), room, scaler, maxLines: 2), isTrue);
+      });
+
+      test('влезает по словам — переносим по словам, как было', () {
+        expect(wrapAnywhereIfNeeded(tile, style, widthOf(tile) + 1, scaler, maxLines: 2), tile);
+        expect(trimTextMiddle(tile, style, widthOf(tile) + 1, scaler, maxLines: 2), tile);
+      });
+    });
+
     test('в несколько строк мерка по строкам, а дыра всё равно одна', () {
       final room = widthOf(name) / 4;
       final trimmed = trimTextMiddle(name, style, room, scaler, maxLines: 2);
