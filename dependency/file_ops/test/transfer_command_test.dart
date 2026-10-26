@@ -43,6 +43,33 @@ void main() {
 
   List<String> namesOf(Session panel) => panel.entries.map((node) => node.name).toList();
 
+  group('помеченный каталог не обходится дважды (directory-sizes.md, §12–13)', () {
+    // Один обход — подсчёт по пометке, второй — сама работа. Третьего, ради
+    // полосы прогресса, быть не должно: пометка, считающая заново, этого
+    // правила не отменяет.
+    test('посчитанный по пометке — копирование берёт итог из памяти', () async {
+      app.left.setCursorToName('docs');
+      app.left.toggleCurrentMark();
+      for (var i = 0; i < 20 && !app.leftSession.selectionSizeIsFinal; i++) {
+        await pumpEventQueue();
+      }
+      expect(provider.listed['/home/docs'], 1, reason: 'пометка посчитала');
+
+      await transfer();
+
+      expect(provider.listed['/home/docs'], 2, reason: 'подсчёт и работа — без второго подсчёта');
+    });
+
+    test('считается прямо сейчас — копирование присоединяется к обходу', () async {
+      app.left.setCursorToName('docs');
+      app.left.toggleCurrentMark();
+
+      await transfer();
+
+      expect(provider.listed['/home/docs'], 2, reason: 'подсчёт и работа — без второго подсчёта');
+    });
+  });
+
   test('копирует в каталог пассивной панели', () async {
     app.left.setCursorToName('notes.txt');
     await transfer();
