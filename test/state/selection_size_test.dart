@@ -360,14 +360,17 @@ void main() {
       expect(panel.markedSizeIsFinal, isTrue);
     });
 
-    test('повторная пометка посчитанного каталога обходится без обхода', () async {
+    test('повторная пометка посчитанного каталога считает его заново', () async {
       mark('docs');
       await settle();
 
       panel.clearMarks(by: MarkChange.person);
       mark('docs');
 
-      // Синхронно, без ожидания: значение в узле авторитетно.
+      // Пометка — вопрос «сколько сейчас»: перемен в глубине дерева память
+      // не видит (`docs/spec/directory-sizes.md`, §13).
+      expect(panel.markedSizeIsFinal, isFalse);
+      await settle();
       expect(panel.markedSizeIsFinal, isTrue);
       expect(panel.markedSize, 300);
     });

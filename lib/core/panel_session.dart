@@ -3394,10 +3394,25 @@ class PanelSession {
       }
     }
 
+    // Только что помеченное человеком считается заново: пометка — это вопрос
+    // «сколько тут сейчас», а перемен в глубине дерева память не видит
+    // (`docs/spec/directory-sizes.md`, §13). Новое — по путям, а не по
+    // уведомлению: перечитывание восстанавливает ту же пометку, и обходить
+    // из-за этого всё помеченное заново незачем.
+    final marked = {for (final directory in selected) directory.pathString};
+    final fresh = byPerson ? marked.difference(_markedDirectories) : const <String>{};
+    _markedDirectories = marked;
+
     for (final directory in selected) {
-      // Посчитанный каталог второй раз не обходим: значение авторитетно до
-      // перечитывания каталога.
-      if (_alreadyMeasured(directory) || _scanning(directory)) {
+      // Уже считают — число и так будет свежим.
+      if (_scanning(directory)) {
+        continue;
+      }
+      if (fresh.contains(directory.pathString)) {
+        _forgetMeasured(directory.pathString);
+        directory.size = FsNode.unknownSize;
+      } else if (_alreadyMeasured(directory)) {
+        // Посчитанное без новой просьбы второй раз не обходим.
         continue;
       }
       _scanQueue.add(directory);
@@ -3406,6 +3421,10 @@ class PanelSession {
     _fillPool();
     _changed();
   }
+
+  /// Пути помеченных каталогов на прошлом уведомлении: по ним видно, что
+  /// человек пометил **сейчас**.
+  Set<String> _markedDirectories = const {};
 
   /// Настоящий предел пула: меньшее из настройки приложения и того, что
   /// провайдер о себе объявил.

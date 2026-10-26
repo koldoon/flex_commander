@@ -164,6 +164,51 @@ void main() {
     expect(rightDir('big').size, FsNode.unknownSize);
   });
 
+  group('пометка человеком считает заново (§13)', () {
+    Future<void> toggle(String name) async {
+      panel().setCursorToName(name);
+      panel().toggleCurrentMark();
+      await settle();
+    }
+
+    test('снова помеченный каталог обходится второй раз и видит перемены в глубине', () async {
+      await toggle('big');
+      expect(dir('big').size, 3000);
+      expect(provider.listed['/home/big'], 1);
+
+      // Перемена в глубине: слежение её не видит, память о ней не знает.
+      provider.add(FakeEntry.file('/home/big/more.bin', size: 7));
+      await toggle('big');
+      await toggle('big');
+
+      expect(provider.listed['/home/big'], 2, reason: 'пометка — вопрос «сколько сейчас»');
+      expect(dir('big').size, 3007);
+    });
+
+    test('без новой пометки посчитанное из памяти не обходят', () async {
+      await toggle('big');
+      await toggle('big');
+      expect(provider.listed['/home/big'], 1);
+
+      panel().measureDirectories();
+      await settle();
+      expect(provider.listed['/home/big'], 1, reason: 'команда заполняет прочерки, а не пересчитывает');
+      expect(dir('big').size, 3000);
+    });
+
+    test('событие слежения с восстановленной пометкой обхода не заводит', () async {
+      await toggle('big');
+      expect(provider.listed['/home/big'], 1);
+
+      // Пометка восстанавливается теми же путями, и уведомление о ней — не
+      // новая просьба.
+      await session().catchUp();
+      await settle();
+      expect(provider.listed['/home/big'], 1);
+      expect(dir('big').size, 3000);
+    });
+  });
+
   test('команда невыполнима, пока панель занята', () {
     final command = runtime.commands.find('panel.calculateSizes');
     expect(command, isNotNull);
