@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:fc_api/fc_api.dart';
 import 'package:flex_commander/modules/clipboard/system_file_clipboard.dart';
 import 'package:flutter/services.dart';
@@ -98,5 +100,15 @@ void main() {
     onBoard = [];
 
     expect(await buffer.readFiles(), isNull);
+  });
+
+  test('нативное меню не перехватывает клавиши файлового буфера', () async {
+    final xib = await File('macos/Runner/Base.lproj/MainMenu.xib').readAsString();
+
+    for (final title in ['Cut', 'Copy', 'Paste', 'Paste and Match Style']) {
+      final item = RegExp('<menuItem title="$title"[^>]*>').firstMatch(xib);
+      expect(item, isNotNull, reason: 'пункт $title должен остаться в меню');
+      expect(item!.group(0), contains('keyEquivalent=""'), reason: '$title перехватит клавишу до Flutter');
+    }
   });
 }

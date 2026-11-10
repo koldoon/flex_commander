@@ -12,7 +12,6 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fake_clipboard.dart';
-import 'fake_file_clipboard.dart';
 import 'fake_process_runner.dart';
 import 'fake_window_service.dart';
 import 'in_memory_settings_store.dart';
@@ -59,7 +58,7 @@ class TestPlatformFrontend implements FcFrontendModule {
   /// Файловый буфер. Пусто — его нет вовсе: так собирается приложение без
   /// модуля буфера, и команды `Cmd-C`/`Cmd-V` в нём просто невыполнимы
   /// (`docs/spec/file-clipboard.md`, §2).
-  final FakeFileClipboard? fileClipboard;
+  final FileClipboard? fileClipboard;
 
   @override
   String get id => 'test.platform';
@@ -122,7 +121,7 @@ Future<AppRuntime> testApp({
   FakeClipboard? clipboard,
 
   /// Файловый буфер обмена; null — приложение собрано без него.
-  FakeFileClipboard? fileClipboard,
+  FileClipboard? fileClipboard,
 
   /// Что приложение знает о своей сборке; null — не знает ничего.
   ///

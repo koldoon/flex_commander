@@ -5,6 +5,7 @@ import 'package:fc_navigation/fc_navigation.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/app.dart';
+import 'package:flex_commander/modules/clipboard/system_file_clipboard.dart';
 import 'package:flex_commander/state/app_controller.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -110,6 +111,43 @@ void main() {
     await tester.tap(find.widgetWithText(FcButton, 'Move'));
     await settle(tester);
 
+    expect(namesIn(app.right), contains('notes.txt'));
+    expect(namesIn(app.left), isNot(contains('notes.txt')));
+  });
+
+  testWidgets('системный буфер сохраняет перенос на всём пути от клавиши до работы', (tester) async {
+    const channel = MethodChannel(SystemFileClipboard.channelName);
+    var change = 10;
+    var onBoard = <String>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel, (call) async {
+      switch (call.method) {
+        case 'write':
+          onBoard = ((call.arguments as Map)['paths'] as List).cast<String>();
+          return ++change;
+        case 'read':
+          return {'paths': onBoard, 'change': change};
+      }
+      return null;
+    });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel, null),
+    );
+    final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home/target'));
+    app =
+        (await testApp(
+          provider: provider,
+          modules: [const Navigation(), const FileOps()],
+          settings: settings,
+          fileClipboard: SystemFileClipboard(channel: channel),
+        )).app;
+    await pumpApp(tester);
+    await takeAndGoRight(tester, cut: true);
+
+    await press(tester, LogicalKeyboardKey.keyV);
+
+    expect(find.text('Move «notes.txt»'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FcButton, 'Move'));
+    await settle(tester);
     expect(namesIn(app.right), contains('notes.txt'));
     expect(namesIn(app.left), isNot(contains('notes.txt')));
   });
